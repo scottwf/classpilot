@@ -1,0 +1,9 @@
+.DS_Store
+.env
+.git
+.next
+coverage
+data
+node_modules
+npm-debug.log
+README.md

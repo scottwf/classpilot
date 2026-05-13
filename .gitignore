@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# local environment and secrets
+.env
+.env*.local
+
+# local ClassPilot data
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# test and coverage output
+coverage/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

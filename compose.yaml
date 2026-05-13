@@ -1,0 +1,12 @@
+services:
+  classpilot:
+    build:
+      context: .
+    container_name: classpilot
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${CLASSPILOT_PORT:-3020}:3000"
+    volumes:
+      - ./data:/app/data

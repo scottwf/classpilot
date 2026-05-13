@@ -1,0 +1,214 @@
+import Link from "next/link";
+import { CalendarDays, Clock3, FileText, Image, LinkIcon, Pencil } from "lucide-react";
+import { parseLessonResources } from "@/src/lib/lessons/lesson-resources";
+import { lessonSectionFields } from "@/src/lib/lessons/lesson-sections";
+import type { CurriculumOutcome, LessonPlan, PlannerData } from "./types";
+
+type LessonDetailPageProps = {
+  data: PlannerData;
+  lesson: LessonPlan & {
+    unitId: string;
+  };
+};
+
+export function LessonDetailPage({ data, lesson }: LessonDetailPageProps) {
+  const unit = data.units.find((candidate) => candidate.id === lesson.unitId);
+  const classSection = data.classes.find(
+    (candidate) => candidate.id === unit?.classId,
+  );
+  const outcomes = lesson.outcomeIds
+    .map((outcomeId) => data.outcomes.find((outcome) => outcome.id === outcomeId))
+    .filter((outcome): outcome is CurriculumOutcome => Boolean(outcome));
+  const sections = lesson.sections;
+
+  return (
+    <>
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-blue-700">Lesson plan</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+            {lesson.title}
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            {classSection?.name ?? "Unknown class"}
+            {unit ? ` in ${unit.title}` : ""}. Use this view while teaching,
+            reviewing, or preparing the lesson.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {unit ? (
+            <Link
+              className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              href={`/units/${unit.id}`}
+            >
+              Back to unit
+            </Link>
+          ) : null}
+          <Link
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+            href={`/lessons/${lesson.id}/edit`}
+          >
+            <Pencil aria-hidden="true" className="size-4" />
+            Edit lesson
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <Metric label="Date" value={lesson.date} />
+        <Metric label="Duration" value={`${lesson.durationMinutes} min`} />
+        <Metric label="Status" value={lesson.status} />
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div>
+            <p className="text-sm font-medium text-blue-700">Teaching plan</p>
+            <h3 className="mt-1 text-lg font-semibold text-slate-950">
+              Structured lesson sections
+            </h3>
+          </div>
+
+          <div className="grid gap-3">
+            {lessonSectionFields.map((field) => {
+              const value = sections?.[field.name]?.trim();
+
+              if (!value) {
+                return null;
+              }
+
+              if (field.name === "resources") {
+                return (
+                  <ResourceSection
+                    key={field.name}
+                    title={field.label}
+                    value={value}
+                  />
+                );
+              }
+
+              return (
+                <article
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-3"
+                  key={field.name}
+                >
+                  <h4 className="text-sm font-semibold text-slate-950">
+                    {field.label}
+                  </h4>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                    {value}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <aside className="space-y-5">
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-950">
+              Lesson context
+            </h3>
+            <div className="mt-3 space-y-3 text-sm text-slate-700">
+              <div className="flex items-center gap-2">
+                <CalendarDays aria-hidden="true" className="size-4 text-slate-400" />
+                {lesson.date}
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock3 aria-hidden="true" className="size-4 text-slate-400" />
+                {lesson.durationMinutes} minutes
+              </div>
+              {unit ? <div>{unit.title}</div> : null}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-950">
+              Outcomes
+            </h3>
+            <div className="mt-3 space-y-2">
+              {outcomes.length > 0 ? (
+                outcomes.map((outcome) => (
+                  <div
+                    className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                    key={outcome.id}
+                  >
+                    <span className="font-semibold text-slate-950">
+                      {outcome.code}
+                    </span>{" "}
+                    {outcome.description}
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
+                  No outcomes are linked to this lesson yet.
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
+    </>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="text-xs font-semibold uppercase text-slate-500">
+        {label}
+      </div>
+      <div className="mt-2 text-lg font-semibold text-slate-950">{value}</div>
+    </div>
+  );
+}
+
+function ResourceSection({ title, value }: { title: string; value: string }) {
+  const resources = parseLessonResources(value);
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <h4 className="text-sm font-semibold text-slate-950">{title}</h4>
+      <div className="mt-3 grid gap-2">
+        {resources.map((resource, index) => {
+          const Icon =
+            resource.kind === "image"
+              ? Image
+              : resource.kind === "link"
+                ? LinkIcon
+                : FileText;
+
+          return (
+            <div
+              className="flex items-start gap-3 rounded-md bg-white px-3 py-2 text-sm text-slate-700"
+              key={`${resource.label}-${index}`}
+            >
+              <Icon aria-hidden="true" className="mt-0.5 size-4 text-slate-400" />
+              <div className="min-w-0 flex-1">
+                {resource.href ? (
+                  <a
+                    className="break-words font-medium text-blue-700 hover:text-blue-900"
+                    href={resource.href}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {resource.label}
+                  </a>
+                ) : (
+                  <span className="break-words font-medium text-slate-950">
+                    {resource.label}
+                  </span>
+                )}
+                <div className="mt-1 text-xs text-slate-500">
+                  {resource.kind === "attachment-note"
+                    ? "Attachment note"
+                    : resource.kind}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </article>
+  );
+}
