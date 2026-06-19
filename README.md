@@ -57,7 +57,12 @@ Set a real local password and auth secret in `.env` before entering meaningful d
 CLASSPILOT_APP_PASSWORD=replace-me
 CLASSPILOT_AUTH_SECRET=replace-with-a-long-random-secret
 CLASSPILOT_COOKIE_SECURE=false
+CLASSPILOT_DATA_KEY=replace-with-openssl-rand-base64-32
 ```
+
+`CLASSPILOT_DATA_KEY` encrypts sensitive Student CMS fields at rest. Generate one
+with `openssl rand -base64 32`. In development a derived key is used if it is
+unset; in production the app refuses to start without it.
 
 Run the development server:
 
@@ -104,10 +109,16 @@ ClassPilot is being built for private classroom planning and eventual student in
 
 - Use a strong `CLASSPILOT_APP_PASSWORD`.
 - Use a long random `CLASSPILOT_AUTH_SECRET`.
+- Set `CLASSPILOT_DATA_KEY` and store it in a password manager, separate from backups.
 - Keep the app behind trusted homelab access controls.
 - Use HTTPS and set `CLASSPILOT_COOKIE_SECURE=true` for remote access.
 - Back up `./data` deliberately and protect those backups.
 - Do not commit `.env`, `data/`, SQLite files, exported student data, or uploaded resources.
+
+Sensitive Student CMS fields are encrypted at rest with `CLASSPILOT_DATA_KEY`.
+Before entering real student data, follow the
+[backup & recovery runbook](docs/backup-and-recovery.md) and complete its
+pre-real-data checklist.
 
 ## Markdown Lesson Import
 

@@ -116,12 +116,15 @@ local use; most should be addressed before real data is entered.
    `verifyAppPassword()`, which SHA-256 hashes both sides and compares with
    `timingSafeEqual` (length-independent, constant-time).
 
-### Outstanding — High (before real student data)
+### Resolved (2026-06-18)
 
-3. **Encryption/backups not in place.** The plan requires encrypted backups and
-   minimized AI transmission before student data. The design for this (schema +
-   field-level encryption, encrypted backups, AI minimization) is now drafted in
-   [student-cms-plan.md](student-cms-plan.md); it is not yet implemented.
+3. ~~**Encryption/backups not in place.**~~ Sensitive Student CMS columns are now
+   encrypted at rest via `src/lib/crypto/field-cipher.ts` (AES-256-GCM,
+   fail-closed `CLASSPILOT_DATA_KEY`), with encryption-at-rest tests. The
+   encrypted-backup and key-custody procedure is documented in
+   [backup-and-recovery.md](backup-and-recovery.md). Operational steps (encrypted
+   volume, scheduled backups, restore test) must still be completed by the
+   operator before real data; AI data minimization remains for the AI phase.
 
 ### Low — polish / maintainability
 

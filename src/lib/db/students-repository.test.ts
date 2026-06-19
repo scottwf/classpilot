@@ -181,6 +181,44 @@ describe("students repository", () => {
     expect(contactCount).toBe(0);
   });
 
+  it("encrypts sensitive fields at rest but reads them back as plaintext", () => {
+    const db = freshDatabase();
+    const studentId = createStudent(db, {
+      firstName: "Casey",
+      lastName: "Vargas",
+      strengths: "Resilient and curious.",
+      birthdate: "2014-03-02",
+    });
+    const noteId = createNote(db, {
+      studentId,
+      date: "2026-09-15",
+      category: "medical",
+      body: "Carries an inhaler; keep accessible during PE.",
+    });
+
+    const rawStrengths = (
+      db
+        .prepare("SELECT strengths FROM students WHERE id = ?")
+        .get(studentId) as { strengths: string }
+    ).strengths;
+    const rawBody = (
+      db
+        .prepare("SELECT body FROM student_notes WHERE id = ?")
+        .get(noteId) as { body: string }
+    ).body;
+
+    expect(rawStrengths.startsWith("v1:")).toBe(true);
+    expect(rawStrengths).not.toContain("Resilient");
+    expect(rawBody).not.toContain("inhaler");
+
+    const profile = getStudentProfile(db, studentId);
+    expect(profile?.strengths).toBe("Resilient and curious.");
+    expect(profile?.birthdate).toBe("2014-03-02");
+    expect(profile?.notes[0]?.body).toBe(
+      "Carries an inhaler; keep accessible during PE.",
+    );
+  });
+
   it("reports an empty roster as not seeded", () => {
     const db = freshDatabase();
     expect(isRosterSeeded(db)).toBe(false);

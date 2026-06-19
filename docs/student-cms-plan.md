@@ -327,8 +327,19 @@ exact payload is auditable.
    (`seed-students.ts`). 35 tests / lint / build green. **Still pending before
    real data: encrypted volume + tested encrypted backups (operational), and the
    sensitive fields remain plaintext until Phase 2.**
-2. **Field encryption + attachments.** Add `field-cipher.ts`, encrypt 🔒 columns,
-   private uploads dir + authenticated download route.
+2. **Field encryption. ✅ Done (2026-06-18).** Added
+   `src/lib/crypto/field-cipher.ts` (AES-256-GCM, versioned `v1:` format,
+   fail-closed `CLASSPILOT_DATA_KEY`, legacy-plaintext passthrough). The
+   repository transparently encrypts/decrypts the 🔒 columns (note bodies,
+   support-plan details/strategies, contact email/phone/notes, birthdate,
+   student number, strengths); names/dates stay plaintext for search/sort.
+   Encryption-at-rest is covered by tests, and the operational baseline
+   (encrypted volume + encrypted backups + key custody) is documented in
+   [backup-and-recovery.md](backup-and-recovery.md).
+
+2b. **Attachments (deferred).** `student_attachments` table, private uploads dir
+   outside `public/`, authenticated streaming download route, and delete. Not a
+   data-safety gate, so it follows the AI/calendar work rather than blocking it.
 3. **Assessment evidence.** Link evidence to outcomes/units/lessons; surface
    coverage on the profile and tie into outcome gap detection.
 4. **AI summaries.** De-identification + teacher-approval flow + audit logging.
