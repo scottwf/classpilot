@@ -11,7 +11,8 @@ type AppShellProps = {
     | "outcomes"
     | "units"
     | "students"
-    | "calendar";
+    | "calendar"
+    | "assistant";
   children: React.ReactNode;
   data: PlannerData;
 };
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/units", label: "Unit Timeline", page: "units" },
   { href: "/students", label: "Students", page: "students" },
   { href: "/calendar", label: "Calendar", page: "calendar" },
+  { href: "/assistant", label: "Assistant", page: "assistant" },
 ] as const;
 
 export function AppShell({ activePage, children, data }: AppShellProps) {

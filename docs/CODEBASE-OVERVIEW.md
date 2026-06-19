@@ -47,6 +47,8 @@ src/lib/
   db/          sqlite.ts (schema/migrate), planner-repository.ts (CRUD), classpilot-db.ts (wiring/seed)
   curriculum/  sk-outcomes.ts (CSV parser for SK Grade 6)
   lessons/     markdown-import.ts, lesson-sections.ts, lesson-resources.ts
+  ai/          config.ts (provider config), prompt.ts/parse.ts (pure, tested),
+               provider.ts (fetch), unit-outline.ts (orchestrator)
 
 docs/SK outcomes to import/  8 subject CSVs (read at runtime by sk-outcomes.ts)
 data/classpilot.sqlite       Local DB (gitignored)
@@ -84,10 +86,18 @@ Built and working (matches MVP):
 - **School-year / calendar setup** — `/calendar` edits term title/dates and
   labeled non-instructional days (single or range); back-compatible with the
   legacy `blockedDates` string form
+- **AI Planning Assistant (first slice)** — `/assistant` drafts a unit outline
+  (big ideas, lesson sequence, assessment + differentiation ideas) from a
+  provider-agnostic AI layer (`src/lib/ai/`). Opt-in via `CLASSPILOT_AI_API_KEY`
+  or a local `CLASSPILOT_AI_BASE_URL` (Ollama/LM Studio); OpenAI-compatible
+  `fetch`, no SDK. Prompt/parse are pure + tested; data minimization is
+  structural — only subject/grade/timing/outcome context is sent, never student
+  records. Disabled gracefully with a setup hint when unconfigured.
 
 Not yet started (largest remaining MVP gaps, in plan priority order):
 
-- **AI Planning Assistant** — no AI service layer or provider integration yet.
+- **AI assistant depth** — lesson-plan drafting, "save draft as a unit/lessons",
+  pacing/overload checks, and teacher-approved student-context summaries.
 - **Interactive timeline** — the timeline renders as a static grid; drag/resize
   and auto-reschedule (a signature design goal) are not implemented.
 - **Coverage tooling** — gap/overlap detection and pacing/overload warnings.
