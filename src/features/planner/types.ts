@@ -51,11 +51,16 @@ export type ClassSection = {
   meetingPattern: string;
 };
 
+export type NonInstructionalDay = {
+  date: string;
+  label: string;
+};
+
 export type SchoolYear = {
   title: string;
   startDate: string;
   endDate: string;
-  blockedDates: string[];
+  blockedDates: NonInstructionalDay[];
 };
 
 export type PlannerData = {

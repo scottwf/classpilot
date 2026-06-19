@@ -79,18 +79,20 @@ Built and working (matches MVP):
 - Structured lesson sections (8 fields) + Markdown import (file or paste)
 - Saskatchewan Grade 6 outcome import (custom, dependency-free CSV parser)
 - SQLite persistence behind a repository layer; Docker Compose; PWA manifest
+- **Student Information CMS** — roster, profiles, contacts, notes, support plans,
+  reminders (Phase 1), with sensitive fields encrypted at rest (Phase 2)
+- **School-year / calendar setup** — `/calendar` edits term title/dates and
+  labeled non-instructional days (single or range); back-compatible with the
+  legacy `blockedDates` string form
 
 Not yet started (largest remaining MVP gaps, in plan priority order):
 
-- **Student Information CMS** — roster, profiles, notes, accommodations, contact
-  log, reminders. This is the most sensitive subsystem and is unbuilt.
 - **AI Planning Assistant** — no AI service layer or provider integration yet.
-- **School-year setup UI** — terms/holidays/non-instructional days are seed-only;
-  no editing surface. Calendar exceptions exist only as `blockedDates`.
 - **Interactive timeline** — the timeline renders as a static grid; drag/resize
   and auto-reschedule (a signature design goal) are not implemented.
 - **Coverage tooling** — gap/overlap detection and pacing/overload warnings.
-- **Lesson library reuse** — duplicate/version, richer filters, file uploads.
+- **Lesson library reuse** — duplicate/version, richer filters.
+- **Student CMS Phase 2b** — file attachments (private storage + auth download).
 
 ## Findings — Clean & Secure Code
 

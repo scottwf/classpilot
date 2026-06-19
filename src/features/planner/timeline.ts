@@ -32,7 +32,7 @@ function isWeekend(date: Date): boolean {
 export function buildInstructionalDays(
   schoolYear: Pick<SchoolYear, "startDate" | "endDate" | "blockedDates">,
 ): InstructionalDay[] {
-  const blockedDates = new Set(schoolYear.blockedDates);
+  const blockedDates = new Set(schoolYear.blockedDates.map((day) => day.date));
   const days: InstructionalDay[] = [];
 
   for (

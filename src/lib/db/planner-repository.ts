@@ -3,6 +3,7 @@ import type {
   CurriculumOutcome,
   LessonSections,
   LessonPlan,
+  NonInstructionalDay,
   PlannerData,
   SchoolYear,
   UnitPlan,
@@ -270,6 +271,54 @@ export function getPlannerData(db: ClassPilotDatabase): PlannerData {
   };
 }
 
+export function getSchoolYear(db: ClassPilotDatabase): SchoolYear {
+  const row = db
+    .prepare(
+      "SELECT title, start_date, end_date, blocked_dates_json FROM school_years WHERE id = ?",
+    )
+    .get(defaultSchoolYearId) as SchoolYearRow | undefined;
+
+  if (!row) {
+    throw new Error("ClassPilot database has not been seeded.");
+  }
+
+  return mapSchoolYear(row);
+}
+
+export type UpdateSchoolYearInput = {
+  title: string;
+  startDate: string;
+  endDate: string;
+  blockedDates: NonInstructionalDay[];
+};
+
+export function updateSchoolYear(
+  db: ClassPilotDatabase,
+  input: UpdateSchoolYearInput,
+) {
+  const blockedDates = [...input.blockedDates].sort((left, right) =>
+    left.date.localeCompare(right.date),
+  );
+
+  const result = db
+    .prepare(
+      `UPDATE school_years
+       SET title = ?, start_date = ?, end_date = ?, blocked_dates_json = ?
+       WHERE id = ?`,
+    )
+    .run(
+      input.title,
+      input.startDate,
+      input.endDate,
+      JSON.stringify(blockedDates),
+      defaultSchoolYearId,
+    );
+
+  if (result.changes === 0) {
+    throw new Error("School year not found.");
+  }
+}
+
 export function createLesson(
   db: ClassPilotDatabase,
   input: CreateLessonInput,
@@ -426,8 +475,22 @@ function mapSchoolYear(row: SchoolYearRow): SchoolYear {
     title: row.title,
     startDate: row.start_date,
     endDate: row.end_date,
-    blockedDates: JSON.parse(row.blocked_dates_json) as string[],
+    blockedDates: parseBlockedDates(row.blocked_dates_json),
   };
+}
+
+// Accepts both the current labeled form and the legacy string[] form so older
+// databases keep working after the calendar setup feature shipped.
+function parseBlockedDates(json: string): NonInstructionalDay[] {
+  const parsed = JSON.parse(json) as Array<string | NonInstructionalDay>;
+
+  return parsed
+    .map((entry) =>
+      typeof entry === "string"
+        ? { date: entry, label: "" }
+        : { date: entry.date, label: entry.label ?? "" },
+    )
+    .sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function mapClassSection(row: ClassSectionRow): ClassSection {

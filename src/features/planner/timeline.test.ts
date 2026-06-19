@@ -10,7 +10,7 @@ describe("planner timeline", () => {
     const days = buildInstructionalDays({
       startDate: "2026-09-01",
       endDate: "2026-09-10",
-      blockedDates: ["2026-09-07"],
+      blockedDates: [{ date: "2026-09-07", label: "Labour Day" }],
     });
 
     expect(days.map((day) => toDateKey(day.date))).toEqual([
@@ -28,7 +28,7 @@ describe("planner timeline", () => {
     const days = buildInstructionalDays({
       startDate: "2026-09-01",
       endDate: "2026-09-14",
-      blockedDates: ["2026-09-07"],
+      blockedDates: [{ date: "2026-09-07", label: "Labour Day" }],
     });
 
     expect(

@@ -5,7 +5,13 @@ import { PlannerHeader } from "./PlannerHeader";
 import { buildInstructionalDays } from "./timeline";
 
 type AppShellProps = {
-  activePage: "planbook" | "lessons" | "outcomes" | "units" | "students";
+  activePage:
+    | "planbook"
+    | "lessons"
+    | "outcomes"
+    | "units"
+    | "students"
+    | "calendar";
   children: React.ReactNode;
   data: PlannerData;
 };
@@ -16,6 +22,7 @@ const navItems = [
   { href: "/outcomes", label: "Outcomes", page: "outcomes" },
   { href: "/units", label: "Unit Timeline", page: "units" },
   { href: "/students", label: "Students", page: "students" },
+  { href: "/calendar", label: "Calendar", page: "calendar" },
 ] as const;
 
 export function AppShell({ activePage, children, data }: AppShellProps) {

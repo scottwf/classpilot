@@ -8,9 +8,11 @@ import {
   createUnit,
   getLessonById,
   getPlannerData,
+  getSchoolYear,
   getUnitById,
   seedPlannerData,
   updateLesson,
+  updateSchoolYear,
   updateUnit,
 } from "./planner-repository";
 import { plannerData } from "@/src/features/planner/seed-data";
@@ -159,6 +161,52 @@ describe("planner repository", () => {
       unitId: "unit-ratios",
     });
     expect(lesson?.outcomeIds).toEqual(["sk-grade-6-mathematics-n6-5"]);
+  });
+
+  it("reads and updates the school year calendar", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const seeded = getSchoolYear(db);
+    expect(seeded.blockedDates).toContainEqual({
+      date: "2026-10-12",
+      label: "Thanksgiving",
+    });
+
+    updateSchoolYear(db, {
+      title: "2027-2028 Grade 6 Homeroom",
+      startDate: "2027-09-01",
+      endDate: "2027-12-18",
+      blockedDates: [
+        { date: "2027-11-11", label: "Remembrance Day" },
+        { date: "2027-10-11", label: "Thanksgiving" },
+      ],
+    });
+
+    const updated = getSchoolYear(db);
+    expect(updated.title).toBe("2027-2028 Grade 6 Homeroom");
+    expect(updated.startDate).toBe("2027-09-01");
+    // Stored sorted by date.
+    expect(updated.blockedDates.map((day) => day.date)).toEqual([
+      "2027-10-11",
+      "2027-11-11",
+    ]);
+  });
+
+  it("normalizes a legacy string-array of blocked dates on read", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    db.prepare("UPDATE school_years SET blocked_dates_json = ? WHERE id = ?").run(
+      JSON.stringify(["2026-09-07", "2026-10-12"]),
+      "current",
+    );
+
+    const schoolYear = getSchoolYear(db);
+    expect(schoolYear.blockedDates).toEqual([
+      { date: "2026-09-07", label: "" },
+      { date: "2026-10-12", label: "" },
+    ]);
   });
 
   it("creates and updates a unit through the planner model", () => {

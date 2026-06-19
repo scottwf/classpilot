@@ -12,11 +12,11 @@ export const plannerData: PlannerData = {
     startDate: "2026-09-01",
     endDate: "2026-12-18",
     blockedDates: [
-      "2026-09-07",
-      "2026-10-12",
-      "2026-11-11",
-      "2026-11-27",
-      "2026-12-04",
+      { date: "2026-09-07", label: "Labour Day" },
+      { date: "2026-10-12", label: "Thanksgiving" },
+      { date: "2026-11-11", label: "Remembrance Day" },
+      { date: "2026-11-27", label: "Professional Development Day" },
+      { date: "2026-12-04", label: "Parent-Teacher Conferences" },
     ],
   },
   classes: [
