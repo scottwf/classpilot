@@ -1,21 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { shouldUseSecureCookies } from "./cookie-policy";
+import { authCookieName, getAppPassword, getAuthSecret } from "./secrets";
 import { createSessionToken, verifySessionToken } from "./session";
 
-export const authCookieName = "classpilot_session";
-
-export function getAuthSecret(): string {
-  return (
-    process.env.CLASSPILOT_AUTH_SECRET ??
-    process.env.CLASSPILOT_APP_PASSWORD ??
-    "classpilot-local-dev-secret"
-  );
-}
-
-export function getAppPassword(): string {
-  return process.env.CLASSPILOT_APP_PASSWORD ?? "classpilot";
-}
+export { authCookieName, getAppPassword, getAuthSecret };
 
 export async function isAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies();

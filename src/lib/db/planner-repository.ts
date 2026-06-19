@@ -92,6 +92,14 @@ export type UpdateUnitInput = CreateUnitInput & {
   id: string;
 };
 
+export function isPlannerSeeded(db: ClassPilotDatabase): boolean {
+  const row = db
+    .prepare("SELECT 1 FROM school_years WHERE id = ? LIMIT 1")
+    .get(defaultSchoolYearId) as { 1: number } | undefined;
+
+  return row !== undefined;
+}
+
 export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData) {
   const insertSchoolYear = db.prepare(`
     INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json)

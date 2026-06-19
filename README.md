@@ -119,6 +119,10 @@ The current import supports one lesson per Markdown file and maps sections into 
 
 The working product plan is tracked in [ClassPilot-summary-plan.md](ClassPilot-summary-plan.md).
 
+A technical code summary, plan-vs-implementation gap analysis, and clean/secure code findings are tracked in [docs/CODEBASE-OVERVIEW.md](docs/CODEBASE-OVERVIEW.md).
+
+The schema and privacy design for the upcoming Student Information CMS is in [docs/student-cms-plan.md](docs/student-cms-plan.md).
+
 ## Repository Hygiene
 
 Ignored by Git:

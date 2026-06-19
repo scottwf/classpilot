@@ -1,12 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getAppPassword, setAuthCookie } from "@/src/lib/auth/server";
+import { setAuthCookie } from "@/src/lib/auth/server";
+import { verifyAppPassword } from "@/src/lib/auth/secrets";
 
 export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
 
-  if (password !== getAppPassword()) {
+  if (!verifyAppPassword(password)) {
     redirect("/login?error=1");
   }
 
