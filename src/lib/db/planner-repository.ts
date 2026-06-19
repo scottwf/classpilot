@@ -418,6 +418,67 @@ export function createUnit(
   return id;
 }
 
+export type CreateUnitWithLessonsInput = {
+  unit: CreateUnitInput;
+  lessons: Array<Omit<CreateLessonInput, "unitId">>;
+};
+
+/**
+ * Creates a unit and its lessons atomically. Used by the AI assistant's
+ * "save draft as a unit" flow so a partially-written unit can never be left
+ * behind if a lesson insert fails.
+ */
+export function createUnitWithLessons(
+  db: ClassPilotDatabase,
+  input: CreateUnitWithLessonsInput,
+): string {
+  const unitId = `unit-${crypto.randomUUID()}`;
+
+  const insertUnit = db.prepare(`
+    INSERT INTO unit_plans (id, class_id, title, start_date, end_date, color, outcome_ids_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertLesson = db.prepare(`
+    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  db.exec("BEGIN;");
+  try {
+    insertUnit.run(
+      unitId,
+      input.unit.classId,
+      input.unit.title,
+      input.unit.startDate,
+      input.unit.endDate,
+      input.unit.color,
+      JSON.stringify(input.unit.outcomeIds),
+    );
+
+    for (const lesson of input.lessons) {
+      insertLesson.run(
+        `lesson-${crypto.randomUUID()}`,
+        unitId,
+        lesson.title,
+        lesson.date,
+        lesson.durationMinutes,
+        lesson.status,
+        JSON.stringify(lesson.outcomeIds),
+        JSON.stringify(normalizeLessonSections(lesson.sections, lesson.summary)),
+        lesson.summary,
+      );
+    }
+
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  }
+
+  return unitId;
+}
+
 export function getUnitById(
   db: ClassPilotDatabase,
   id: string,

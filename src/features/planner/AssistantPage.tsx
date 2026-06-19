@@ -2,19 +2,24 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import type { CurriculumOutcome } from "./types";
+import type { ClassSection, CurriculumOutcome } from "./types";
 import type { UnitOutlineDraft } from "@/src/lib/ai/types";
 import type {
+  AssistantFormValues,
   AssistantState,
-  generateUnitOutlineAction,
+  assistantAction,
 } from "@/app/assistant/actions";
 
 type AssistantPageProps = {
   outcomes: CurriculumOutcome[];
   subjects: string[];
+  classes: ClassSection[];
+  startDate: string;
   aiConfigured: boolean;
-  action: typeof generateUnitOutlineAction;
+  action: typeof assistantAction;
 };
+
+const unitColors = ["blue", "emerald", "amber", "rose", "violet"] as const;
 
 const inputClass =
   "mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
@@ -24,6 +29,8 @@ const initialState: AssistantState = { status: "idle" };
 export function AssistantPage({
   outcomes,
   subjects,
+  classes,
+  startDate,
   aiConfigured,
   action,
 }: AssistantPageProps) {
@@ -178,7 +185,17 @@ export function AssistantPage({
 
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           {state.status === "success" ? (
-            <DraftView draft={state.draft} />
+            <div className="space-y-5">
+              <DraftView draft={state.draft} />
+              <SaveDraftForm
+                classes={classes}
+                draft={state.draft}
+                formAction={formAction}
+                saveError={state.saveError}
+                startDate={startDate}
+                values={state.values}
+              />
+            </div>
           ) : (
             <p className="text-sm text-slate-500">
               The drafted unit outline will appear here. Review and edit it, then
@@ -201,6 +218,106 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
       type="submit"
     >
       {pending ? "Drafting…" : "Draft unit outline"}
+    </button>
+  );
+}
+
+function SaveDraftForm({
+  classes,
+  draft,
+  formAction,
+  saveError,
+  startDate,
+  values,
+}: {
+  classes: ClassSection[];
+  draft: UnitOutlineDraft;
+  formAction: (formData: FormData) => void;
+  saveError?: string;
+  startDate: string;
+  values: AssistantFormValues;
+}) {
+  const lessonCount = draft.lessonSequence.length;
+
+  return (
+    <form
+      action={formAction}
+      className="space-y-3 border-t border-slate-200 pt-4"
+    >
+      <h4 className="text-sm font-semibold text-slate-950">Save to planner</h4>
+      <p className="text-xs leading-5 text-slate-500">
+        Creates a unit and {lessonCount}{" "}
+        {lessonCount === 1 ? "lesson" : "lessons"}, scheduled from the start date
+        across instructional days (weekends and non-instructional days skipped).
+        You can edit everything afterward.
+      </p>
+
+      {saveError ? (
+        <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {saveError}
+        </p>
+      ) : null}
+
+      <input name="intent" type="hidden" value="save" />
+      <input name="draft" type="hidden" value={JSON.stringify(draft)} />
+      <input name="subject" type="hidden" value={values.subject} />
+      <input name="grade" type="hidden" value={values.grade} />
+      <input name="unitFocus" type="hidden" value={values.unitFocus} />
+      <input name="weeks" type="hidden" value={values.weeks} />
+      <input name="lessonsPerWeek" type="hidden" value={values.lessonsPerWeek} />
+      <input name="lessonMinutes" type="hidden" value={values.lessonMinutes} />
+      <input name="teachingNotes" type="hidden" value={values.teachingNotes} />
+      {values.outcomeIds.map((id) => (
+        <input key={id} name="outcomeIds" type="hidden" value={id} />
+      ))}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block text-sm">
+          <span className="font-medium text-slate-700">Class</span>
+          <select className={inputClass} defaultValue={classes[0]?.id} name="classId">
+            {classes.map((section) => (
+              <option key={section.id} value={section.id}>
+                {section.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm">
+          <span className="font-medium text-slate-700">Start date</span>
+          <input
+            className={inputClass}
+            defaultValue={startDate}
+            name="startDate"
+            type="date"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="font-medium text-slate-700">Color</span>
+          <select className={inputClass} defaultValue="violet" name="color">
+            {unitColors.map((color) => (
+              <option key={color} value={color}>
+                {color}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <SaveButton disabled={classes.length === 0 || lessonCount === 0} />
+    </form>
+  );
+}
+
+function SaveButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300"
+      disabled={disabled || pending}
+      type="submit"
+    >
+      {pending ? "Saving…" : "Save as unit + lessons"}
     </button>
   );
 }

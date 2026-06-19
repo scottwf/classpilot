@@ -3,7 +3,7 @@ import { AssistantPage } from "@/src/features/planner/AssistantPage";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { isAiConfigured } from "@/src/lib/ai/config";
-import { generateUnitOutlineAction } from "./actions";
+import { assistantAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +18,11 @@ export default async function AssistantRoutePage() {
   return (
     <AppShell activePage="assistant" data={plannerData}>
       <AssistantPage
-        action={generateUnitOutlineAction}
+        action={assistantAction}
         aiConfigured={isAiConfigured()}
+        classes={plannerData.classes}
         outcomes={plannerData.outcomes}
+        startDate={plannerData.schoolYear.startDate}
         subjects={subjects}
       />
     </AppShell>

@@ -6,6 +6,7 @@ import { createClassPilotDatabase } from "./sqlite";
 import {
   createLesson,
   createUnit,
+  createUnitWithLessons,
   getLessonById,
   getPlannerData,
   getSchoolYear,
@@ -78,6 +79,86 @@ describe("planner repository", () => {
     expect(mathUnit?.lessons.map((lesson) => lesson.title)).toContain(
       "Percent in Flyers",
     );
+  });
+
+  it("creates a unit with its lessons atomically", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+
+    seedPlannerData(db, plannerData);
+    const classId = getPlannerData(db).classes[0].id;
+
+    const unitId = createUnitWithLessons(db, {
+      unit: {
+        classId,
+        color: "violet",
+        endDate: "2026-10-09",
+        outcomeIds: ["sk-grade-6-mathematics-n6-5"],
+        startDate: "2026-09-28",
+        title: "Electricity (AI draft)",
+      },
+      lessons: [
+        {
+          date: "2026-09-28",
+          durationMinutes: 45,
+          outcomeIds: ["sk-grade-6-mathematics-n6-5"],
+          status: "planned",
+          summary: "Explore static charge.",
+          title: "Static charge",
+        },
+        {
+          date: "2026-09-30",
+          durationMinutes: 45,
+          outcomeIds: [],
+          status: "planned",
+          summary: "Build a simple circuit.",
+          title: "Build a circuit",
+        },
+      ],
+    });
+
+    const unit = getUnitById(db, unitId);
+
+    expect(unit?.title).toBe("Electricity (AI draft)");
+    expect(unit?.outcomeIds).toEqual(["sk-grade-6-mathematics-n6-5"]);
+    expect(unit?.lessons.map((lesson) => lesson.title)).toEqual([
+      "Static charge",
+      "Build a circuit",
+    ]);
+  });
+
+  it("rolls back the unit when a lesson insert fails", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+
+    seedPlannerData(db, plannerData);
+    const classId = getPlannerData(db).classes[0].id;
+    const unitCountBefore = getPlannerData(db).units.length;
+
+    expect(() =>
+      createUnitWithLessons(db, {
+        unit: {
+          classId,
+          color: "blue",
+          endDate: "2026-10-09",
+          outcomeIds: [],
+          startDate: "2026-09-28",
+          title: "Doomed unit",
+        },
+        lessons: [
+          {
+            // durationMinutes is non-null in the schema; null forces a failure
+            // mid-transaction so we can assert the unit was rolled back.
+            date: "2026-09-28",
+            durationMinutes: null as unknown as number,
+            outcomeIds: [],
+            status: "planned",
+            summary: "This insert should fail.",
+            title: "Bad lesson",
+          },
+        ],
+      }),
+    ).toThrow();
+
+    expect(getPlannerData(db).units).toHaveLength(unitCountBefore);
   });
 
   it("creates and updates structured lesson sections", () => {

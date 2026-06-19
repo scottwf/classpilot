@@ -49,6 +49,7 @@ src/lib/
   lessons/     markdown-import.ts, lesson-sections.ts, lesson-resources.ts
   ai/          config.ts (provider config), prompt.ts/parse.ts (pure, tested),
                provider.ts (fetch), unit-outline.ts (orchestrator)
+               (planner/schedule.ts places drafted lessons on instructional days)
 
 docs/SK outcomes to import/  8 subject CSVs (read at runtime by sk-outcomes.ts)
 data/classpilot.sqlite       Local DB (gitignored)
@@ -93,11 +94,17 @@ Built and working (matches MVP):
   `fetch`, no SDK. Prompt/parse are pure + tested; data minimization is
   structural — only subject/grade/timing/outcome context is sent, never student
   records. Disabled gracefully with a setup hint when unconfigured.
+- **Save draft → planner** — the draft can be saved as a real unit + lessons:
+  lessons are scheduled across instructional days (`schedule.ts`, pure + tested),
+  outcome codes map back to outcome ids, and the unit + lessons are written
+  atomically (`createUnitWithLessons`). Unit-level guidance (big ideas, essential
+  questions, assessment, differentiation) is folded into the first lesson's
+  sections so nothing is lost (the unit model has no description field yet).
 
 Not yet started (largest remaining MVP gaps, in plan priority order):
 
-- **AI assistant depth** — lesson-plan drafting, "save draft as a unit/lessons",
-  pacing/overload checks, and teacher-approved student-context summaries.
+- **AI assistant depth** — lesson-plan drafting (full sections), pacing/overload
+  checks, and teacher-approved student-context summaries.
 - **Interactive timeline** — the timeline renders as a static grid; drag/resize
   and auto-reschedule (a signature design goal) are not implemented.
 - **Coverage tooling** — gap/overlap detection and pacing/overload warnings.
