@@ -128,6 +128,10 @@ The current import supports one lesson per Markdown file and maps sections into 
 
 ## Project Plan
 
+> **Picking the project back up after a break?** Start with
+> [docs/RESTART-HERE.md](docs/RESTART-HERE.md) — it has the hand-off state, a
+> 5-minute resume checklist, and the prioritized plan for the next session.
+
 The working product plan is tracked in [ClassPilot-summary-plan.md](ClassPilot-summary-plan.md).
 
 A technical code summary, plan-vs-implementation gap analysis, and clean/secure code findings are tracked in [docs/CODEBASE-OVERVIEW.md](docs/CODEBASE-OVERVIEW.md).
