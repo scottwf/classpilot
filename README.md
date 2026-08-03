@@ -39,6 +39,45 @@ This is not a public SaaS product. The first version is designed to run on a hom
 
 ## Local Development
 
+### Setup With Claude Code or Codex
+
+If you want an AI coding assistant to set this up on another machine, start by
+cloning the repo, then ask the assistant to follow the README exactly and avoid
+committing local secrets or data.
+
+Clone the repository:
+
+```bash
+git clone git@github.com:scottwf/classpilot.git
+cd classpilot
+```
+
+Recommended first prompt for Claude Code:
+
+```text
+You are working in the ClassPilot repository. Read README.md, docs/RESTART-HERE.md,
+and .env.example first. Set up the app for local development without committing
+secrets or local data. Create .env from .env.example, tell me which values I must
+fill in, install dependencies, run tests/lint/build, and start the app on an
+available local port.
+```
+
+Recommended first prompt for Codex:
+
+```text
+We are in the ClassPilot repository. Read README.md, docs/RESTART-HERE.md, and
+.env.example first. Help me set up a local/persistent test copy. Do not commit
+.env, data/, SQLite files, .next/, or node_modules/. Verify with npm test,
+npm run lint, and npm run build before saying setup is complete.
+```
+
+For a persistent homelab test instance, use the Docker Compose path below rather
+than `npm run dev`. Keep `.env` and `./data` on the target machine only. If you
+plan to enter real student information, configure `CLASSPILOT_DATA_KEY` before
+creating records and store that key separately from database backups.
+
+### Manual Local Setup
+
 Install dependencies:
 
 ```bash
@@ -84,6 +123,9 @@ The build script uses `next build --webpack`.
 
 ## Docker Compose
 
+Use Docker Compose when you want ClassPilot to keep running on another machine
+for regular testing.
+
 Create `.env` from `.env.example`, then set:
 
 ```bash
@@ -93,6 +135,13 @@ CLASSPILOT_DATABASE_PATH=/app/data/classpilot.sqlite
 CLASSPILOT_APP_PASSWORD=replace-me
 CLASSPILOT_AUTH_SECRET=replace-with-a-long-random-secret
 CLASSPILOT_COOKIE_SECURE=false
+CLASSPILOT_DATA_KEY=replace-with-openssl-rand-base64-32
+```
+
+Generate strong secrets on the target machine:
+
+```bash
+openssl rand -base64 32
 ```
 
 Start the container:
@@ -102,6 +151,15 @@ docker compose up -d --build
 ```
 
 ClassPilot stores its SQLite database in `./data`, mounted into the container at `/app/data`.
+
+Useful maintenance commands:
+
+```bash
+docker compose pull
+docker compose up -d --build
+docker compose logs -f classpilot
+docker compose down
+```
 
 ## Privacy Notes
 
