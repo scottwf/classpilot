@@ -4,10 +4,19 @@ import type { CurriculumOutcome, PlannerData, UnitPlan } from "./types";
 
 type UnitDetailPageProps = {
   data: PlannerData;
+  error?: string;
+  rescheduleAction: (formData: FormData) => void | Promise<void>;
+  rescheduled?: string;
   unit: UnitPlan;
 };
 
-export function UnitDetailPage({ data, unit }: UnitDetailPageProps) {
+export function UnitDetailPage({
+  data,
+  error,
+  rescheduleAction,
+  rescheduled,
+  unit,
+}: UnitDetailPageProps) {
   const classSection = data.classes.find((candidate) => candidate.id === unit.classId);
   const unitOutcomes = unit.outcomeIds
     .map((outcomeId) => data.outcomes.find((outcome) => outcome.id === outcomeId))
@@ -58,6 +67,19 @@ export function UnitDetailPage({ data, unit }: UnitDetailPageProps) {
           </Link>
         </div>
       </section>
+
+      {rescheduled !== undefined && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {rescheduled === "0"
+            ? "No lessons needed to move."
+            : `Shifted ${rescheduled} lesson${rescheduled === "1" ? "" : "s"}.`}
+        </div>
+      )}
+      {error === "shift" && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          Enter a non-zero whole number of instructional days to shift by.
+        </div>
+      )}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <Metric label="Lessons" value={`${unit.lessons.length} lessons`} />
@@ -162,6 +184,46 @@ export function UnitDetailPage({ data, unit }: UnitDetailPageProps) {
                 );
               })}
             </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-950">
+              Shift lessons
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Moved a lesson or missed a day? Push every lesson on or after a
+              date forward (or pull them back) by a number of instructional
+              days — nothing before that date changes.
+            </p>
+            <form action={rescheduleAction} className="mt-3 space-y-3">
+              <input name="unitId" type="hidden" value={unit.id} />
+              <label className="block text-sm font-medium text-slate-700">
+                On or after
+                <input
+                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                  name="fromDate"
+                  required
+                  type="date"
+                />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Shift by (instructional days)
+                <input
+                  className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                  name="shiftByDays"
+                  placeholder="e.g. 1, or -1 to pull earlier"
+                  required
+                  step="1"
+                  type="number"
+                />
+              </label>
+              <button
+                className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+                type="submit"
+              >
+                Shift lessons
+              </button>
+            </form>
           </section>
         </aside>
       </div>

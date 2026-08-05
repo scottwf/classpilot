@@ -8,6 +8,9 @@ export function createClassPilotDatabase(databasePath: string): ClassPilotDataba
   mkdirSync(dirname(databasePath), { recursive: true });
   const db = new DatabaseSync(databasePath);
   db.exec("PRAGMA foreign_keys = ON;");
+  // WAL allows the Next.js app and the MCP server to hold the database file
+  // open from separate processes at the same time without lock contention.
+  db.exec("PRAGMA journal_mode = WAL;");
   migrate(db);
   return db;
 }
@@ -29,6 +32,13 @@ export function migrate(db: ClassPilotDatabase) {
       grade TEXT NOT NULL,
       room TEXT NOT NULL,
       meeting_pattern TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id TEXT PRIMARY KEY,
+      ai_api_key_encrypted TEXT NOT NULL DEFAULT '',
+      ai_base_url TEXT NOT NULL DEFAULT '',
+      ai_model TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS curriculum_outcomes (
@@ -159,6 +169,24 @@ export function migrate(db: ClassPilotDatabase) {
     "lesson_plans",
     "sections_json",
     "TEXT NOT NULL DEFAULT '{}'",
+  );
+  addColumnIfMissing(
+    db,
+    "lesson_plans",
+    "continues_from_lesson_id",
+    "TEXT",
+  );
+  addColumnIfMissing(
+    db,
+    "school_years",
+    "cycle_length_days",
+    "INTEGER NOT NULL DEFAULT 5",
+  );
+  addColumnIfMissing(
+    db,
+    "class_sections",
+    "cycle_days_json",
+    "TEXT NOT NULL DEFAULT '[]'",
   );
 }
 

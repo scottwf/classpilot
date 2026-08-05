@@ -1,3 +1,8 @@
+// @vitest-environment node
+//
+// Vitest's default environment (jsdom, set globally in vitest.config.ts) is a
+// browser-like sandbox that can't bundle the Node-only `node:sqlite` module
+// this file (transitively) imports. Force the real Node environment here.
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

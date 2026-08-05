@@ -1,17 +1,28 @@
+// @vitest-environment node
+//
+// Vitest's default environment (jsdom, set globally in vitest.config.ts) is a
+// browser-like sandbox that can't bundle the Node-only `node:sqlite` module
+// this file (transitively) imports. Force the real Node environment here.
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createClassPilotDatabase } from "./sqlite";
 import {
+  cascadeRescheduleUnitLessons,
+  createClass,
   createLesson,
   createUnit,
   createUnitWithLessons,
+  deleteClass,
+  duplicateLessonAsContinuation,
+  getClassById,
   getLessonById,
   getPlannerData,
   getSchoolYear,
   getUnitById,
   seedPlannerData,
+  updateClass,
   updateLesson,
   updateSchoolYear,
   updateUnit,
@@ -252,25 +263,32 @@ describe("planner repository", () => {
     expect(seeded.blockedDates).toContainEqual({
       date: "2026-10-12",
       label: "Thanksgiving",
+      advancesCycle: true,
     });
 
     updateSchoolYear(db, {
       title: "2027-2028 Grade 6 Homeroom",
       startDate: "2027-09-01",
       endDate: "2027-12-18",
+      cycleLength: 6,
       blockedDates: [
-        { date: "2027-11-11", label: "Remembrance Day" },
-        { date: "2027-10-11", label: "Thanksgiving" },
+        { date: "2027-11-11", label: "Remembrance Day", advancesCycle: true },
+        { date: "2027-10-11", label: "Thanksgiving", advancesCycle: false },
       ],
     });
 
     const updated = getSchoolYear(db);
     expect(updated.title).toBe("2027-2028 Grade 6 Homeroom");
     expect(updated.startDate).toBe("2027-09-01");
+    expect(updated.cycleLength).toBe(6);
     // Stored sorted by date.
     expect(updated.blockedDates.map((day) => day.date)).toEqual([
       "2027-10-11",
       "2027-11-11",
+    ]);
+    expect(updated.blockedDates.map((day) => day.advancesCycle)).toEqual([
+      false,
+      true,
     ]);
   });
 
@@ -285,9 +303,80 @@ describe("planner repository", () => {
 
     const schoolYear = getSchoolYear(db);
     expect(schoolYear.blockedDates).toEqual([
-      { date: "2026-09-07", label: "" },
-      { date: "2026-10-12", label: "" },
+      { date: "2026-09-07", label: "", advancesCycle: true },
+      { date: "2026-10-12", label: "", advancesCycle: true },
     ]);
+  });
+
+  it("defaults advancesCycle to true for pre-cycle-system object entries", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    db.prepare("UPDATE school_years SET blocked_dates_json = ? WHERE id = ?").run(
+      JSON.stringify([{ date: "2026-09-07", label: "Labour Day" }]),
+      "current",
+    );
+
+    const schoolYear = getSchoolYear(db);
+    expect(schoolYear.blockedDates).toEqual([
+      { date: "2026-09-07", label: "Labour Day", advancesCycle: true },
+    ]);
+  });
+
+  it("creates, updates, and deletes a class", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const classId = createClass(db, {
+      name: "Grade 6 French",
+      subject: "French",
+      grade: "6",
+      room: "Homeroom",
+      meetingPattern: "",
+      cycleDays: [1, 3],
+    });
+
+    expect(getClassById(db, classId)).toMatchObject({
+      name: "Grade 6 French",
+      subject: "French",
+      cycleDays: [1, 3],
+    });
+
+    updateClass(db, {
+      id: classId,
+      name: "Grade 6 Français",
+      subject: "French",
+      grade: "6",
+      room: "Room 12",
+      meetingPattern: "",
+      cycleDays: [2, 4],
+    });
+
+    expect(getClassById(db, classId)).toMatchObject({
+      name: "Grade 6 Français",
+      room: "Room 12",
+      cycleDays: [2, 4],
+    });
+
+    deleteClass(db, classId);
+    expect(getClassById(db, classId)).toBeUndefined();
+  });
+
+  it("throws when updating a nonexistent class", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(() =>
+      updateClass(db, {
+        id: "class-does-not-exist",
+        name: "X",
+        subject: "X",
+        grade: "6",
+        room: "X",
+        meetingPattern: "",
+        cycleDays: [],
+      }),
+    ).toThrow("Class not found");
   });
 
   it("creates and updates a unit through the planner model", () => {
@@ -326,5 +415,212 @@ describe("planner repository", () => {
       "sk-grade-6-mathematics-p6-1",
       "sk-grade-6-mathematics-p6-2",
     ]);
+  });
+
+  it("cascades a lesson date shift across the rest of the unit", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    // 2026-09-07 is Labour Day (blocked); instructional days run
+    // ...09-04, 09-08, 09-09, 09-10, 09-11, 09-14, 09-15...
+    const unitId = createUnitWithLessons(db, {
+      unit: {
+        classId: "grade-6-math",
+        color: "blue",
+        endDate: "2026-09-14",
+        outcomeIds: [],
+        startDate: "2026-09-08",
+        title: "Cascade Test Unit",
+      },
+      lessons: [
+        { title: "Lesson 1", date: "2026-09-08", durationMinutes: 45, outcomeIds: [], status: "planned", summary: "Day 1" },
+        { title: "Lesson 2", date: "2026-09-09", durationMinutes: 45, outcomeIds: [], status: "planned", summary: "Day 2" },
+        { title: "Lesson 3", date: "2026-09-10", durationMinutes: 45, outcomeIds: [], status: "planned", summary: "Day 3" },
+      ],
+    });
+
+    const before = getUnitById(db, unitId)!;
+    const day1 = before.lessons.find((lesson) => lesson.summary === "Day 1")!;
+    const day2 = before.lessons.find((lesson) => lesson.summary === "Day 2")!;
+    const day3 = before.lessons.find((lesson) => lesson.summary === "Day 3")!;
+
+    const result = cascadeRescheduleUnitLessons(db, {
+      unitId,
+      fromDate: "2026-09-09",
+      shiftByDays: 2,
+    });
+
+    expect(result.shiftedLessonIds.sort()).toEqual([day2.id, day3.id].sort());
+
+    const after = getUnitById(db, unitId)!;
+    expect(after.lessons.find((lesson) => lesson.id === day1.id)?.date).toBe("2026-09-08");
+    expect(after.lessons.find((lesson) => lesson.id === day2.id)?.date).toBe("2026-09-11");
+    expect(after.lessons.find((lesson) => lesson.id === day3.id)?.date).toBe("2026-09-14");
+  });
+
+  it("throws when cascading a nonexistent unit", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(() =>
+      cascadeRescheduleUnitLessons(db, {
+        unitId: "unit-does-not-exist",
+        fromDate: "2026-09-09",
+        shiftByDays: 1,
+      }),
+    ).toThrow("Unit not found");
+  });
+
+  it("cascades by the class's actual cycle-day meeting dates, not every instructional day", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    // Seed school year: cycleLength 5, 2026-09-07 blocked (Labour Day,
+    // advances). Day 3 lands on 09-03, 09-10, 09-17 — skipping 09-04,
+    // 09-08, 09-09, 09-11, 09-14, 09-15, 09-16, which a plain
+    // "every instructional day" shift would have landed on instead.
+    const classId = createClass(db, {
+      name: "French (Day 3 only)",
+      subject: "French",
+      grade: "6",
+      room: "",
+      meetingPattern: "",
+      cycleDays: [3],
+    });
+
+    const unitId = createUnitWithLessons(db, {
+      unit: {
+        classId,
+        color: "blue",
+        endDate: "2026-09-20",
+        outcomeIds: [],
+        startDate: "2026-09-01",
+        title: "Cycle Cascade Test Unit",
+      },
+      lessons: [
+        { title: "First", date: "2026-09-03", durationMinutes: 30, outcomeIds: [], status: "planned", summary: "" },
+        { title: "Second", date: "2026-09-10", durationMinutes: 30, outcomeIds: [], status: "planned", summary: "" },
+      ],
+    });
+
+    const before = getUnitById(db, unitId)!;
+    const first = before.lessons.find((lesson) => lesson.title === "First")!;
+    const second = before.lessons.find((lesson) => lesson.title === "Second")!;
+
+    cascadeRescheduleUnitLessons(db, {
+      unitId,
+      fromDate: "2026-09-03",
+      shiftByDays: 1,
+    });
+
+    const after = getUnitById(db, unitId)!;
+    expect(after.lessons.find((lesson) => lesson.id === first.id)?.date).toBe("2026-09-10");
+    expect(after.lessons.find((lesson) => lesson.id === second.id)?.date).toBe("2026-09-17");
+  });
+
+  it("duplicates a lesson onto the class's next meeting date, linked back to the source", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const unitId = createUnit(db, {
+      classId: "grade-6-math",
+      color: "blue",
+      endDate: "2026-09-14",
+      outcomeIds: [],
+      startDate: "2026-09-08",
+      title: "Extend Test Unit",
+    });
+    const sourceId = createLesson(db, {
+      date: "2026-09-08",
+      durationMinutes: 45,
+      outcomeIds: [],
+      status: "planned",
+      summary: "Original content.",
+      title: "Fractions Intro",
+      unitId,
+    });
+
+    const result = duplicateLessonAsContinuation(db, sourceId);
+
+    // grade-6-math has no cycle restriction, so "next meeting date" is just
+    // the next instructional day after 2026-09-08.
+    expect(result.date).toBe("2026-09-09");
+
+    const continuation = getLessonById(db, result.lessonId)!;
+    expect(continuation.title).toBe("Fractions Intro (cont'd)");
+    expect(continuation.date).toBe("2026-09-09");
+    expect(continuation.summary).toBe("Original content.");
+    expect(continuation.continuesFromLessonId).toBe(sourceId);
+
+    // The original lesson is untouched and doesn't carry a continuation link.
+    const source = getLessonById(db, sourceId)!;
+    expect(source.date).toBe("2026-09-08");
+    expect(source.continuesFromLessonId).toBeUndefined();
+  });
+
+  it("duplicates onto the next cycle-day meeting date for a restricted class", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const classId = createClass(db, {
+      name: "French (Day 3 only)",
+      subject: "French",
+      grade: "6",
+      room: "",
+      meetingPattern: "",
+      cycleDays: [3],
+    });
+    const unitId = createUnit(db, {
+      classId,
+      color: "blue",
+      endDate: "2026-09-20",
+      outcomeIds: [],
+      startDate: "2026-09-01",
+      title: "French Extend Test Unit",
+    });
+    const sourceId = createLesson(db, {
+      date: "2026-09-03",
+      durationMinutes: 30,
+      outcomeIds: [],
+      status: "planned",
+      summary: "",
+      title: "Greetings",
+      unitId,
+    });
+
+    const result = duplicateLessonAsContinuation(db, sourceId);
+
+    // Day 3 for this school year lands on 09-03, 09-10, 09-17 (see the
+    // cascade test above) — the continuation must skip straight to 09-10,
+    // not just the next calendar/instructional day.
+    expect(result.date).toBe("2026-09-10");
+  });
+
+  it("throws when the class has no more meeting days left in the school year", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const unitId = createUnit(db, {
+      classId: "grade-6-math",
+      color: "blue",
+      endDate: "2026-12-18",
+      outcomeIds: [],
+      startDate: "2026-12-18",
+      title: "End of Year Unit",
+    });
+    // 2026-12-18 is the seeded school year's last instructional day.
+    const sourceId = createLesson(db, {
+      date: "2026-12-18",
+      durationMinutes: 45,
+      outcomeIds: [],
+      status: "planned",
+      summary: "",
+      title: "Last Lesson",
+      unitId,
+    });
+
+    expect(() => duplicateLessonAsContinuation(db, sourceId)).toThrow(
+      "no more meeting days left",
+    );
   });
 });

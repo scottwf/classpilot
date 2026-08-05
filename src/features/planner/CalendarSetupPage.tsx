@@ -6,17 +6,19 @@ type ServerAction = (formData: FormData) => void | Promise<void>;
 type CalendarSetupPageProps = {
   schoolYear: SchoolYear;
   error?: string;
+  feedUrl: string;
   actions: {
     updateDetails: ServerAction;
     addDays: ServerAction;
     removeDay: ServerAction;
+    cancelDay: ServerAction;
   };
 };
 
 const errorMessages: Record<string, string> = {
-  details: "Check the title and that the end date is after the start date.",
+  details: "Check the title, that the end date is after the start date, and that the cycle length is a whole number of at least 1.",
   range: "Check the dates: the end date must be on or after the start date.",
-  date: "Enter a valid date to block.",
+  date: "Enter a valid date.",
 };
 
 const inputClass =
@@ -45,6 +47,7 @@ function dayLabel(dateKey: string): string {
 export function CalendarSetupPage({
   schoolYear,
   error,
+  feedUrl,
   actions,
 }: CalendarSetupPageProps) {
   const instructionalDays = buildInstructionalDays(schoolYear);
@@ -70,7 +73,7 @@ export function CalendarSetupPage({
         </p>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-4">
         <Metric label="Instructional days" value={`${instructionalDays.length}`} />
         <Metric
           label="Non-instructional days"
@@ -80,6 +83,7 @@ export function CalendarSetupPage({
           label="Term"
           value={`${schoolYear.startDate} → ${schoolYear.endDate}`}
         />
+        <Metric label="Day cycle length" value={`${schoolYear.cycleLength} days`} />
       </section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -117,6 +121,25 @@ export function CalendarSetupPage({
                 />
               </label>
             </div>
+            <label className="block text-sm">
+              <span className="font-medium text-slate-700">
+                Day cycle length
+              </span>
+              <input
+                className={inputClass}
+                defaultValue={schoolYear.cycleLength}
+                min={1}
+                name="cycleLength"
+                required
+                step={1}
+                type="number"
+              />
+              <span className="mt-1 block text-xs leading-5 text-slate-500">
+                How many days before your division&apos;s day cycle repeats —
+                2 for odd/even days, 5 or 6 for a rotating cycle. Classes are
+                assigned specific cycle days below.
+              </span>
+            </label>
             <button
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
               type="submit"
@@ -153,6 +176,11 @@ export function CalendarSetupPage({
                             </span>
                             {day.label ? (
                               <span className="text-slate-600"> · {day.label}</span>
+                            ) : null}
+                            {!day.advancesCycle ? (
+                              <span className="ml-2 rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                                pauses cycle
+                              </span>
                             ) : null}
                           </span>
                           <form action={actions.removeDay}>
@@ -207,6 +235,11 @@ export function CalendarSetupPage({
                   placeholder="e.g. Winter Break, PD Day"
                 />
               </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input defaultChecked name="advancesCycle" type="checkbox" />
+                Advances the day cycle (uncheck if this closure isn&apos;t in
+                your division&apos;s official cycle count)
+              </label>
               <button
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
                 type="submit"
@@ -214,6 +247,59 @@ export function CalendarSetupPage({
                 Add days
               </button>
             </form>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-950">
+              Cancel a school day
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              For snow days and other same-day emergency closures. Unlike
+              planned non-instructional days above, this always pauses the
+              day cycle — whatever was scheduled just moves to the next
+              school day instead of being skipped.
+            </p>
+            <form action={actions.cancelDay} className="mt-3 space-y-3">
+              <label className="block text-sm">
+                <span className="font-medium text-slate-700">Date</span>
+                <input className={inputClass} name="date" required type="date" />
+              </label>
+              <label className="block text-sm">
+                <span className="font-medium text-slate-700">
+                  Label (optional)
+                </span>
+                <input
+                  className={inputClass}
+                  name="label"
+                  placeholder="Snow day"
+                />
+              </label>
+              <button
+                className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 shadow-sm"
+                type="submit"
+              >
+                Cancel this day
+              </button>
+            </form>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-950">
+              Subscribe to lessons in your calendar
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Add this URL as a &quot;subscribe by URL&quot; calendar in
+              Apple/Google/Outlook Calendar for a read-only, always-current
+              view of every scheduled lesson. This link contains a private
+              token — don&apos;t share it publicly. Subscribing from Google
+              Calendar specifically requires this URL to be reachable from
+              Google&apos;s servers, not just your device.
+            </p>
+            <input
+              className={`${inputClass} mt-3 font-mono text-xs`}
+              readOnly
+              value={feedUrl}
+            />
           </section>
         </aside>
       </div>

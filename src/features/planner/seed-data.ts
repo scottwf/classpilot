@@ -11,12 +11,15 @@ export const plannerData: PlannerData = {
     title: "2026-2027 Grade 6 Homeroom",
     startDate: "2026-09-01",
     endDate: "2026-12-18",
+    // No rotating cycle in the demo data (cycleLength 5 with every class
+    // left unrestricted below is equivalent to "no cycle" — see cycle.ts).
+    cycleLength: 5,
     blockedDates: [
-      { date: "2026-09-07", label: "Labour Day" },
-      { date: "2026-10-12", label: "Thanksgiving" },
-      { date: "2026-11-11", label: "Remembrance Day" },
-      { date: "2026-11-27", label: "Professional Development Day" },
-      { date: "2026-12-04", label: "Parent-Teacher Conferences" },
+      { date: "2026-09-07", label: "Labour Day", advancesCycle: true },
+      { date: "2026-10-12", label: "Thanksgiving", advancesCycle: true },
+      { date: "2026-11-11", label: "Remembrance Day", advancesCycle: true },
+      { date: "2026-11-27", label: "Professional Development Day", advancesCycle: true },
+      { date: "2026-12-04", label: "Parent-Teacher Conferences", advancesCycle: true },
     ],
   },
   classes: [
@@ -27,6 +30,7 @@ export const plannerData: PlannerData = {
       grade: "6",
       room: "Homeroom",
       meetingPattern: "Daily literacy block",
+      cycleDays: [],
     },
     {
       id: "grade-6-math",
@@ -35,6 +39,7 @@ export const plannerData: PlannerData = {
       grade: "6",
       room: "Homeroom",
       meetingPattern: "Daily numeracy block",
+      cycleDays: [],
     },
     {
       id: "grade-6-science",
@@ -43,6 +48,7 @@ export const plannerData: PlannerData = {
       grade: "6",
       room: "Homeroom",
       meetingPattern: "Mon/Wed/Fri inquiry block",
+      cycleDays: [],
     },
     {
       id: "grade-6-social-studies",
@@ -51,6 +57,7 @@ export const plannerData: PlannerData = {
       grade: "6",
       room: "Homeroom",
       meetingPattern: "Tue/Thu project block",
+      cycleDays: [],
     },
     {
       id: "grade-6-homeroom",
@@ -59,6 +66,7 @@ export const plannerData: PlannerData = {
       grade: "6",
       room: "Homeroom",
       meetingPattern: "Morning meeting and end-of-day routines",
+      cycleDays: [],
     },
   ],
   outcomes: [

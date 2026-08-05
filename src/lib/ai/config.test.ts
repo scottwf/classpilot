@@ -40,4 +40,41 @@ describe("getAiConfig", () => {
 
     expect(getAiConfig()?.model).toBe("llama3.1");
   });
+
+  it("enables via overrides alone, with no environment configured", () => {
+    expect(getAiConfig({ apiKey: "sk-from-settings" })).toEqual({
+      apiKey: "sk-from-settings",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+    });
+  });
+
+  it("prefers overrides over the environment when both are set", () => {
+    process.env.CLASSPILOT_AI_API_KEY = "sk-env";
+    process.env.CLASSPILOT_AI_BASE_URL = "http://env-host:11434/v1";
+    process.env.CLASSPILOT_AI_MODEL = "env-model";
+
+    expect(
+      getAiConfig({
+        apiKey: "sk-settings",
+        baseUrl: "http://settings-host:11434/v1",
+        model: "settings-model",
+      }),
+    ).toEqual({
+      apiKey: "sk-settings",
+      baseUrl: "http://settings-host:11434/v1",
+      model: "settings-model",
+    });
+  });
+
+  it("falls back to the environment for fields left unset in overrides", () => {
+    process.env.CLASSPILOT_AI_API_KEY = "sk-env";
+    process.env.CLASSPILOT_AI_MODEL = "env-model";
+
+    expect(getAiConfig({ baseUrl: "http://settings-host:11434/v1" })).toEqual({
+      apiKey: "sk-env",
+      baseUrl: "http://settings-host:11434/v1",
+      model: "env-model",
+    });
+  });
 });

@@ -8,6 +8,8 @@ import type {
   SchoolYear,
   UnitPlan,
 } from "@/src/features/planner/types";
+import { getClassMeetingDates, getNextClassMeetingDate } from "@/src/features/planner/cycle";
+import { computeCascadeShift } from "@/src/features/planner/reschedule";
 import type { ClassPilotDatabase } from "./sqlite";
 
 const defaultSchoolYearId = "current";
@@ -17,6 +19,7 @@ type SchoolYearRow = {
   start_date: string;
   end_date: string;
   blocked_dates_json: string;
+  cycle_length_days: number;
 };
 
 type ClassSectionRow = {
@@ -26,6 +29,7 @@ type ClassSectionRow = {
   grade: string;
   room: string;
   meeting_pattern: string;
+  cycle_days_json: string;
 };
 
 type CurriculumOutcomeRow = {
@@ -57,6 +61,7 @@ type LessonPlanRow = {
   outcome_ids_json: string;
   sections_json: string;
   summary: string;
+  continues_from_lesson_id: string | null;
 };
 
 export type CreateLessonInput = {
@@ -68,6 +73,7 @@ export type CreateLessonInput = {
   summary: string;
   title: string;
   unitId: string;
+  continuesFromLessonId?: string;
 };
 
 export type EditableLesson = LessonPlan & {
@@ -93,6 +99,19 @@ export type UpdateUnitInput = CreateUnitInput & {
   id: string;
 };
 
+export type CreateClassInput = {
+  name: string;
+  subject: string;
+  grade: string;
+  room: string;
+  meetingPattern: string;
+  cycleDays: number[];
+};
+
+export type UpdateClassInput = CreateClassInput & {
+  id: string;
+};
+
 export function isPlannerSeeded(db: ClassPilotDatabase): boolean {
   const row = db
     .prepare("SELECT 1 FROM school_years WHERE id = ? LIMIT 1")
@@ -103,24 +122,26 @@ export function isPlannerSeeded(db: ClassPilotDatabase): boolean {
 
 export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData) {
   const insertSchoolYear = db.prepare(`
-    INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json, cycle_length_days)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
       start_date = excluded.start_date,
       end_date = excluded.end_date,
-      blocked_dates_json = excluded.blocked_dates_json
+      blocked_dates_json = excluded.blocked_dates_json,
+      cycle_length_days = excluded.cycle_length_days
   `);
 
   const insertClass = db.prepare(`
-    INSERT INTO class_sections (id, name, subject, grade, room, meeting_pattern)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO class_sections (id, name, subject, grade, room, meeting_pattern, cycle_days_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       subject = excluded.subject,
       grade = excluded.grade,
       room = excluded.room,
-      meeting_pattern = excluded.meeting_pattern
+      meeting_pattern = excluded.meeting_pattern,
+      cycle_days_json = excluded.cycle_days_json
   `);
 
   const insertOutcome = db.prepare(`
@@ -147,8 +168,8 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
   `);
 
   const insertLesson = db.prepare(`
-    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       unit_id = excluded.unit_id,
       title = excluded.title,
@@ -157,7 +178,8 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
       status = excluded.status,
       outcome_ids_json = excluded.outcome_ids_json,
       sections_json = excluded.sections_json,
-      summary = excluded.summary
+      summary = excluded.summary,
+      continues_from_lesson_id = excluded.continues_from_lesson_id
   `);
 
   db.exec("BEGIN;");
@@ -168,6 +190,7 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
       plannerData.schoolYear.startDate,
       plannerData.schoolYear.endDate,
       JSON.stringify(plannerData.schoolYear.blockedDates),
+      plannerData.schoolYear.cycleLength,
     );
 
     for (const classSection of plannerData.classes) {
@@ -178,6 +201,7 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
         classSection.grade,
         classSection.room,
         classSection.meetingPattern,
+        JSON.stringify(classSection.cycleDays),
       );
     }
 
@@ -214,6 +238,7 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
           JSON.stringify(lesson.outcomeIds),
           JSON.stringify(normalizeLessonSections(lesson.sections, lesson.summary)),
           lesson.summary,
+          lesson.continuesFromLessonId ?? null,
         );
       }
     }
@@ -227,7 +252,9 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
 
 export function getPlannerData(db: ClassPilotDatabase): PlannerData {
   const schoolYearRow = db
-    .prepare("SELECT title, start_date, end_date, blocked_dates_json FROM school_years WHERE id = ?")
+    .prepare(
+      "SELECT title, start_date, end_date, blocked_dates_json, cycle_length_days FROM school_years WHERE id = ?",
+    )
     .get(defaultSchoolYearId) as SchoolYearRow | undefined;
 
   if (!schoolYearRow) {
@@ -236,7 +263,7 @@ export function getPlannerData(db: ClassPilotDatabase): PlannerData {
 
   const classes = db
     .prepare(
-      "SELECT id, name, subject, grade, room, meeting_pattern FROM class_sections ORDER BY rowid",
+      "SELECT id, name, subject, grade, room, meeting_pattern, cycle_days_json FROM class_sections ORDER BY rowid",
     )
     .all() as ClassSectionRow[];
 
@@ -254,7 +281,7 @@ export function getPlannerData(db: ClassPilotDatabase): PlannerData {
 
   const lessons = db
     .prepare(
-      "SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary FROM lesson_plans ORDER BY date, rowid",
+      "SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id FROM lesson_plans ORDER BY date, rowid",
     )
     .all() as LessonPlanRow[];
 
@@ -274,7 +301,7 @@ export function getPlannerData(db: ClassPilotDatabase): PlannerData {
 export function getSchoolYear(db: ClassPilotDatabase): SchoolYear {
   const row = db
     .prepare(
-      "SELECT title, start_date, end_date, blocked_dates_json FROM school_years WHERE id = ?",
+      "SELECT title, start_date, end_date, blocked_dates_json, cycle_length_days FROM school_years WHERE id = ?",
     )
     .get(defaultSchoolYearId) as SchoolYearRow | undefined;
 
@@ -290,6 +317,7 @@ export type UpdateSchoolYearInput = {
   startDate: string;
   endDate: string;
   blockedDates: NonInstructionalDay[];
+  cycleLength: number;
 };
 
 export function updateSchoolYear(
@@ -303,7 +331,7 @@ export function updateSchoolYear(
   const result = db
     .prepare(
       `UPDATE school_years
-       SET title = ?, start_date = ?, end_date = ?, blocked_dates_json = ?
+       SET title = ?, start_date = ?, end_date = ?, blocked_dates_json = ?, cycle_length_days = ?
        WHERE id = ?`,
     )
     .run(
@@ -311,6 +339,7 @@ export function updateSchoolYear(
       input.startDate,
       input.endDate,
       JSON.stringify(blockedDates),
+      input.cycleLength,
       defaultSchoolYearId,
     );
 
@@ -326,8 +355,8 @@ export function createLesson(
   const id = `lesson-${crypto.randomUUID()}`;
 
   db.prepare(`
-    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     input.unitId,
@@ -338,6 +367,7 @@ export function createLesson(
     JSON.stringify(input.outcomeIds),
     JSON.stringify(normalizeLessonSections(input.sections, input.summary)),
     input.summary,
+    input.continuesFromLessonId ?? null,
   );
 
   return id;
@@ -349,7 +379,7 @@ export function getLessonById(
 ): EditableLesson | undefined {
   const row = db
     .prepare(
-      "SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary FROM lesson_plans WHERE id = ?",
+      "SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id FROM lesson_plans WHERE id = ?",
     )
     .get(id) as LessonPlanRow | undefined;
 
@@ -440,8 +470,8 @@ export function createUnitWithLessons(
   `);
 
   const insertLesson = db.prepare(`
-    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   db.exec("BEGIN;");
@@ -467,6 +497,7 @@ export function createUnitWithLessons(
         JSON.stringify(lesson.outcomeIds),
         JSON.stringify(normalizeLessonSections(lesson.sections, lesson.summary)),
         lesson.summary,
+        null,
       );
     }
 
@@ -495,7 +526,7 @@ export function getUnitById(
 
   const lessons = db
     .prepare(
-      "SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary FROM lesson_plans WHERE unit_id = ? ORDER BY date, rowid",
+      "SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id FROM lesson_plans WHERE unit_id = ? ORDER BY date, rowid",
     )
     .all(id) as LessonPlanRow[];
 
@@ -531,25 +562,219 @@ export function updateUnit(
   }
 }
 
+export function createClass(db: ClassPilotDatabase, input: CreateClassInput): string {
+  const id = `class-${crypto.randomUUID()}`;
+
+  db.prepare(`
+    INSERT INTO class_sections (id, name, subject, grade, room, meeting_pattern, cycle_days_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    input.name,
+    input.subject,
+    input.grade,
+    input.room,
+    input.meetingPattern,
+    JSON.stringify(input.cycleDays),
+  );
+
+  return id;
+}
+
+export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
+  const result = db.prepare(`
+    UPDATE class_sections
+    SET
+      name = ?,
+      subject = ?,
+      grade = ?,
+      room = ?,
+      meeting_pattern = ?,
+      cycle_days_json = ?
+    WHERE id = ?
+  `).run(
+    input.name,
+    input.subject,
+    input.grade,
+    input.room,
+    input.meetingPattern,
+    JSON.stringify(input.cycleDays),
+    input.id,
+  );
+
+  if (result.changes === 0) {
+    throw new Error(`Class not found: ${input.id}`);
+  }
+}
+
+export function getClassById(db: ClassPilotDatabase, id: string): ClassSection | undefined {
+  const row = db
+    .prepare(
+      "SELECT id, name, subject, grade, room, meeting_pattern, cycle_days_json FROM class_sections WHERE id = ?",
+    )
+    .get(id) as ClassSectionRow | undefined;
+
+  return row ? mapClassSection(row) : undefined;
+}
+
+// Units (and therefore lessons) cascade-delete via the class_sections FK, so
+// deleting a class removes its units/lessons too — same as deleting a unit
+// removes its lessons.
+export function deleteClass(db: ClassPilotDatabase, id: string) {
+  db.prepare("DELETE FROM class_sections WHERE id = ?").run(id);
+}
+
+export type CascadeRescheduleInput = {
+  unitId: string;
+  fromDate: string;
+  shiftByDays: number;
+};
+
+export type CascadeRescheduleResult = {
+  shiftedLessonIds: string[];
+};
+
+/**
+ * Shifts every lesson in a unit on/after `fromDate` by `shiftByDays` of the
+ * unit's class's actual meeting days (its cycleDays, or every instructional
+ * day if the class has no cycle restriction), preserving relative spacing.
+ * This is the "move a lesson" / "insert a lesson" cascade: update (or
+ * create) the lesson at `fromDate` yourself, then call this to push
+ * everything already scheduled on/after it out of the way in one atomic
+ * update.
+ */
+export function cascadeRescheduleUnitLessons(
+  db: ClassPilotDatabase,
+  input: CascadeRescheduleInput,
+): CascadeRescheduleResult {
+  const unit = getUnitById(db, input.unitId);
+
+  if (!unit) {
+    throw new Error(`Unit not found: ${input.unitId}`);
+  }
+
+  const classSection = getClassById(db, unit.classId);
+
+  if (!classSection) {
+    throw new Error(`Class not found for unit: ${input.unitId}`);
+  }
+
+  const schoolYear = getSchoolYear(db);
+  const meetingDates = getClassMeetingDates(schoolYear, classSection);
+  const shifts = computeCascadeShift(
+    unit.lessons,
+    input.fromDate,
+    meetingDates,
+    input.shiftByDays,
+  );
+
+  if (shifts.length === 0) {
+    return { shiftedLessonIds: [] };
+  }
+
+  const updateLessonDate = db.prepare("UPDATE lesson_plans SET date = ? WHERE id = ?");
+
+  db.exec("BEGIN;");
+  try {
+    for (const shift of shifts) {
+      updateLessonDate.run(shift.date, shift.id);
+    }
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  }
+
+  return { shiftedLessonIds: shifts.map((shift) => shift.id) };
+}
+
+export type DuplicateLessonResult = {
+  lessonId: string;
+  date: string;
+};
+
+/**
+ * "Extend to another day": duplicates a lesson onto its class's next actual
+ * meeting date (cycle-day aware, not just the next calendar day), linked
+ * back to the source lesson via continuesFromLessonId. Each day still shows
+ * as its own lesson in the plan book and lesson bank.
+ */
+export function duplicateLessonAsContinuation(
+  db: ClassPilotDatabase,
+  sourceLessonId: string,
+): DuplicateLessonResult {
+  const source = getLessonById(db, sourceLessonId);
+
+  if (!source) {
+    throw new Error(`Lesson not found: ${sourceLessonId}`);
+  }
+
+  const unit = getUnitById(db, source.unitId);
+
+  if (!unit) {
+    throw new Error(`Unit not found for lesson: ${sourceLessonId}`);
+  }
+
+  const classSection = getClassById(db, unit.classId);
+
+  if (!classSection) {
+    throw new Error(`Class not found for unit: ${unit.id}`);
+  }
+
+  const schoolYear = getSchoolYear(db);
+  const nextDate = getNextClassMeetingDate(schoolYear, classSection, source.date);
+
+  if (!nextDate) {
+    throw new Error(
+      `${classSection.name} has no more meeting days left in the school year after ${source.date}.`,
+    );
+  }
+
+  const lessonId = createLesson(db, {
+    date: nextDate,
+    durationMinutes: source.durationMinutes,
+    outcomeIds: source.outcomeIds,
+    sections: source.sections,
+    status: "planned",
+    summary: source.summary,
+    title: continuationTitle(source.title),
+    unitId: source.unitId,
+    continuesFromLessonId: source.id,
+  });
+
+  return { lessonId, date: nextDate };
+}
+
+function continuationTitle(title: string): string {
+  return /\(cont(?:'d|inued)?\)\s*$/i.test(title) ? title : `${title} (cont'd)`;
+}
+
 function mapSchoolYear(row: SchoolYearRow): SchoolYear {
   return {
     title: row.title,
     startDate: row.start_date,
     endDate: row.end_date,
     blockedDates: parseBlockedDates(row.blocked_dates_json),
+    cycleLength: row.cycle_length_days,
   };
 }
 
 // Accepts both the current labeled form and the legacy string[] form so older
 // databases keep working after the calendar setup feature shipped.
+// `advancesCycle` defaults to true for both legacy forms so pre-existing
+// entries keep their prior "cycle keeps ticking through this day" behavior.
 function parseBlockedDates(json: string): NonInstructionalDay[] {
-  const parsed = JSON.parse(json) as Array<string | NonInstructionalDay>;
+  const parsed = JSON.parse(json) as Array<string | Partial<NonInstructionalDay>>;
 
   return parsed
-    .map((entry) =>
+    .map((entry): NonInstructionalDay =>
       typeof entry === "string"
-        ? { date: entry, label: "" }
-        : { date: entry.date, label: entry.label ?? "" },
+        ? { date: entry, label: "", advancesCycle: true }
+        : {
+            date: entry.date ?? "",
+            label: entry.label ?? "",
+            advancesCycle: entry.advancesCycle ?? true,
+          },
     )
     .sort((left, right) => left.date.localeCompare(right.date));
 }
@@ -562,6 +787,7 @@ function mapClassSection(row: ClassSectionRow): ClassSection {
     grade: row.grade,
     room: row.room,
     meetingPattern: row.meeting_pattern,
+    cycleDays: JSON.parse(row.cycle_days_json) as number[],
   };
 }
 
@@ -599,6 +825,7 @@ function mapLessonPlan(row: LessonPlanRow): LessonPlan {
     outcomeIds: JSON.parse(row.outcome_ids_json) as string[],
     sections: parseLessonSections(row.sections_json, row.summary),
     summary: row.summary,
+    continuesFromLessonId: row.continues_from_lesson_id ?? undefined,
   };
 }
 

@@ -1,3 +1,5 @@
+import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { getAppSettings } from "@/src/lib/db/settings-repository";
 import { getAiConfig } from "./config";
 import { parseUnitOutlineDraft } from "./parse";
 import { buildUnitOutlineMessages } from "./prompt";
@@ -13,12 +15,17 @@ export async function generateUnitOutline(
   request: UnitOutlineRequest,
   options: { signal?: AbortSignal } = {},
 ): Promise<UnitOutlineDraft> {
-  const config = getAiConfig();
+  const settings = getAppSettings(getClassPilotDatabase());
+  const config = getAiConfig({
+    apiKey: settings.aiApiKey,
+    baseUrl: settings.aiBaseUrl,
+    model: settings.aiModel,
+  });
 
   if (!config) {
     throw new AiError(
       "not_configured",
-      "The AI assistant is not configured. Set CLASSPILOT_AI_API_KEY (or CLASSPILOT_AI_BASE_URL for a local model).",
+      "The AI assistant is not configured. Set an API key or local model URL on the Settings page (or CLASSPILOT_AI_API_KEY / CLASSPILOT_AI_BASE_URL).",
     );
   }
 

@@ -58,7 +58,7 @@ describe("ClassPilotPlanner", () => {
       throw new Error("Expected seeded ratios unit");
     }
 
-    render(<UnitDetailPage data={plannerData} unit={unit} />);
+    render(<UnitDetailPage data={plannerData} rescheduleAction={() => {}} unit={unit} />);
 
     expect(
       screen.getByRole("heading", { name: "Ratios, Rates, and Percent" }),
@@ -108,7 +108,7 @@ describe("ClassPilotPlanner", () => {
       } satisfies LessonSections,
     };
 
-    render(<LessonDetailPage data={plannerData} lesson={lesson} />);
+    render(<LessonDetailPage data={plannerData} extendAction={() => {}} lesson={lesson} />);
 
     expect(
       screen.getByRole("heading", { name: "Ratio Language in Real Life" }),

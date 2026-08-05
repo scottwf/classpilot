@@ -1,17 +1,26 @@
 import Link from "next/link";
-import { CalendarDays, Clock3, FileText, Image, LinkIcon, Pencil } from "lucide-react";
+import { CalendarDays, CalendarPlus, Clock3, FileText, Image, LinkIcon, Pencil } from "lucide-react";
 import { parseLessonResources } from "@/src/lib/lessons/lesson-resources";
 import { lessonSectionFields } from "@/src/lib/lessons/lesson-sections";
 import type { CurriculumOutcome, LessonPlan, PlannerData } from "./types";
 
+type ServerAction = (formData: FormData) => void | Promise<void>;
+
 type LessonDetailPageProps = {
   data: PlannerData;
+  error?: string;
+  extendAction: ServerAction;
   lesson: LessonPlan & {
     unitId: string;
   };
 };
 
-export function LessonDetailPage({ data, lesson }: LessonDetailPageProps) {
+export function LessonDetailPage({
+  data,
+  error,
+  extendAction,
+  lesson,
+}: LessonDetailPageProps) {
   const unit = data.units.find((candidate) => candidate.id === lesson.unitId);
   const classSection = data.classes.find(
     (candidate) => candidate.id === unit?.classId,
@@ -20,6 +29,12 @@ export function LessonDetailPage({ data, lesson }: LessonDetailPageProps) {
     .map((outcomeId) => data.outcomes.find((outcome) => outcome.id === outcomeId))
     .filter((outcome): outcome is CurriculumOutcome => Boolean(outcome));
   const sections = lesson.sections;
+  const continuesFrom = lesson.continuesFromLessonId
+    ? unit?.lessons.find((candidate) => candidate.id === lesson.continuesFromLessonId)
+    : undefined;
+  const continuedBy = unit?.lessons.find(
+    (candidate) => candidate.continuesFromLessonId === lesson.id,
+  );
 
   return (
     <>
@@ -34,6 +49,30 @@ export function LessonDetailPage({ data, lesson }: LessonDetailPageProps) {
             {unit ? ` in ${unit.title}` : ""}. Use this view while teaching,
             reviewing, or preparing the lesson.
           </p>
+          {continuesFrom ? (
+            <p className="mt-2 text-sm text-slate-600">
+              Continues from{" "}
+              <Link
+                className="text-blue-700 underline"
+                href={`/lessons/${continuesFrom.id}`}
+              >
+                {continuesFrom.title}
+              </Link>{" "}
+              ({continuesFrom.date}).
+            </p>
+          ) : null}
+          {continuedBy ? (
+            <p className="mt-2 text-sm text-slate-600">
+              Continued on{" "}
+              <Link
+                className="text-blue-700 underline"
+                href={`/lessons/${continuedBy.id}`}
+              >
+                {continuedBy.date}
+              </Link>
+              .
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {unit ? (
@@ -44,6 +83,18 @@ export function LessonDetailPage({ data, lesson }: LessonDetailPageProps) {
               Back to unit
             </Link>
           ) : null}
+          {!continuedBy ? (
+            <form action={extendAction}>
+              <input name="lessonId" type="hidden" value={lesson.id} />
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                type="submit"
+              >
+                <CalendarPlus aria-hidden="true" className="size-4" />
+                Extend to next day
+              </button>
+            </form>
+          ) : null}
           <Link
             className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
             href={`/lessons/${lesson.id}/edit`}
@@ -53,6 +104,13 @@ export function LessonDetailPage({ data, lesson }: LessonDetailPageProps) {
           </Link>
         </div>
       </section>
+
+      {error === "extend" ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          Couldn&apos;t extend this lesson — the class has no more meeting
+          days left in the school year.
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <Metric label="Date" value={lesson.date} />

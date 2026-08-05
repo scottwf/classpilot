@@ -1,9 +1,11 @@
 import { AppShell } from "@/src/features/planner/AppShell";
 import { CalendarSetupPage } from "@/src/features/planner/CalendarSetupPage";
 import { requireAuth } from "@/src/lib/auth/server";
+import { getCalendarToken } from "@/src/lib/auth/secrets";
 import { getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import {
   addNonInstructionalDaysAction,
+  cancelInstructionalDayAction,
   removeNonInstructionalDayAction,
   updateSchoolYearDetailsAction,
 } from "./actions";
@@ -23,6 +25,8 @@ export default async function CalendarRoute({
 
   const plannerData = getClassPilotPlannerData();
   const params = await searchParams;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3020";
+  const feedUrl = `${appUrl}/calendar/feed.ics?token=${getCalendarToken()}`;
 
   return (
     <AppShell activePage="calendar" data={plannerData}>
@@ -31,8 +35,10 @@ export default async function CalendarRoute({
           updateDetails: updateSchoolYearDetailsAction,
           addDays: addNonInstructionalDaysAction,
           removeDay: removeNonInstructionalDayAction,
+          cancelDay: cancelInstructionalDayAction,
         }}
         error={params.error}
+        feedUrl={feedUrl}
         schoolYear={plannerData.schoolYear}
       />
     </AppShell>

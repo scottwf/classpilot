@@ -7,8 +7,18 @@ import { verifySessionToken } from "@/src/lib/auth/session";
 // requireAuth(); this guards any route that forgets to. Runs on the Node.js
 // runtime (the default for proxy in Next.js 16), so it reuses the same HMAC
 // session verification as the rest of the app.
-
-const publicPaths = new Set(["/login"]);
+//
+// /calendar/feed.ics is exempt from the session-cookie check because it has
+// its own auth: a query-string token verified inside the route handler
+// (see getCalendarToken()/verifyCalendarToken() in src/lib/auth/secrets.ts).
+// Calendar apps subscribing by URL can't hold a session cookie or follow a
+// login redirect.
+//
+// /offline is exempt so the service worker (public/sw.js) can reliably
+// precache it regardless of session state, and so it renders correctly when
+// served from cache with no network round-trip at all (auth can't run then
+// anyway — it's a static, DB-free page with no sensitive content).
+const publicPaths = new Set(["/login", "/calendar/feed.ics", "/offline"]);
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -29,6 +39,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icon-.*\\.png|apple-touch-icon.png).*)",
   ],
 };
