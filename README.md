@@ -200,6 +200,18 @@ The schema and privacy design for the upcoming Student Information CMS is in [do
 
 Tracked, not yet built. Grouped by area; roughly the order they'll get picked up.
 
+**Navigation & Settings**
+- Rename/evolve Plan Book into "Dashboard" — same home page, but surfaces
+  daily notes/reminders (e.g. upcoming birthdays) alongside the lesson view.
+- Add a real mobile bottom tab bar (Dashboard, Lessons, Students, Schedule,
+  More) instead of the current hamburger-only mobile nav. Assistant is the
+  leading candidate to take a tab slot once it becomes a real chat interface.
+- Move Classes into Settings as its own section (setup-time task, not a
+  daily-use page).
+- Move School Year management (switch/create/delete years) from Calendar
+  into Settings; Calendar refocuses purely on showing the active year's
+  calendar, styled like the onboarding wizard's calendar grid.
+
 **Onboarding wizard**
 - Range-select multiple calendar days (shift-click first + last day of a
   break) to label them all in one action, instead of one day per click.
