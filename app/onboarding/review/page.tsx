@@ -5,7 +5,7 @@ import { OnboardingSteps } from "@/src/features/planner/OnboardingSteps";
 import type { ClassColor } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
-import { getPeriods, getScheduleSlots } from "@/src/lib/db/schedule-repository";
+import { getScheduleSlots } from "@/src/lib/db/schedule-repository";
 
 const classDotColorClass: Record<ClassColor, string> = {
   amber: "bg-amber-500",
@@ -39,7 +39,6 @@ export default async function OnboardingReviewRoute() {
   const db = getClassPilotDatabase();
   const plannerData = getClassPilotPlannerData();
   const schoolYearId = plannerData.schoolYear.id;
-  const periods = getPeriods(db, schoolYearId);
   const scheduleSlots = getScheduleSlots(db, schoolYearId);
   // Non-instructional blocks (recess, supervision, assemblies) aren't real
   // curriculum time — exclude them from the review.
@@ -49,7 +48,6 @@ export default async function OnboardingReviewRoute() {
   const summary = computeInstructionalTimeSummary(
     plannerData.schoolYear,
     instructionalClasses,
-    periods,
     scheduleSlots,
   );
   const summaryByClassId = new Map(summary.map((entry) => [entry.classId, entry]));

@@ -8,15 +8,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { plannerData } from "@/src/features/planner/seed-data";
-import { createClass, createSchoolYear, getClassById, seedPlannerData } from "./planner-repository";
+import { createClass, getClassById, seedPlannerData } from "./planner-repository";
 import {
-  assignScheduleSlot,
-  createPeriod,
-  deletePeriod,
-  getPeriods,
   getScheduleSlots,
-  removeScheduleSlot,
-  updatePeriod,
+  getScheduleSlotsForClass,
+  setClassSchedule,
 } from "./schedule-repository";
 import { createClassPilotDatabase } from "./sqlite";
 
@@ -25,162 +21,129 @@ function temporaryDatabasePath() {
 }
 
 describe("schedule repository", () => {
-  it("creates, updates, and deletes periods", () => {
+  it("sets a class's schedule and syncs its cycleDays", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    const schoolYearId = createSchoolYear(db, {
-      title: "Test Year",
-      startDate: "2026-09-01",
-      endDate: "2026-06-30",
-      cycleLength: 5,
-    });
+    seedPlannerData(db, plannerData);
+    const schoolYearId = plannerData.schoolYear.id;
 
-    const periodId = createPeriod(db, {
-      schoolYearId,
-      label: "Period 1",
-      startTime: "08:40",
-      endTime: "09:43",
-      sortOrder: 1,
-    });
+    const conflicts = setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:43", endTime: "10:45" },
+    ]);
 
-    expect(getPeriods(db, schoolYearId)).toEqual([
+    expect(conflicts).toEqual([]);
+    expect(getScheduleSlots(db, schoolYearId)).toEqual([
       {
-        id: periodId,
-        schoolYearId,
-        label: "Period 1",
-        startTime: "08:40",
-        endTime: "09:43",
-        sortOrder: 1,
+        id: expect.any(String),
+        classId: "grade-6-math",
+        cycleDay: 1,
+        startTime: "09:43",
+        endTime: "10:45",
       },
     ]);
-
-    updatePeriod(db, {
-      id: periodId,
-      label: "Period 1 (renamed)",
-      startTime: "08:45",
-      endTime: "09:45",
-      sortOrder: 1,
-    });
-
-    expect(getPeriods(db, schoolYearId)[0]).toMatchObject({
-      label: "Period 1 (renamed)",
-      startTime: "08:45",
-    });
-
-    deletePeriod(db, periodId);
-    expect(getPeriods(db, schoolYearId)).toEqual([]);
+    expect(getClassById(db, "grade-6-math")?.cycleDays).toEqual([1]);
   });
 
-  it("orders periods by sortOrder then startTime", () => {
-    const db = createClassPilotDatabase(temporaryDatabasePath());
-    const schoolYearId = createSchoolYear(db, {
-      title: "Test Year",
-      startDate: "2026-09-01",
-      endDate: "2026-06-30",
-      cycleLength: 5,
-    });
-
-    createPeriod(db, { schoolYearId, label: "Period 2", startTime: "09:43", endTime: "10:45", sortOrder: 2 });
-    createPeriod(db, { schoolYearId, label: "Period 1", startTime: "08:40", endTime: "09:43", sortOrder: 1 });
-
-    expect(getPeriods(db, schoolYearId).map((period) => period.label)).toEqual(["Period 1", "Period 2"]);
-  });
-
-  it("throws when updating a nonexistent period", () => {
-    const db = createClassPilotDatabase(temporaryDatabasePath());
-
-    expect(() =>
-      updatePeriod(db, {
-        id: "period-does-not-exist",
-        label: "X",
-        startTime: "08:00",
-        endTime: "09:00",
-        sortOrder: 1,
-      }),
-    ).toThrow("Period not found");
-  });
-
-  it("assigns a class to a slot and syncs the class's cycleDays", () => {
+  it("sets multiple days in one call", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     seedPlannerData(db, plannerData);
-    const schoolYearId = plannerData.schoolYear.id;
 
-    const periodId = createPeriod(db, {
-      schoolYearId,
-      label: "Period 2",
-      startTime: "09:43",
-      endTime: "10:45",
-      sortOrder: 2,
-    });
-
-    const result = assignScheduleSlot(db, {
-      classId: "grade-6-math",
-      periodId,
-      cycleDay: 1,
-    });
-
-    expect(result.conflictClassName).toBeUndefined();
-    expect(getScheduleSlots(db, schoolYearId)).toEqual([
-      { id: result.id, classId: "grade-6-math", periodId, cycleDay: 1 },
+    setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:00", endTime: "09:50" },
+      { cycleDay: 2, startTime: "09:00", endTime: "09:50" },
+      { cycleDay: 3, startTime: "10:00", endTime: "10:50" },
     ]);
-    expect(getClassById(db, "grade-6-math")?.cycleDays).toContain(1);
+
+    const slots = getScheduleSlotsForClass(db, "grade-6-math");
+    expect(slots).toHaveLength(3);
+    expect(getClassById(db, "grade-6-math")?.cycleDays).toEqual([1, 2, 3]);
   });
 
-  it("replaces a class's existing slot on the same cycle day rather than duplicating", () => {
+  it("replaces a class's existing schedule rather than appending to it", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     seedPlannerData(db, plannerData);
-    const schoolYearId = plannerData.schoolYear.id;
 
-    const period1 = createPeriod(db, { schoolYearId, label: "P1", startTime: "08:00", endTime: "09:00", sortOrder: 1 });
-    const period2 = createPeriod(db, { schoolYearId, label: "P2", startTime: "09:00", endTime: "10:00", sortOrder: 2 });
+    setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:00", endTime: "09:50" },
+    ]);
+    setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 2, startTime: "10:00", endTime: "10:50" },
+    ]);
 
-    assignScheduleSlot(db, { classId: "grade-6-math", periodId: period1, cycleDay: 1 });
-    assignScheduleSlot(db, { classId: "grade-6-math", periodId: period2, cycleDay: 1 });
-
-    const slots = getScheduleSlots(db, schoolYearId).filter((slot) => slot.classId === "grade-6-math");
+    const slots = getScheduleSlotsForClass(db, "grade-6-math");
     expect(slots).toHaveLength(1);
-    expect(slots[0].periodId).toBe(period2);
+    expect(slots[0].cycleDay).toBe(2);
   });
 
-  it("flags a conflict when a different class already holds that (day, period) but still assigns it", () => {
+  it("clears a class's schedule when given an empty list", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     seedPlannerData(db, plannerData);
-    const schoolYearId = plannerData.schoolYear.id;
 
-    const periodId = createPeriod(db, { schoolYearId, label: "P1", startTime: "08:00", endTime: "09:00", sortOrder: 1 });
+    setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:00", endTime: "09:50" },
+    ]);
+    setClassSchedule(db, "grade-6-math", []);
 
-    assignScheduleSlot(db, { classId: "grade-6-math", periodId, cycleDay: 1 });
-    const second = assignScheduleSlot(db, { classId: "grade-6-science", periodId, cycleDay: 1 });
-
-    expect(second.conflictClassName).toBe("Grade 6 Math");
-    const slots = getScheduleSlots(db, schoolYearId).filter((slot) => slot.cycleDay === 1 && slot.periodId === periodId);
-    expect(slots.map((slot) => slot.classId).sort()).toEqual(["grade-6-math", "grade-6-science"]);
+    expect(getScheduleSlotsForClass(db, "grade-6-math")).toEqual([]);
+    expect(getClassById(db, "grade-6-math")?.cycleDays).toEqual([]);
   });
 
-  it("removes a slot without touching the class's cycleDays", () => {
+  it("flags a conflict when another class overlaps on the same cycle day", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     seedPlannerData(db, plannerData);
-    const schoolYearId = plannerData.schoolYear.id;
 
-    const periodId = createPeriod(db, { schoolYearId, label: "P1", startTime: "08:00", endTime: "09:00", sortOrder: 1 });
-    const { id } = assignScheduleSlot(db, { classId: "grade-6-math", periodId, cycleDay: 1 });
+    setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:00", endTime: "10:00" },
+    ]);
 
-    removeScheduleSlot(db, id);
+    const conflicts = setClassSchedule(db, "grade-6-science", [
+      { cycleDay: 1, startTime: "09:30", endTime: "10:30" },
+    ]);
 
-    expect(getScheduleSlots(db, schoolYearId)).toEqual([]);
-    expect(getClassById(db, "grade-6-math")?.cycleDays).toContain(1);
+    expect(conflicts).toEqual([{ cycleDay: 1, className: "Grade 6 Math" }]);
+    // Still assigned despite the conflict — warning, not a block.
+    expect(getScheduleSlotsForClass(db, "grade-6-science")).toHaveLength(1);
   });
 
-  it("cascades slot deletion when the period is deleted", () => {
+  it("does not flag a conflict for adjacent (non-overlapping) times", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     seedPlannerData(db, plannerData);
-    const schoolYearId = plannerData.schoolYear.id;
 
-    const periodId = createPeriod(db, { schoolYearId, label: "P1", startTime: "08:00", endTime: "09:00", sortOrder: 1 });
-    assignScheduleSlot(db, { classId: "grade-6-math", periodId, cycleDay: 1 });
+    setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:00", endTime: "10:00" },
+    ]);
 
-    deletePeriod(db, periodId);
+    const conflicts = setClassSchedule(db, "grade-6-science", [
+      { cycleDay: 1, startTime: "10:00", endTime: "11:00" },
+    ]);
 
-    expect(getScheduleSlots(db, schoolYearId)).toEqual([]);
+    expect(conflicts).toEqual([]);
+  });
+
+  it("does not flag a conflict for the same class's own slots", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const conflicts = setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:00", endTime: "10:00" },
+      { cycleDay: 1, startTime: "09:30", endTime: "10:30" },
+    ]);
+
+    expect(conflicts).toEqual([]);
+  });
+
+  it("does not flag a conflict for a different cycle day", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:00", endTime: "10:00" },
+    ]);
+
+    const conflicts = setClassSchedule(db, "grade-6-science", [
+      { cycleDay: 2, startTime: "09:00", endTime: "10:00" },
+    ]);
+
+    expect(conflicts).toEqual([]);
   });
 
   it("cascades slot deletion when the class is deleted", () => {
@@ -188,7 +151,6 @@ describe("schedule repository", () => {
     seedPlannerData(db, plannerData);
     const schoolYearId = plannerData.schoolYear.id;
 
-    const periodId = createPeriod(db, { schoolYearId, label: "P1", startTime: "08:00", endTime: "09:00", sortOrder: 1 });
     const classId = createClass(db, {
       schoolYearId,
       name: "Temp Class",
@@ -198,10 +160,12 @@ describe("schedule repository", () => {
       meetingPattern: "",
       cycleDays: [],
     });
-    assignScheduleSlot(db, { classId, periodId, cycleDay: 1 });
+    setClassSchedule(db, classId, [{ cycleDay: 1, startTime: "09:00", endTime: "09:50" }]);
 
     db.prepare("DELETE FROM class_sections WHERE id = ?").run(classId);
 
-    expect(getScheduleSlots(db, schoolYearId)).toEqual([]);
+    expect(getScheduleSlots(db, schoolYearId).some((slot) => slot.classId === classId)).toBe(
+      false,
+    );
   });
 });

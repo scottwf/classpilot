@@ -3,119 +3,59 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
-import { getActiveSchoolYearId } from "@/src/lib/db/planner-repository";
-import {
-  assignScheduleSlot,
-  createPeriod,
-  deletePeriod,
-  getPeriods,
-  removeScheduleSlot,
-  updatePeriod,
-} from "@/src/lib/db/schedule-repository";
+import { setClassSchedule, type ClassScheduleSlotInput } from "@/src/lib/db/schedule-repository";
 
-function timePattern(value: string): boolean {
-  return /^\d{2}:\d{2}$/.test(value);
-}
+const timePattern = /^\d{2}:\d{2}$/;
 
-// Onboarding wizard forms carry a hidden wizard=1 field so the redirect
-// back to /schedule keeps the wizard banner and "Continue to review" link
-// showing across every mutation, not just the first page load.
-function wizardSuffix(formData: FormData): string {
-  return formData.get("wizard") === "1" ? "&wizard=1" : "";
-}
+// The ClassScheduleEditor builds this client-side and hands it over as
+// JSON — re-validate the shape rather than trusting form data.
+function parseSlotsJson(raw: string): ClassScheduleSlotInput[] {
+  let parsed: unknown;
 
-export async function createPeriodAction(formData: FormData) {
-  await requireAuth();
-
-  const label = String(formData.get("label") ?? "").trim();
-  const startTime = String(formData.get("startTime") ?? "").trim();
-  const endTime = String(formData.get("endTime") ?? "").trim();
-  const suffix = wizardSuffix(formData);
-
-  if (!label || !timePattern(startTime) || !timePattern(endTime) || endTime <= startTime) {
-    redirect(`/schedule?error=period${suffix}`);
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
   }
 
-  const db = getClassPilotDatabase();
-  const schoolYearId = getActiveSchoolYearId(db);
-  const nextSortOrder = getPeriods(db, schoolYearId).length + 1;
-
-  createPeriod(db, { schoolYearId, label, startTime, endTime, sortOrder: nextSortOrder });
-
-  redirect(suffix ? `/schedule?wizard=1` : "/schedule");
-}
-
-export async function updatePeriodAction(formData: FormData) {
-  await requireAuth();
-
-  const id = String(formData.get("id") ?? "").trim();
-  const label = String(formData.get("label") ?? "").trim();
-  const startTime = String(formData.get("startTime") ?? "").trim();
-  const endTime = String(formData.get("endTime") ?? "").trim();
-  const sortOrder = Number(formData.get("sortOrder"));
-
-  if (
-    !id ||
-    !label ||
-    !timePattern(startTime) ||
-    !timePattern(endTime) ||
-    endTime <= startTime ||
-    !Number.isInteger(sortOrder)
-  ) {
-    redirect("/schedule?error=period");
+  if (!Array.isArray(parsed)) {
+    return [];
   }
 
-  updatePeriod(getClassPilotDatabase(), { id, label, startTime, endTime, sortOrder });
-
-  redirect("/schedule");
+  return parsed.filter((entry): entry is ClassScheduleSlotInput => {
+    return (
+      typeof entry === "object" &&
+      entry !== null &&
+      typeof (entry as ClassScheduleSlotInput).cycleDay === "number" &&
+      Number.isInteger((entry as ClassScheduleSlotInput).cycleDay) &&
+      (entry as ClassScheduleSlotInput).cycleDay > 0 &&
+      typeof (entry as ClassScheduleSlotInput).startTime === "string" &&
+      timePattern.test((entry as ClassScheduleSlotInput).startTime) &&
+      typeof (entry as ClassScheduleSlotInput).endTime === "string" &&
+      timePattern.test((entry as ClassScheduleSlotInput).endTime) &&
+      (entry as ClassScheduleSlotInput).endTime > (entry as ClassScheduleSlotInput).startTime
+    );
+  });
 }
 
-export async function deletePeriodAction(formData: FormData) {
-  await requireAuth();
-
-  const id = String(formData.get("id") ?? "").trim();
-  const suffix = wizardSuffix(formData);
-
-  if (id) {
-    deletePeriod(getClassPilotDatabase(), id);
-  }
-
-  redirect(suffix ? `/schedule?wizard=1` : "/schedule");
-}
-
-export async function assignScheduleSlotAction(formData: FormData) {
+export async function setClassScheduleAction(formData: FormData) {
   await requireAuth();
 
   const classId = String(formData.get("classId") ?? "").trim();
-  const periodId = String(formData.get("periodId") ?? "").trim();
-  const cycleDay = Number(formData.get("cycleDay"));
-  const suffix = wizardSuffix(formData);
+  const suffix = formData.get("wizard") === "1" ? "&wizard=1" : "";
 
-  if (!classId || !periodId || !Number.isInteger(cycleDay) || cycleDay < 1) {
-    redirect(`/schedule?error=slot${suffix}`);
+  if (!classId) {
+    redirect(`/schedule?error=missing${suffix}`);
   }
 
-  const result = assignScheduleSlot(getClassPilotDatabase(), { classId, periodId, cycleDay });
+  const slots = parseSlotsJson(String(formData.get("slotsJson") ?? "[]"));
+  const conflicts = setClassSchedule(getClassPilotDatabase(), classId, slots);
 
-  if (result.conflictClassName) {
+  if (conflicts.length > 0) {
     redirect(
-      `/schedule?day=${cycleDay}&conflictClassId=${encodeURIComponent(classId)}&conflictWith=${encodeURIComponent(result.conflictClassName)}${suffix}`,
+      `/schedule?conflictClassId=${encodeURIComponent(classId)}&conflictClassName=${encodeURIComponent(conflicts[0].className)}${suffix}`,
     );
   }
 
-  redirect(`/schedule?day=${cycleDay}${suffix}`);
-}
-
-export async function removeScheduleSlotAction(formData: FormData) {
-  await requireAuth();
-
-  const id = String(formData.get("id") ?? "").trim();
-  const cycleDay = String(formData.get("cycleDay") ?? "").trim();
-  const suffix = wizardSuffix(formData);
-
-  if (id) {
-    removeScheduleSlot(getClassPilotDatabase(), id);
-  }
-
-  redirect(`/schedule?day=${cycleDay}${suffix}`);
+  redirect(suffix ? "/schedule?wizard=1" : "/schedule");
 }

@@ -1,11 +1,11 @@
-import type { ClassSection, Period, ScheduleSlot, SchoolYear } from "./types";
+import type { ClassSection, ScheduleSlot, SchoolYear } from "./types";
 import { buildCycleDayMap } from "./cycle";
 
 type TimeSchoolYear = Pick<SchoolYear, "startDate" | "endDate" | "blockedDates" | "cycleLength">;
 
-function periodDurationMinutes(period: Pick<Period, "startTime" | "endTime">): number {
-  const [startHour, startMinute] = period.startTime.split(":").map(Number);
-  const [endHour, endMinute] = period.endTime.split(":").map(Number);
+function slotDurationMinutes(slot: Pick<ScheduleSlot, "startTime" | "endTime">): number {
+  const [startHour, startMinute] = slot.startTime.split(":").map(Number);
+  const [endHour, endMinute] = slot.endTime.split(":").map(Number);
   return endHour * 60 + endMinute - (startHour * 60 + startMinute);
 }
 
@@ -26,27 +26,21 @@ function countCycleDayOccurrences(schoolYear: TimeSchoolYear): Map<number, numbe
  * Total scheduled instructional minutes for one class across the school
  * year, based on its actual schedule_slots (not just cycleDays membership,
  * which only says which days a class meets, not for how long) — each
- * slot's period duration times how many times that cycle day actually
- * occurs between the school year's start and end date.
+ * slot's own duration times how many times that cycle day actually occurs
+ * between the school year's start and end date.
  */
 export function computeScheduledMinutesForClass(
   schoolYear: TimeSchoolYear,
   classId: string,
-  periods: Pick<Period, "id" | "startTime" | "endTime">[],
-  scheduleSlots: Pick<ScheduleSlot, "classId" | "periodId" | "cycleDay">[],
+  scheduleSlots: Pick<ScheduleSlot, "classId" | "cycleDay" | "startTime" | "endTime">[],
 ): number {
   const occurrences = countCycleDayOccurrences(schoolYear);
-  const periodById = new Map(periods.map((period) => [period.id, period]));
 
   return scheduleSlots
     .filter((slot) => slot.classId === classId)
     .reduce((total, slot) => {
-      const period = periodById.get(slot.periodId);
-      if (!period) {
-        return total;
-      }
       const occurrenceCount = occurrences.get(slot.cycleDay) ?? 0;
-      return total + periodDurationMinutes(period) * occurrenceCount;
+      return total + slotDurationMinutes(slot) * occurrenceCount;
     }, 0);
 }
 
@@ -66,14 +60,12 @@ export type ClassInstructionalTime = {
 export function computeInstructionalTimeSummary(
   schoolYear: TimeSchoolYear,
   classes: Pick<ClassSection, "id" | "targetMinutesPerYear">[],
-  periods: Pick<Period, "id" | "startTime" | "endTime">[],
-  scheduleSlots: Pick<ScheduleSlot, "classId" | "periodId" | "cycleDay">[],
+  scheduleSlots: Pick<ScheduleSlot, "classId" | "cycleDay" | "startTime" | "endTime">[],
 ): ClassInstructionalTime[] {
   return classes.map((classSection) => {
     const scheduledMinutes = computeScheduledMinutesForClass(
       schoolYear,
       classSection.id,
-      periods,
       scheduleSlots,
     );
     const targetMinutesPerYear = classSection.targetMinutesPerYear;

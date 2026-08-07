@@ -164,19 +164,16 @@ export function migrate(db: ClassPilotDatabase) {
       completed_at TEXT NOT NULL DEFAULT ''
     );
 
-    CREATE TABLE IF NOT EXISTS periods (
-      id TEXT PRIMARY KEY,
-      label TEXT NOT NULL,
-      start_time TEXT NOT NULL,
-      end_time TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0
-    );
-
+    -- A class's own meeting time on one cycle day — no shared "period"
+    -- entity; see ScheduleSlot in src/features/planner/types.ts. Existing
+    -- installs get migrated off the old periods/schedule_slots(period_id)
+    -- shape by migrateAwayFromPeriods() below.
     CREATE TABLE IF NOT EXISTS schedule_slots (
       id TEXT PRIMARY KEY,
       class_id TEXT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
-      period_id TEXT NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
-      cycle_day INTEGER NOT NULL
+      cycle_day INTEGER NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_students_year ON students(school_year_id, last_name);
@@ -186,7 +183,7 @@ export function migrate(db: ClassPilotDatabase) {
     CREATE INDEX IF NOT EXISTS idx_support_student ON support_plans(student_id);
     CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(status, due_date);
     CREATE INDEX IF NOT EXISTS idx_schedule_slots_class ON schedule_slots(class_id);
-    CREATE INDEX IF NOT EXISTS idx_schedule_slots_day_period ON schedule_slots(cycle_day, period_id);
+    CREATE INDEX IF NOT EXISTS idx_schedule_slots_day ON schedule_slots(cycle_day);
   `);
 
   addColumnIfMissing(
@@ -247,18 +244,65 @@ export function migrate(db: ClassPilotDatabase) {
     "school_year_id",
     "TEXT REFERENCES school_years(id) ON DELETE CASCADE",
   );
-  addColumnIfMissing(
-    db,
-    "periods",
-    "school_year_id",
-    "TEXT REFERENCES school_years(id) ON DELETE CASCADE",
-  );
 
   backfillSchoolYearScoping(db);
+  migrateAwayFromPeriods(db);
 }
 
-// Points every pre-existing class_sections/periods row at the earliest
-// school_years row (there was only ever one before multi-year support), and
+// Existing installs have a `periods` table (shared bell-schedule times) and
+// schedule_slots(period_id). Classes are scheduled directly with their own
+// (cycleDay, startTime, endTime) now — no shared period entity — so this
+// moves each slot's period time onto the slot itself, then drops periods
+// entirely. No-ops once already migrated (periods table gone) or on a
+// brand-new install (never had one).
+function migrateAwayFromPeriods(db: ClassPilotDatabase) {
+  const periodsTableExists = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'periods'")
+    .get();
+
+  if (!periodsTableExists) {
+    return;
+  }
+
+  const scheduleSlotsColumns = db.prepare("PRAGMA table_info(schedule_slots)").all() as Array<{
+    name: string;
+  }>;
+  const alreadyMigrated = scheduleSlotsColumns.some((column) => column.name === "start_time");
+
+  if (!alreadyMigrated) {
+    db.exec("BEGIN;");
+    try {
+      db.exec(`
+        CREATE TABLE schedule_slots_new (
+          id TEXT PRIMARY KEY,
+          class_id TEXT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+          cycle_day INTEGER NOT NULL,
+          start_time TEXT NOT NULL,
+          end_time TEXT NOT NULL
+        );
+      `);
+      db.exec(`
+        INSERT INTO schedule_slots_new (id, class_id, cycle_day, start_time, end_time)
+        SELECT ss.id, ss.class_id, ss.cycle_day, p.start_time, p.end_time
+        FROM schedule_slots ss
+        JOIN periods p ON p.id = ss.period_id;
+      `);
+      db.exec("DROP TABLE schedule_slots;");
+      db.exec("ALTER TABLE schedule_slots_new RENAME TO schedule_slots;");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_schedule_slots_class ON schedule_slots(class_id);");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_schedule_slots_day ON schedule_slots(cycle_day);");
+      db.exec("COMMIT;");
+    } catch (error) {
+      db.exec("ROLLBACK;");
+      throw error;
+    }
+  }
+
+  db.exec("DROP TABLE periods;");
+}
+
+// Points every pre-existing class_sections row at the earliest school_years
+// row (there was only ever one before multi-year support), and
 // bootstraps app_state so getActiveSchoolYearId() always has something to
 // return. No-ops once already backfilled (checks IS NULL / NOT EXISTS), and
 // no-ops entirely on a brand-new database (no school_years row yet — the
@@ -273,9 +317,6 @@ function backfillSchoolYearScoping(db: ClassPilotDatabase) {
   }
 
   db.prepare("UPDATE class_sections SET school_year_id = ? WHERE school_year_id IS NULL").run(
-    firstYear.id,
-  );
-  db.prepare("UPDATE periods SET school_year_id = ? WHERE school_year_id IS NULL").run(
     firstYear.id,
   );
   db.prepare(

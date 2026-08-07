@@ -119,31 +119,21 @@ export type PlannerData = {
   units: UnitPlan[];
 };
 
-/** One row of the school-wide bell schedule. Times are fixed across every
- * cycle day (e.g. "Period 2" is always 9:43-10:45 regardless of which cycle
- * day it is) — only which class occupies a period changes by day, via
- * ScheduleSlot. See src/lib/db/schedule-repository.ts. */
-export type Period = {
+/** One class's meeting time on one cycle day — a class has at most one slot
+ * per cycle day (setting a new one for that day replaces the old one via
+ * setClassSchedule, which replaces a class's whole schedule at once). Two
+ * different classes CAN have overlapping (cycleDay, time) — that's flagged
+ * as a conflict warning when saving, not blocked (a teacher may have a
+ * legitimate reason, e.g. team teaching). See
+ * src/lib/db/schedule-repository.ts. */
+export type ScheduleSlot = {
   id: string;
-  schoolYearId: string;
-  label: string;
+  classId: string;
+  cycleDay: number;
   /** 24-hour "HH:MM". */
   startTime: string;
   /** 24-hour "HH:MM". */
   endTime: string;
-  sortOrder: number;
-};
-
-/** Assigns one class to one period on one cycle day. A class can have at
- * most one slot per cycle day (assigning a new period for a day it's
- * already scheduled replaces the old one); two different classes CAN share
- * a (cycleDay, periodId) — that's flagged as a conflict warning at
- * assignment time, not blocked (a teacher may have a legitimate reason). */
-export type ScheduleSlot = {
-  id: string;
-  classId: string;
-  periodId: string;
-  cycleDay: number;
 };
 
 export type InstructionalDay = {

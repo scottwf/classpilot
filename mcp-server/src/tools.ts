@@ -20,15 +20,7 @@ import {
   updateUnit,
 } from "../../src/lib/db/planner-repository.ts";
 import { parseLessonMarkdown } from "../../src/lib/lessons/markdown-import.ts";
-import {
-  assignScheduleSlot,
-  createPeriod,
-  deletePeriod,
-  getPeriods,
-  getScheduleSlots,
-  removeScheduleSlot,
-  updatePeriod,
-} from "../../src/lib/db/schedule-repository.ts";
+import { getScheduleSlots, setClassSchedule } from "../../src/lib/db/schedule-repository.ts";
 
 const colorEnum = z
   .enum(["blue", "emerald", "amber", "rose", "violet"])
@@ -264,19 +256,16 @@ export function registerClassPilotTools(server: McpServer) {
   server.registerTool(
     "get_schedule",
     {
-      title: "Get bell schedule",
+      title: "Get schedule",
       description:
-        "Returns the school's periods (the bell schedule — same times every cycle day) and every schedule slot (which class occupies which period on which cycle day). Call this before assigning or removing a slot.",
+        "Returns every schedule slot (which class meets on which cycle day, and at what time) for the active school year. Call this before set_class_schedule.",
       inputSchema: {},
     },
     async () => {
       try {
         const db = getDb();
         const schoolYearId = getActiveSchoolYearId(db);
-        return ok({
-          periods: getPeriods(db, schoolYearId),
-          scheduleSlots: getScheduleSlots(db, schoolYearId),
-        });
+        return ok({ scheduleSlots: getScheduleSlots(db, schoolYearId) });
       } catch (error) {
         return fail(error);
       }
@@ -284,108 +273,32 @@ export function registerClassPilotTools(server: McpServer) {
   );
 
   server.registerTool(
-    "create_period",
+    "set_class_schedule",
     {
-      title: "Create period",
+      title: "Set a class's schedule",
       description:
-        "Adds a period to the bell schedule (e.g. 'Period 2', 08:40-09:43). Times are the same every cycle day. Returns the new period's ID.",
-      inputSchema: {
-        label: z.string().min(1),
-        startTime: z.string().describe("24-hour \"HH:MM\", e.g. 08:40."),
-        endTime: z.string().describe("24-hour \"HH:MM\", e.g. 09:43."),
-        sortOrder: z.number().int().describe("Display order, lowest first."),
-      },
-    },
-    async (input) => {
-      try {
-        const db = getDb();
-        const id = createPeriod(db, { ...input, schoolYearId: getActiveSchoolYearId(db) });
-        return ok({ periodId: id });
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
-
-  server.registerTool(
-    "update_period",
-    {
-      title: "Update period",
-      description: "Updates an existing period's label, times, or sort order.",
-      inputSchema: {
-        id: z.string().describe("Period ID to update."),
-        label: z.string().min(1),
-        startTime: z.string().describe("24-hour \"HH:MM\", e.g. 08:40."),
-        endTime: z.string().describe("24-hour \"HH:MM\", e.g. 09:43."),
-        sortOrder: z.number().int().describe("Display order, lowest first."),
-      },
-    },
-    async (input) => {
-      try {
-        updatePeriod(getDb(), input);
-        return ok({ success: true });
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
-
-  server.registerTool(
-    "delete_period",
-    {
-      title: "Delete period",
-      description:
-        "Deletes a period from the bell schedule and, by cascade, every schedule slot using it.",
-      inputSchema: {
-        id: z.string().describe("Period ID to delete."),
-      },
-    },
-    async ({ id }) => {
-      try {
-        deletePeriod(getDb(), id);
-        return ok({ success: true });
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
-
-  server.registerTool(
-    "assign_schedule_slot",
-    {
-      title: "Assign schedule slot",
-      description:
-        "Assigns a class to a period on a cycle day (e.g. Math on Day 1, Period 2). A class has at most one slot per cycle day — assigning a new period for a day it's already scheduled replaces the old one. If a DIFFERENT class already holds that (day, period), the assignment still happens but the result flags a conflictClassName — surface that as a warning, don't silently ignore it. Also marks the cycle day as a meeting day for the class (updates its cycleDays).",
+        "Replaces a class's entire schedule in one step — no separate 'period' entity, each day the class meets carries its own start/end time directly. Also sets the class's cycleDays to exactly the days given here. If another class already has an overlapping time on the same cycle day, the assignment still happens but the result flags a conflicts list — surface that as a warning, don't silently ignore it. Pass an empty slots array to clear a class's schedule entirely.",
       inputSchema: {
         classId: z.string().describe("Class ID from get_planner_data."),
-        periodId: z.string().describe("Period ID from get_schedule."),
-        cycleDay: z.number().int().positive().describe("Cycle day (1..schoolYear.cycleLength)."),
+        slots: z
+          .array(
+            z.object({
+              cycleDay: z
+                .number()
+                .int()
+                .positive()
+                .describe("Cycle day (1..schoolYear.cycleLength)."),
+              startTime: z.string().describe("24-hour \"HH:MM\", e.g. 08:40."),
+              endTime: z.string().describe("24-hour \"HH:MM\", e.g. 09:43."),
+            }),
+          )
+          .describe("The class's complete new schedule — replaces whatever it had before."),
       },
     },
-    async (input) => {
+    async ({ classId, slots }) => {
       try {
-        const result = assignScheduleSlot(getDb(), input);
-        return ok(result);
-      } catch (error) {
-        return fail(error);
-      }
-    },
-  );
-
-  server.registerTool(
-    "remove_schedule_slot",
-    {
-      title: "Remove schedule slot",
-      description:
-        "Removes a schedule slot. Does not change the class's cycleDays (the day may still be a meeting day for other reasons).",
-      inputSchema: {
-        id: z.string().describe("Schedule slot ID to remove."),
-      },
-    },
-    async ({ id }) => {
-      try {
-        removeScheduleSlot(getDb(), id);
-        return ok({ success: true });
+        const conflicts = setClassSchedule(getDb(), classId, slots);
+        return ok({ success: true, conflicts });
       } catch (error) {
         return fail(error);
       }

@@ -1,8 +1,28 @@
-import Link from "next/link";
-import { getDayLabel } from "./cycle";
-import type { ClassColor, ClassSection, DayLabelScheme, Period, ScheduleSlot } from "./types";
+"use client";
 
-const classColorClass: Record<ClassColor, string> = {
+import Link from "next/link";
+import { useState } from "react";
+import { ClassScheduleEditor } from "./ClassScheduleEditor";
+import { getDayLabel } from "./cycle";
+import type { ClassColor, ClassSection, DayLabelScheme, ScheduleSlot } from "./types";
+
+type ServerAction = (formData: FormData) => void | Promise<void>;
+
+type SchedulePageProps = {
+  action: ServerAction;
+  classes: ClassSection[];
+  conflictClassId?: string;
+  conflictClassName?: string;
+  cycleLength: number;
+  dayLabelScheme: DayLabelScheme;
+  error?: string;
+  scheduleSlots: ScheduleSlot[];
+  /** True when arriving from the school-year onboarding wizard — shows a
+   * banner and a "Continue to review" link. See app/onboarding/. */
+  wizardMode?: boolean;
+};
+
+const classBlockColorClass: Record<ClassColor, string> = {
   amber: "bg-amber-100 text-amber-950",
   blue: "bg-blue-100 text-blue-950",
   emerald: "bg-emerald-100 text-emerald-950",
@@ -24,69 +44,44 @@ const classDotColorClass: Record<ClassColor, string> = {
   violet: "bg-violet-500",
 };
 
-type ServerAction = (formData: FormData) => void | Promise<void>;
-
-type SchedulePageProps = {
-  actions: {
-    assignSlot: ServerAction;
-    createPeriod: ServerAction;
-    deletePeriod: ServerAction;
-    removeSlot: ServerAction;
-  };
-  classes: ClassSection[];
-  conflictClassId?: string;
-  conflictWith?: string;
-  cycleLength: number;
-  dayLabelScheme: DayLabelScheme;
-  error?: string;
-  periods: Period[];
-  scheduleSlots: ScheduleSlot[];
-  selectedDay: number;
-  /** True when arriving from the school-year onboarding wizard — shows a
-   * banner and a "Continue to review" link instead of being a standalone
-   * page. See app/onboarding/. */
-  wizardMode?: boolean;
-};
-
-const inputClass =
-  "mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
-
 export function SchedulePage({
-  actions,
+  action,
   classes,
   conflictClassId,
-  conflictWith,
+  conflictClassName,
   cycleLength,
   dayLabelScheme,
   error,
-  periods,
   scheduleSlots,
-  selectedDay,
   wizardMode,
 }: SchedulePageProps) {
-  const dayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
-  const conflictClass = classes.find((candidate) => candidate.id === conflictClassId);
-  const daySuffix = wizardMode ? "&wizard=1" : "";
+  const [selectedClassId, setSelectedClassId] = useState<string | undefined>(conflictClassId);
+
+  const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
+  const classById = new Map(classes.map((classSection) => [classSection.id, classSection]));
+  const selectedClass = selectedClassId ? classById.get(selectedClassId) : undefined;
+  const selectedClassSlots = selectedClassId
+    ? scheduleSlots.filter((slot) => slot.classId === selectedClassId)
+    : [];
 
   return (
     <>
       <section>
         <p className="text-sm font-medium text-blue-700">Schedule</p>
         <h2 className="mt-1 text-2xl font-semibold text-slate-950">
-          Bell schedule and class timetable.
+          Class timetable.
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Set up your periods once (times are the same every cycle day), then
-          assign a class to each period on each day it meets. Assigning a
-          slot also marks that day as a meeting day for the class, so cascade
-          rescheduling and lesson extension land on it correctly.
+          See every class across all {cycleLength} cycle days at once. Click
+          a class below to set which days it meets and at what times —
+          saving replaces that class&apos;s whole schedule.
         </p>
       </section>
 
       {wizardMode ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
           <p className="text-sm text-blue-800">
-            Set up periods and assign classes to the days they meet, then
+            Click each class below and set the days/times it meets, then
             continue to review your instructional time.
           </p>
           <Link
@@ -98,11 +93,10 @@ export function SchedulePage({
         </div>
       ) : null}
 
-      {conflictWith ? (
+      {conflictClassName ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {conflictClass?.name ?? "This class"} now shares {getDayLabel(dayLabelScheme, selectedDay)} with{" "}
-          {conflictWith} in the same period. Both are saved — double-check
-          that&apos;s intentional.
+          This schedule now overlaps with {conflictClassName} on at least one
+          day. Both are saved — double-check that&apos;s intentional.
         </div>
       ) : null}
 
@@ -113,206 +107,107 @@ export function SchedulePage({
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap gap-1 border-b border-slate-200 p-3">
-            {dayNumbers.map((day) => (
-              <Link
-                className={[
-                  "rounded-md px-3 py-2 text-sm font-medium",
-                  day === selectedDay
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-600 hover:bg-slate-100",
-                ].join(" ")}
-                href={`/schedule?day=${day}${daySuffix}`}
-                key={day}
-              >
-                {getDayLabel(dayLabelScheme, day)}
-              </Link>
-            ))}
-          </div>
-
-          <div className="divide-y divide-slate-200">
-            {periods.length === 0 ? (
-              <p className="p-6 text-center text-sm text-slate-500">
-                No periods yet. Add your bell schedule using the form on the
-                right, then come back here to assign classes.
-              </p>
-            ) : (
-              periods.map((period) => {
-                const slot = scheduleSlots.find(
-                  (candidate) =>
-                    candidate.periodId === period.id && candidate.cycleDay === selectedDay,
-                );
-                const assignedClass = slot
-                  ? classes.find((candidate) => candidate.id === slot.classId)
-                  : undefined;
+        <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+          {classes.length === 0 ? (
+            <p className="p-6 text-center text-sm text-slate-500">
+              No classes yet. Add classes from Settings, then come back here
+              to schedule them.
+            </p>
+          ) : (
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${cycleLength}, minmax(0, 1fr))` }}
+            >
+              {cycleDayNumbers.map((day) => {
+                const daySlots = scheduleSlots
+                  .filter((slot) => slot.cycleDay === day)
+                  .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
                 return (
-                  <div className="flex items-center gap-4 p-3" key={period.id}>
-                    <div className="w-28 shrink-0 text-xs text-slate-500">
-                      <div className="font-semibold text-slate-700">{period.label}</div>
-                      <div>
-                        {period.startTime} – {period.endTime}
-                      </div>
+                  <div key={day}>
+                    <div className="text-center text-xs font-semibold uppercase text-slate-500">
+                      {getDayLabel(dayLabelScheme, day)}
                     </div>
+                    <div className="mt-2 space-y-1.5">
+                      {daySlots.map((slot) => {
+                        const classSection = classById.get(slot.classId);
+                        if (!classSection) {
+                          return null;
+                        }
 
-                    {assignedClass ? (
-                      <div
-                        className={`flex flex-1 items-center justify-between gap-2 rounded-md px-3 py-2 ${classColorClass[assignedClass.color]}`}
-                      >
-                        <div>
-                          <div className="font-medium">{assignedClass.name}</div>
-                          <div className="text-xs opacity-80">{assignedClass.subject}</div>
-                        </div>
-                        <form action={actions.removeSlot}>
-                          <input name="id" type="hidden" value={slot!.id} />
-                          <input
-                            name="cycleDay"
-                            type="hidden"
-                            value={selectedDay}
-                          />
-                          {wizardMode ? (
-                            <input name="wizard" type="hidden" value="1" />
-                          ) : null}
+                        return (
                           <button
-                            className="text-xs font-medium opacity-80 hover:text-rose-600 hover:opacity-100"
-                            type="submit"
+                            className={`block w-full rounded-md px-2 py-1.5 text-left text-xs ${classBlockColorClass[classSection.color]}`}
+                            key={slot.id}
+                            onClick={() => setSelectedClassId(classSection.id)}
+                            type="button"
                           >
-                            Remove
+                            <div className="font-medium">{classSection.name}</div>
+                            <div className="opacity-80">
+                              {slot.startTime}–{slot.endTime}
+                            </div>
                           </button>
-                        </form>
-                      </div>
-                    ) : (
-                      <form
-                        action={actions.assignSlot}
-                        className="flex flex-1 items-center gap-2"
-                      >
-                        <input name="periodId" type="hidden" value={period.id} />
-                        <input name="cycleDay" type="hidden" value={selectedDay} />
-                        {wizardMode ? (
-                          <input name="wizard" type="hidden" value="1" />
-                        ) : null}
-                        <select
-                          className="flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-700"
-                          defaultValue=""
-                          name="classId"
-                          required
-                        >
-                          <option disabled value="">
-                            Assign a class…
-                          </option>
-                          {classes.map((classSection) => (
-                            <option key={classSection.id} value={classSection.id}>
-                              {classSection.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-                          type="submit"
-                        >
-                          Assign
-                        </button>
-                      </form>
-                    )}
+                        );
+                      })}
+                      {daySlots.length === 0 ? (
+                        <div className="rounded-md border border-dashed border-slate-200 px-2 py-3 text-center text-xs text-slate-300">
+                          —
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </section>
 
         <aside className="space-y-4">
-          {classes.length > 0 ? (
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-950">Classes</h3>
-              <ul className="mt-3 space-y-1.5">
-                {classes.map((classSection) => (
-                  <li className="flex items-center gap-2 text-sm text-slate-700" key={classSection.id}>
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-950">Classes</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Click a class to set its schedule.
+            </p>
+            <ul className="mt-3 space-y-1">
+              {classes.map((classSection) => (
+                <li key={classSection.id}>
+                  <button
+                    className={[
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
+                      selectedClassId === classSection.id
+                        ? "bg-blue-50 text-blue-900"
+                        : "text-slate-700 hover:bg-slate-100",
+                    ].join(" ")}
+                    onClick={() => setSelectedClassId(classSection.id)}
+                    type="button"
+                  >
                     <span
                       aria-hidden="true"
                       className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[classSection.color]}`}
                     />
                     {classSection.name}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-950">
-              Bell schedule
-            </h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Periods and their times, the same every cycle day.
-            </p>
-
-            {periods.length > 0 ? (
-              <ul className="mt-3 space-y-1.5">
-                {periods.map((period) => (
-                  <li
-                    className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm"
-                    key={period.id}
-                  >
-                    <span>
-                      <span className="font-medium text-slate-950">
-                        {period.label}
-                      </span>{" "}
-                      <span className="text-slate-500">
-                        {period.startTime}–{period.endTime}
-                      </span>
-                    </span>
-                    <form action={actions.deletePeriod}>
-                      <input name="id" type="hidden" value={period.id} />
-                      {wizardMode ? (
-                        <input name="wizard" type="hidden" value="1" />
-                      ) : null}
-                      <button
-                        className="text-xs font-medium text-slate-400 hover:text-rose-600"
-                        type="submit"
-                      >
-                        Remove
-                      </button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            <form action={actions.createPeriod} className="mt-3 space-y-3">
-              {wizardMode ? (
-                <input name="wizard" type="hidden" value="1" />
-              ) : null}
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">Label</span>
-                <input
-                  className={inputClass}
-                  name="label"
-                  placeholder="e.g. Period 1"
-                  required
-                />
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-sm">
-                  <span className="font-medium text-slate-700">Start</span>
-                  <input className={inputClass} name="startTime" required type="time" />
-                </label>
-                <label className="block text-sm">
-                  <span className="font-medium text-slate-700">End</span>
-                  <input className={inputClass} name="endTime" required type="time" />
-                </label>
-              </div>
-              <button
-                className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
-                type="submit"
-              >
-                Add period
-              </button>
-            </form>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </section>
         </aside>
       </div>
+
+      {selectedClass ? (
+        <form action={action}>
+          {wizardMode ? <input name="wizard" type="hidden" value="1" /> : null}
+          <ClassScheduleEditor
+            classId={selectedClass.id}
+            className={selectedClass.name}
+            color={selectedClass.color}
+            cycleLength={cycleLength}
+            dayLabelScheme={dayLabelScheme}
+            hiddenInputName="slotsJson"
+            initialSlots={selectedClassSlots}
+          />
+        </form>
+      ) : null}
     </>
   );
 }
