@@ -1,77 +1,51 @@
-import Link from "next/link";
-import type { NonInstructionalDay, SchoolYear } from "./types";
+import { CalendarGrid } from "./CalendarGrid";
+import type { SchoolYear } from "./types";
 import { buildInstructionalDays } from "./timeline";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
 
 type CalendarSetupPageProps = {
   schoolYear: SchoolYear;
-  schoolYears: SchoolYear[];
   error?: string;
   feedUrl: string;
   actions: {
     updateDetails: ServerAction;
-    addDays: ServerAction;
-    removeDay: ServerAction;
+    updateBlockedDates: ServerAction;
     cancelDay: ServerAction;
-    switchYear: ServerAction;
-    deleteYear: ServerAction;
   };
 };
 
 const errorMessages: Record<string, string> = {
   details: "Check the title, that the end date is after the start date, and that the cycle length is a whole number of at least 1.",
-  range: "Check the dates: the end date must be on or after the start date.",
   date: "Enter a valid date.",
-  year: "Something went wrong with that school year action. Try again.",
-  "delete-active-year":
-    "Can't delete the active school year. Switch to a different year first.",
 };
 
 const inputClass =
   "mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
 
-const monthFormatter = new Intl.DateTimeFormat("en-CA", {
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-const weekdayFormatter = new Intl.DateTimeFormat("en-CA", {
-  weekday: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
-
-function monthLabel(dateKey: string): string {
-  return monthFormatter.format(new Date(`${dateKey}T00:00:00.000Z`));
-}
-
-function dayLabel(dateKey: string): string {
-  return weekdayFormatter.format(new Date(`${dateKey}T00:00:00.000Z`));
-}
-
 export function CalendarSetupPage({
   schoolYear,
-  schoolYears,
   error,
   feedUrl,
   actions,
 }: CalendarSetupPageProps) {
   const instructionalDays = buildInstructionalDays(schoolYear);
-  const groupedBlockedDays = groupByMonth(schoolYear.blockedDates);
 
   return (
     <>
       <section>
-        <p className="text-sm font-medium text-blue-700">School year</p>
+        <p className="text-sm font-medium text-blue-700">Calendar</p>
         <h2 className="mt-1 text-2xl font-semibold text-slate-950">
-          Set up the school year calendar.
+          {schoolYear.title}
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Set the term dates and mark the days school is not in session.
-          Weekends are excluded automatically. Non-instructional days are removed
-          from the timeline and plan book counts.
+          Weekends are excluded automatically. Non-instructional days are
+          removed from the timeline and plan book counts. Switch or manage
+          school years from{" "}
+          <a className="text-blue-700 underline" href="/settings">
+            Settings
+          </a>
+          .
         </p>
       </section>
 
@@ -80,77 +54,6 @@ export function CalendarSetupPage({
           {errorMessages[error] ?? "Please check the form and try again."}
         </p>
       ) : null}
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-950">School years</h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Classes, units, lessons, periods, and schedules are each scoped
-              to one school year. Switching years changes what the rest of
-              the app shows.
-            </p>
-          </div>
-          <Link
-            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm"
-            href="/onboarding"
-          >
-            Start a new school year
-          </Link>
-        </div>
-
-        <ul className="mt-3 space-y-1.5">
-          {schoolYears.map((year) => {
-            const isActive = year.id === schoolYear.id;
-
-            return (
-              <li
-                className={[
-                  "flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm",
-                  isActive
-                    ? "border-blue-300 bg-blue-50"
-                    : "border-slate-200",
-                ].join(" ")}
-                key={year.id}
-              >
-                <div>
-                  <span className="font-medium text-slate-950">{year.title}</span>{" "}
-                  <span className="text-slate-500">
-                    {year.startDate} → {year.endDate}
-                  </span>
-                  {isActive ? (
-                    <span className="ml-2 rounded-md bg-blue-600 px-1.5 py-0.5 text-xs font-medium text-white">
-                      Active
-                    </span>
-                  ) : null}
-                </div>
-                {isActive ? null : (
-                  <div className="flex items-center gap-3">
-                    <form action={actions.switchYear}>
-                      <input name="id" type="hidden" value={year.id} />
-                      <button
-                        className="text-xs font-medium text-blue-700 hover:text-blue-900"
-                        type="submit"
-                      >
-                        Switch to this year
-                      </button>
-                    </form>
-                    <form action={actions.deleteYear}>
-                      <input name="id" type="hidden" value={year.id} />
-                      <button
-                        className="text-xs font-medium text-slate-400 hover:text-rose-600"
-                        type="submit"
-                      >
-                        Delete year
-                      </button>
-                    </form>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
 
       <section className="grid gap-3 sm:grid-cols-4">
         <Metric label="Instructional days" value={`${instructionalDays.length}`} />
@@ -216,7 +119,7 @@ export function CalendarSetupPage({
               <span className="mt-1 block text-xs leading-5 text-slate-500">
                 How many days before your division&apos;s day cycle repeats —
                 2 for odd/even days, 5 or 6 for a rotating cycle. Classes are
-                assigned specific cycle days below.
+                assigned specific cycle days on the Schedule page.
               </span>
             </label>
             <label className="block text-sm">
@@ -244,117 +147,18 @@ export function CalendarSetupPage({
               Save term details
             </button>
           </form>
-
-          <div className="mt-6 border-t border-slate-200 pt-4">
-            <h3 className="text-sm font-semibold text-slate-950">
-              Non-instructional days
-            </h3>
-            {schoolYear.blockedDates.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-500">
-                No non-instructional days yet. Add holidays, PD days, and breaks
-                below.
-              </p>
-            ) : (
-              <div className="mt-3 space-y-4">
-                {groupedBlockedDays.map((group) => (
-                  <div key={group.month}>
-                    <p className="text-xs font-semibold uppercase text-slate-500">
-                      {group.month}
-                    </p>
-                    <ul className="mt-2 space-y-1.5">
-                      {group.days.map((day) => (
-                        <li
-                          className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm"
-                          key={day.date}
-                        >
-                          <span className="text-slate-800">
-                            <span className="font-medium text-slate-950">
-                              {dayLabel(day.date)}
-                            </span>
-                            {day.label ? (
-                              <span className="text-slate-600"> · {day.label}</span>
-                            ) : null}
-                            {!day.advancesCycle ? (
-                              <span className="ml-2 rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                                pauses cycle
-                              </span>
-                            ) : null}
-                          </span>
-                          <form action={actions.removeDay}>
-                            <input name="date" type="hidden" value={day.date} />
-                            <button
-                              className="text-xs font-medium text-slate-400 hover:text-rose-600"
-                              type="submit"
-                            >
-                              Remove
-                            </button>
-                          </form>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </section>
 
         <aside className="space-y-4">
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-950">
-              Add non-instructional days
-            </h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Add a single day or a date range (for breaks). Weekends in a range
-              are skipped automatically.
-            </p>
-            <form action={actions.addDays} className="mt-3 space-y-3">
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">From</span>
-                <input
-                  className={inputClass}
-                  name="startDate"
-                  required
-                  type="date"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">
-                  To (optional)
-                </span>
-                <input className={inputClass} name="endDate" type="date" />
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">Label</span>
-                <input
-                  className={inputClass}
-                  name="label"
-                  placeholder="e.g. Winter Break, PD Day"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input defaultChecked name="advancesCycle" type="checkbox" />
-                Advances the day cycle (uncheck if this closure isn&apos;t in
-                your division&apos;s official cycle count)
-              </label>
-              <button
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
-                type="submit"
-              >
-                Add days
-              </button>
-            </form>
-          </section>
-
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-950">
               Cancel a school day
             </h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
               For snow days and other same-day emergency closures. Unlike
-              planned non-instructional days above, this always pauses the
-              day cycle — whatever was scheduled just moves to the next
-              school day instead of being skipped.
+              the calendar below, this always pauses the day cycle —
+              whatever was scheduled just moves to the next school day
+              instead of being skipped.
             </p>
             <form action={actions.cancelDay} className="mt-3 space-y-3">
               <label className="block text-sm">
@@ -400,30 +204,38 @@ export function CalendarSetupPage({
           </section>
         </aside>
       </div>
+
+      <form action={actions.updateBlockedDates} className="space-y-5">
+        <CalendarGrid
+          cycleLength={schoolYear.cycleLength}
+          dayLabelScheme={schoolYear.dayLabelScheme}
+          endDate={schoolYear.endDate}
+          hiddenInputName="blockedDatesJson"
+          initialBlockedDates={schoolYear.blockedDates}
+          startDate={schoolYear.startDate}
+          leftColumn={
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-950">
+                Non-instructional days
+              </h3>
+              <p className="text-xs leading-5 text-slate-500">
+                Click a day to mark it as a holiday, PD day, or other
+                non-instructional day. Shift-click a second day to select a
+                whole range at once (e.g. the first and last day of a
+                break). Changes here aren&apos;t saved until you click Save.
+              </p>
+              <button
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+                type="submit"
+              >
+                Save calendar changes
+              </button>
+            </div>
+          }
+        />
+      </form>
     </>
   );
-}
-
-function groupByMonth(
-  days: NonInstructionalDay[],
-): Array<{ month: string; days: NonInstructionalDay[] }> {
-  const groups = new Map<string, NonInstructionalDay[]>();
-
-  for (const day of days) {
-    const key = monthLabel(day.date);
-    const existing = groups.get(key);
-
-    if (existing) {
-      existing.push(day);
-    } else {
-      groups.set(key, [day]);
-    }
-  }
-
-  return Array.from(groups, ([month, monthDays]) => ({
-    month,
-    days: monthDays,
-  }));
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

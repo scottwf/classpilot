@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { deleteSchoolYear, setActiveSchoolYear } from "@/src/lib/db/planner-repository";
 import { getAppSettings, updateAppSettings } from "@/src/lib/db/settings-repository";
 
 export async function updateSettingsAction(formData: FormData) {
@@ -36,4 +37,36 @@ export async function clearAiApiKeyAction() {
   updateAppSettings(db, { ...current, aiApiKey: "" });
 
   redirect("/settings?saved=1");
+}
+
+export async function switchSchoolYearAction(formData: FormData) {
+  await requireAuth();
+
+  const id = String(formData.get("id") ?? "").trim();
+
+  if (!id) {
+    redirect("/settings?error=year");
+  }
+
+  setActiveSchoolYear(getClassPilotDatabase(), id);
+
+  redirect("/settings");
+}
+
+export async function deleteSchoolYearAction(formData: FormData) {
+  await requireAuth();
+
+  const id = String(formData.get("id") ?? "").trim();
+
+  if (!id) {
+    redirect("/settings?error=year");
+  }
+
+  try {
+    deleteSchoolYear(getClassPilotDatabase(), id);
+  } catch {
+    redirect("/settings?error=delete-active-year");
+  }
+
+  redirect("/settings");
 }
