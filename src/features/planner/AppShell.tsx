@@ -12,6 +12,7 @@ type AppShellProps = {
     | "outcomes"
     | "units"
     | "classes"
+    | "schedule"
     | "students"
     | "calendar"
     | "assistant"
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/outcomes", label: "Outcomes", page: "outcomes" },
   { href: "/units", label: "Unit Timeline", page: "units" },
   { href: "/classes", label: "Classes", page: "classes" },
+  { href: "/schedule", label: "Schedule", page: "schedule" },
   { href: "/students", label: "Students", page: "students" },
   { href: "/calendar", label: "Calendar", page: "calendar" },
   { href: "/assistant", label: "Assistant", page: "assistant" },

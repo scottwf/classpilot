@@ -5,19 +5,25 @@
 state at hand-off, how to get running cold, and the prioritized plan for the
 next work session.
 
-- **Hand-off date:** 2026-08-05
-- **State at hand-off:** all gates green (19 files, 110 tests / lint / build),
+- **Hand-off date:** 2026-08-06
+- **State at hand-off:** all gates green (20 files, 128 tests / lint / build),
   deployed and verified against production data on echo — but **not yet
   committed**. `git status` on echo shows the changes below uncommitted on
-  top of `397ba78`. Commit + push when ready; nothing is half-finished, this
-  is a safe stopping point either way.
+  top of `555dc57` (which itself IS pushed to `origin/main`). Commit + push
+  when ready; nothing is half-finished, this is a safe stopping point either
+  way.
 - **Status:** active. This session added the MCP server, cascade
   rescheduling, the ICS calendar feed, a full day-cycle scheduling system
   (cycle length, per-class cycle-day membership, class management UI,
   cycle-aware cascade, and lesson extend/duplicate), the `/settings` admin
-  page for AI provider config, and — in a fourth pass — a real installable
-  PWA (icons, service worker, offline page) plus a mobile nav fix (see
-  section 2), and reordered the plan in section 5 after a competitive pass
+  page for AI provider config, a real installable PWA (icons, service
+  worker, offline page) plus a mobile nav fix, and a bell-schedule/period
+  system (`/schedule` — periods with fixed daily times, per-class
+  day+period assignment with warn-not-block conflict detection; see section
+  2). Full lesson drafting (Priority B) is partway done — pure prompt/parse
+  layer only, no orchestrator/actions/UI yet. Pacing checks and the
+  interactive timeline haven't been started. Reordered the plan in section 5
+  after a competitive pass
   against other teacher plan books. **All of Priority A is now done.**
 
 ---
@@ -35,9 +41,9 @@ npm run dev        # http://localhost:3000 (or CLASSPILOT_PORT)
 Then confirm everything is healthy before writing any new code:
 
 ```bash
-npm test           # expect: 19 files, 110 tests passing
+npm test           # expect: 20 files, 128 tests passing
 npm run lint       # expect: clean
-npm run build      # expect: success, 24 routes incl. /assistant, /calendar/feed.ics, /classes, /settings
+npm run build      # expect: success, 25 routes incl. /assistant, /calendar/feed.ics, /classes, /settings, /schedule
 ```
 
 If you also touch `mcp-server/`, run `cd mcp-server && npm install && npx tsc --noEmit`
@@ -83,6 +89,17 @@ All of this is shipped on `main`:
   on (`cycleDays: number[]`; empty means every instructional day — the
   backward-compatible default). Previously classes only existed via seed
   data with no UI at all.
+- **Schedule / bell schedule** — `/schedule` (Planboard-style): a school-wide
+  list of periods with fixed clock times, the same every cycle day (`periods`
+  table, `src/lib/db/schedule-repository.ts`), and a day-by-day grid to
+  assign a class to a period on a cycle day (`schedule_slots`). A class has
+  at most one slot per cycle day (assigning a new period replaces the old
+  one); two different classes CAN share a (day, period) — flagged as a
+  warning, not blocked, since there may be a legitimate reason (co-taught
+  blocks, etc.). Assigning a slot auto-adds that day to the class's
+  `cycleDays` so cascade rescheduling/extend-lesson pick it up. `room` and
+  `meetingPattern` on `ClassSection` predate this and are still just free
+  text/labels — periods are the real, structured schedule now.
 - **Cascade lesson rescheduling** — a form on the unit detail page
   (`/units/[unitId]`) and the `shift_lessons` MCP tool push every lesson in a
   unit on/after a date forward or backward by N of the unit's *class's
@@ -187,6 +204,10 @@ We are roughly here against that MVP:
 | Day-cycle scheduling (cycle length, per-class cycle days) | ✅ done |
 | Class management UI (`/classes`) | ✅ done |
 | Lesson extend/duplicate to next meeting day | ✅ done |
+| Bell schedule / class periods (`/schedule`) | ✅ done |
+| Full lesson drafting (AI) | 🚧 partial (prompt/parse only) |
+| Pacing / overload checks | ❌ not started |
+| Interactive timeline (drag/resize) | ❌ not started |
 | Admin/settings UI (AI key/model in-app, not just env) | ✅ done |
 | Real PWA (icons + service worker, installable/offline) | ✅ done |
 | Mobile-responsive UI pass | ✅ done (nav was the only real gap; rest already mobile-first) |

@@ -30,6 +30,7 @@ export async function updateSchoolYearDetailsAction(formData: FormData) {
   const current = getSchoolYear(getClassPilotDatabase());
 
   updateSchoolYear(getClassPilotDatabase(), {
+    id: current.id,
     title,
     startDate,
     endDate,
@@ -71,6 +72,7 @@ export async function addNonInstructionalDaysAction(formData: FormData) {
   }
 
   updateSchoolYear(getClassPilotDatabase(), {
+    id: current.id,
     title: current.title,
     startDate: current.startDate,
     endDate: current.endDate,
@@ -104,6 +106,7 @@ export async function cancelInstructionalDayAction(formData: FormData) {
   byDate.set(date, { date, label, advancesCycle: false });
 
   updateSchoolYear(getClassPilotDatabase(), {
+    id: current.id,
     title: current.title,
     startDate: current.startDate,
     endDate: current.endDate,
@@ -126,6 +129,7 @@ export async function removeNonInstructionalDayAction(formData: FormData) {
   const current = getSchoolYear(getClassPilotDatabase());
 
   updateSchoolYear(getClassPilotDatabase(), {
+    id: current.id,
     title: current.title,
     startDate: current.startDate,
     endDate: current.endDate,

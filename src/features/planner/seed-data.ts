@@ -8,6 +8,7 @@ const importedOutcomes = loadSaskatchewanGrade6Outcomes();
 
 export const plannerData: PlannerData = {
   schoolYear: {
+    id: "current",
     title: "2026-2027 Grade 6 Homeroom",
     startDate: "2026-09-01",
     endDate: "2026-12-18",
@@ -25,6 +26,7 @@ export const plannerData: PlannerData = {
   classes: [
     {
       id: "grade-6-ela",
+      schoolYearId: "current",
       name: "Grade 6 ELA",
       subject: "English Language Arts",
       grade: "6",
@@ -34,6 +36,7 @@ export const plannerData: PlannerData = {
     },
     {
       id: "grade-6-math",
+      schoolYearId: "current",
       name: "Grade 6 Math",
       subject: "Mathematics",
       grade: "6",
@@ -43,6 +46,7 @@ export const plannerData: PlannerData = {
     },
     {
       id: "grade-6-science",
+      schoolYearId: "current",
       name: "Grade 6 Science",
       subject: "Science",
       grade: "6",
@@ -52,6 +56,7 @@ export const plannerData: PlannerData = {
     },
     {
       id: "grade-6-social-studies",
+      schoolYearId: "current",
       name: "Grade 6 Social Studies",
       subject: "Social Studies",
       grade: "6",
@@ -61,6 +66,7 @@ export const plannerData: PlannerData = {
     },
     {
       id: "grade-6-homeroom",
+      schoolYearId: "current",
       name: "Homeroom Routines",
       subject: "Classroom Community",
       grade: "6",

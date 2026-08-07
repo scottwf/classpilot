@@ -1,3 +1,4 @@
+import type { LessonSections } from "@/src/features/planner/types";
 import { AiError, type UnitOutlineDraft, type UnitOutlineLesson } from "./types";
 
 /**
@@ -34,6 +35,44 @@ export function parseUnitOutlineDraft(raw: string): UnitOutlineDraft {
     lessonSequence: toLessonArray(record.lessonSequence),
     assessmentIdeas: toStringArray(record.assessmentIdeas),
     differentiationNotes: toStringArray(record.differentiationNotes),
+  };
+}
+
+/**
+ * Defensively parses a model response into a {@link LessonSections} object,
+ * for drafting one lesson's structured sections. Same JSON-recovery approach
+ * as {@link parseUnitOutlineDraft}. Missing/malformed fields default to an
+ * empty string rather than failing the whole draft.
+ */
+export function parseLessonSectionsDraft(raw: string): LessonSections {
+  const json = extractJsonObject(raw);
+
+  if (!json) {
+    throw new AiError("parse_failed", "The assistant did not return JSON.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new AiError("parse_failed", "The assistant returned invalid JSON.");
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    throw new AiError("parse_failed", "The assistant returned an unexpected shape.");
+  }
+
+  const record = parsed as Record<string, unknown>;
+
+  return {
+    assessment: toStringValue(record.assessment),
+    differentiation: toStringValue(record.differentiation),
+    learningGoals: toStringValue(record.learningGoals),
+    lessonFlow: toStringValue(record.lessonFlow),
+    materials: toStringValue(record.materials),
+    mindsOn: toStringValue(record.mindsOn),
+    reflection: toStringValue(record.reflection),
+    resources: toStringValue(record.resources),
   };
 }
 

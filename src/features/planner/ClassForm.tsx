@@ -24,7 +24,10 @@ export function ClassForm({
       className="grid gap-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_320px]"
     >
       {classSection ? (
-        <input name="id" type="hidden" value={classSection.id} />
+        <>
+          <input name="id" type="hidden" value={classSection.id} />
+          <input name="schoolYearId" type="hidden" value={classSection.schoolYearId} />
+        </>
       ) : null}
 
       <div className="space-y-4">
@@ -92,6 +95,25 @@ export function ClassForm({
             </label>
           ))}
         </div>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">
+            Target instructional minutes per year (optional)
+          </span>
+          <input
+            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            defaultValue={classSection?.targetMinutesPerYear}
+            min={1}
+            name="targetMinutesPerYear"
+            placeholder="e.g. 5400 for a curriculum minimum"
+            type="number"
+          />
+          <span className="mt-1 block text-xs leading-5 text-slate-500">
+            Compared against actual scheduled time on the school-year setup
+            summary. Leave blank if you don&apos;t have a target to check
+            against.
+          </span>
+        </label>
 
         {error ? (
           <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">

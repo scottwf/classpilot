@@ -34,6 +34,14 @@ export function migrate(db: ClassPilotDatabase) {
       meeting_pattern TEXT NOT NULL
     );
 
+    -- Singleton row tracking which school_years row is "active" (shown by
+    -- default across the app). See src/lib/db/planner-repository.ts
+    -- getActiveSchoolYearId().
+    CREATE TABLE IF NOT EXISTS app_state (
+      id TEXT PRIMARY KEY,
+      active_school_year_id TEXT NOT NULL REFERENCES school_years(id)
+    );
+
     CREATE TABLE IF NOT EXISTS app_settings (
       id TEXT PRIMARY KEY,
       ai_api_key_encrypted TEXT NOT NULL DEFAULT '',
@@ -156,12 +164,29 @@ export function migrate(db: ClassPilotDatabase) {
       completed_at TEXT NOT NULL DEFAULT ''
     );
 
+    CREATE TABLE IF NOT EXISTS periods (
+      id TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS schedule_slots (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+      period_id TEXT NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
+      cycle_day INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_students_year ON students(school_year_id, last_name);
     CREATE INDEX IF NOT EXISTS idx_contacts_student ON student_contacts(student_id);
     CREATE INDEX IF NOT EXISTS idx_comm_student ON communication_log(student_id, date);
     CREATE INDEX IF NOT EXISTS idx_notes_student ON student_notes(student_id, date);
     CREATE INDEX IF NOT EXISTS idx_support_student ON support_plans(student_id);
     CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(status, due_date);
+    CREATE INDEX IF NOT EXISTS idx_schedule_slots_class ON schedule_slots(class_id);
+    CREATE INDEX IF NOT EXISTS idx_schedule_slots_day_period ON schedule_slots(cycle_day, period_id);
   `);
 
   addColumnIfMissing(
@@ -188,6 +213,58 @@ export function migrate(db: ClassPilotDatabase) {
     "cycle_days_json",
     "TEXT NOT NULL DEFAULT '[]'",
   );
+  addColumnIfMissing(
+    db,
+    "class_sections",
+    "target_minutes_per_year",
+    "INTEGER",
+  );
+
+  // Multi-year scoping. These columns can't carry a NOT NULL DEFAULT in the
+  // same ALTER as a REFERENCES clause (SQLite restriction, verified against
+  // node:sqlite), so they land nullable and get backfilled below instead.
+  addColumnIfMissing(
+    db,
+    "class_sections",
+    "school_year_id",
+    "TEXT REFERENCES school_years(id) ON DELETE CASCADE",
+  );
+  addColumnIfMissing(
+    db,
+    "periods",
+    "school_year_id",
+    "TEXT REFERENCES school_years(id) ON DELETE CASCADE",
+  );
+
+  backfillSchoolYearScoping(db);
+}
+
+// Points every pre-existing class_sections/periods row at the earliest
+// school_years row (there was only ever one before multi-year support), and
+// bootstraps app_state so getActiveSchoolYearId() always has something to
+// return. No-ops once already backfilled (checks IS NULL / NOT EXISTS), and
+// no-ops entirely on a brand-new database (no school_years row yet — the
+// seed step stamps school_year_id itself when it creates one).
+function backfillSchoolYearScoping(db: ClassPilotDatabase) {
+  const firstYear = db
+    .prepare("SELECT id FROM school_years ORDER BY rowid LIMIT 1")
+    .get() as { id: string } | undefined;
+
+  if (!firstYear) {
+    return;
+  }
+
+  db.prepare("UPDATE class_sections SET school_year_id = ? WHERE school_year_id IS NULL").run(
+    firstYear.id,
+  );
+  db.prepare("UPDATE periods SET school_year_id = ? WHERE school_year_id IS NULL").run(
+    firstYear.id,
+  );
+  db.prepare(
+    `INSERT INTO app_state (id, active_school_year_id)
+     SELECT 'current', ?
+     WHERE NOT EXISTS (SELECT 1 FROM app_state WHERE id = 'current')`,
+  ).run(firstYear.id);
 }
 
 function addColumnIfMissing(

@@ -43,6 +43,22 @@ export type UnitOutlineDraft = {
   differentiationNotes: string[];
 };
 
+// Minimized context for drafting one lesson's structured sections — same data
+// minimization guarantee as UnitOutlineRequest above.
+export type LessonDraftRequest = {
+  subject: string;
+  grade: string;
+  unitTitle: string;
+  lessonTitle: string;
+  lessonFocus: string;
+  lessonMinutes: number;
+  teachingNotes: string;
+  outcomes: Array<{
+    code: string;
+    description: string;
+  }>;
+};
+
 export class AiError extends Error {
   readonly code: "not_configured" | "request_failed" | "parse_failed";
 

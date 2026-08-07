@@ -3,18 +3,24 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
-import { createClass, deleteClass, updateClass } from "@/src/lib/db/planner-repository";
+import {
+  createClass,
+  deleteClass,
+  getActiveSchoolYearId,
+  updateClass,
+} from "@/src/lib/db/planner-repository";
 
 export async function createClassAction(formData: FormData) {
   await requireAuth();
 
+  const db = getClassPilotDatabase();
   const input = readClassInput(formData);
 
   if (!input) {
     redirect("/classes/new?error=missing");
   }
 
-  createClass(getClassPilotDatabase(), input);
+  createClass(db, { ...input, schoolYearId: getActiveSchoolYearId(db) });
 
   redirect("/classes?created=1");
 }
@@ -23,13 +29,16 @@ export async function updateClassAction(formData: FormData) {
   await requireAuth();
 
   const id = String(formData.get("id") ?? "").trim();
+  // Preserves the class's existing year — the edit form carries this as a
+  // hidden field rather than exposing a year switcher (see ClassForm.tsx).
+  const schoolYearId = String(formData.get("schoolYearId") ?? "").trim();
   const input = readClassInput(formData);
 
-  if (!id || !input) {
+  if (!id || !schoolYearId || !input) {
     redirect(id ? `/classes/${id}/edit?error=missing` : "/classes?error=missing");
   }
 
-  updateClass(getClassPilotDatabase(), { ...input, id });
+  updateClass(getClassPilotDatabase(), { ...input, id, schoolYearId });
 
   redirect("/classes?updated=1");
 }
@@ -56,10 +65,15 @@ function readClassInput(formData: FormData) {
     .getAll("cycleDays")
     .map((value) => Number(value))
     .filter((value) => Number.isInteger(value) && value > 0);
+  const targetMinutesRaw = String(formData.get("targetMinutesPerYear") ?? "").trim();
+  const targetMinutesPerYear =
+    targetMinutesRaw && Number.isInteger(Number(targetMinutesRaw)) && Number(targetMinutesRaw) > 0
+      ? Number(targetMinutesRaw)
+      : undefined;
 
   if (!name || !subject || !grade) {
     return undefined;
   }
 
-  return { name, subject, grade, room, meetingPattern, cycleDays };
+  return { name, subject, grade, room, meetingPattern, cycleDays, targetMinutesPerYear };
 }

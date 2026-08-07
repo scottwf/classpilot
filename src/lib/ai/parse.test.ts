@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseUnitOutlineDraft } from "./parse";
+import { parseLessonSectionsDraft, parseUnitOutlineDraft } from "./parse";
 import { AiError } from "./types";
 
 const validJson = JSON.stringify({
@@ -61,6 +61,61 @@ describe("parseUnitOutlineDraft", () => {
 
   it("throws AiError on invalid JSON", () => {
     expect(() => parseUnitOutlineDraft("{ title: unquoted }")).toThrowError(
+      AiError,
+    );
+  });
+});
+
+const validLessonSectionsJson = JSON.stringify({
+  learningGoals: "I can compare percents.",
+  materials: "Flyers, calculators.",
+  mindsOn: "Show two flyer deals and ask which is better.",
+  lessonFlow: "1. Compare deals.\n2. Practice.",
+  assessment: "Exit ticket.",
+  differentiation: "Provide a percent chart.",
+  resources: "https://example.com/percent-video",
+  reflection: "",
+});
+
+describe("parseLessonSectionsDraft", () => {
+  it("parses a clean JSON object into all eight section fields", () => {
+    const sections = parseLessonSectionsDraft(validLessonSectionsJson);
+
+    expect(sections).toEqual({
+      learningGoals: "I can compare percents.",
+      materials: "Flyers, calculators.",
+      mindsOn: "Show two flyer deals and ask which is better.",
+      lessonFlow: "1. Compare deals.\n2. Practice.",
+      assessment: "Exit ticket.",
+      differentiation: "Provide a percent chart.",
+      resources: "https://example.com/percent-video",
+      reflection: "",
+    });
+  });
+
+  it("extracts JSON wrapped in markdown fences and prose", () => {
+    const raw = "Sure, here it is:\n```json\n" + validLessonSectionsJson + "\n```";
+    const sections = parseLessonSectionsDraft(raw);
+
+    expect(sections.learningGoals).toBe("I can compare percents.");
+  });
+
+  it("coerces missing fields to empty strings rather than failing", () => {
+    const sections = parseLessonSectionsDraft('{"learningGoals": "Only this one"}');
+
+    expect(sections.learningGoals).toBe("Only this one");
+    expect(sections.materials).toBe("");
+    expect(sections.reflection).toBe("");
+  });
+
+  it("throws AiError when there is no JSON object", () => {
+    expect(() => parseLessonSectionsDraft("sorry, I cannot help")).toThrowError(
+      AiError,
+    );
+  });
+
+  it("throws AiError on invalid JSON", () => {
+    expect(() => parseLessonSectionsDraft("{ learningGoals: unquoted }")).toThrowError(
       AiError,
     );
   });

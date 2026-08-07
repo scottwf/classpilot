@@ -267,6 +267,7 @@ describe("planner repository", () => {
     });
 
     updateSchoolYear(db, {
+      id: seeded.id,
       title: "2027-2028 Grade 6 Homeroom",
       startDate: "2027-09-01",
       endDate: "2027-12-18",
@@ -328,6 +329,7 @@ describe("planner repository", () => {
     seedPlannerData(db, plannerData);
 
     const classId = createClass(db, {
+      schoolYearId: "current",
       name: "Grade 6 French",
       subject: "French",
       grade: "6",
@@ -344,6 +346,7 @@ describe("planner repository", () => {
 
     updateClass(db, {
       id: classId,
+      schoolYearId: "current",
       name: "Grade 6 Français",
       subject: "French",
       grade: "6",
@@ -369,6 +372,7 @@ describe("planner repository", () => {
     expect(() =>
       updateClass(db, {
         id: "class-does-not-exist",
+        schoolYearId: "current",
         name: "X",
         subject: "X",
         grade: "6",
@@ -480,6 +484,7 @@ describe("planner repository", () => {
     // 09-08, 09-09, 09-11, 09-14, 09-15, 09-16, which a plain
     // "every instructional day" shift would have landed on instead.
     const classId = createClass(db, {
+      schoolYearId: "current",
       name: "French (Day 3 only)",
       subject: "French",
       grade: "6",
@@ -563,6 +568,7 @@ describe("planner repository", () => {
     seedPlannerData(db, plannerData);
 
     const classId = createClass(db, {
+      schoolYearId: "current",
       name: "French (Day 3 only)",
       subject: "French",
       grade: "6",
