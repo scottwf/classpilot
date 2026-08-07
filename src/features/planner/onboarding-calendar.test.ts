@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMonthGrids } from "./onboarding-calendar";
+import { buildMonthGrids, selectDateRange } from "./onboarding-calendar";
 
 describe("buildMonthGrids", () => {
   it("returns one grid per month spanning the date range", () => {
@@ -67,5 +67,37 @@ describe("buildMonthGrids", () => {
       .filter((cell): cell is NonNullable<typeof cell> => cell !== null && cell.inRange)
       .map((cell) => cell.date);
     expect(inRangeDates).toEqual(["2026-09-15"]);
+  });
+});
+
+describe("selectDateRange", () => {
+  const grids = buildMonthGrids("2026-09-01", "2026-09-30");
+
+  it("returns every clickable weekday between two dates, skipping weekends", () => {
+    // Sep 4 is a Friday, Sep 8 is a Tuesday — Sep 5-6 is a weekend.
+    expect(selectDateRange(grids, "2026-09-04", "2026-09-08")).toEqual([
+      "2026-09-04",
+      "2026-09-07",
+      "2026-09-08",
+    ]);
+  });
+
+  it("is order-independent (anchor after target still works)", () => {
+    expect(selectDateRange(grids, "2026-09-08", "2026-09-04")).toEqual([
+      "2026-09-04",
+      "2026-09-07",
+      "2026-09-08",
+    ]);
+  });
+
+  it("returns a single date when anchor and target are the same", () => {
+    expect(selectDateRange(grids, "2026-09-15", "2026-09-15")).toEqual(["2026-09-15"]);
+  });
+
+  it("excludes days outside the calendar's [start, end] range", () => {
+    const partialGrids = buildMonthGrids("2026-09-10", "2026-09-30");
+
+    // Sep 8 is out of range for this calendar (starts Sep 10).
+    expect(selectDateRange(partialGrids, "2026-09-08", "2026-09-11")).toEqual(["2026-09-10", "2026-09-11"]);
   });
 });

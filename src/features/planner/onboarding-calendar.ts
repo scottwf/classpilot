@@ -85,3 +85,52 @@ export function buildMonthGrids(startDateKey: string, endDateKey: string): Month
 
   return grids;
 }
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+/**
+ * Every calendar day between two date keys (inclusive, order doesn't
+ * matter), for shift-click range selection on the onboarding calendar —
+ * clicking the first day of a break then shift-clicking the last day
+ * selects everything in between in one action instead of one day at a
+ * time. Only clickable days (inRange, not a weekend) are returned; the
+ * caller looks those up from the same `monthGrids` it's already rendering.
+ */
+export function selectDateRange(
+  monthGrids: MonthGrid[],
+  anchorDateKey: string,
+  targetDateKey: string,
+): string[] {
+  const cellByDate = new Map<string, CalendarDayCell>();
+  for (const grid of monthGrids) {
+    for (const week of grid.weeks) {
+      for (const cell of week) {
+        if (cell) {
+          cellByDate.set(cell.date, cell);
+        }
+      }
+    }
+  }
+
+  const [from, to] =
+    anchorDateKey <= targetDateKey ? [anchorDateKey, targetDateKey] : [targetDateKey, anchorDateKey];
+
+  const dates: string[] = [];
+  let cursor = parseDateKey(from);
+  const last = parseDateKey(to);
+
+  while (cursor <= last) {
+    const key = toDateKey(cursor);
+    const cell = cellByDate.get(key);
+    if (cell && cell.inRange && !cell.isWeekend) {
+      dates.push(key);
+    }
+    cursor = addDays(cursor, 1);
+  }
+
+  return dates;
+}

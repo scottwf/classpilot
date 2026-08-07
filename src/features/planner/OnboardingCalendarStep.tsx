@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { buildCycleDayMap, getDayLabel } from "./cycle";
-import { buildMonthGrids } from "./onboarding-calendar";
+import { buildMonthGrids, selectDateRange } from "./onboarding-calendar";
 import type { DayLabelScheme, NonInstructionalDay } from "./types";
 
 type OnboardingCalendarStepProps = {
@@ -24,7 +24,11 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
   const [cycleLength, setCycleLength] = useState(5);
   const [dayLabelScheme, setDayLabelScheme] = useState<DayLabelScheme>("numeric");
   const [blockedDates, setBlockedDates] = useState<Map<string, NonInstructionalDay>>(new Map());
-  const [selectedDate, setSelectedDate] = useState<string | undefined>();
+  // anchorDate is the last plain (non-shift) click — shift-clicking a
+  // second day selects every clickable day between the anchor and that
+  // day, matching the usual file-explorer range-select convention.
+  const [anchorDate, setAnchorDate] = useState<string | undefined>();
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
   const blockedDatesList = useMemo(() => Array.from(blockedDates.values()), [blockedDates]);
 
@@ -42,23 +46,44 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
 
   const monthGrids = useMemo(() => buildMonthGrids(startDate, endDate), [startDate, endDate]);
 
-  function setDayBlocked(date: string, label: string, advancesCycle: boolean) {
+  function setDaysBlocked(dates: string[], label: string, advancesCycle: boolean) {
     setBlockedDates((previous) => {
       const next = new Map(previous);
-      next.set(date, { date, label, advancesCycle });
+      for (const date of dates) {
+        next.set(date, { date, label, advancesCycle });
+      }
       return next;
     });
   }
 
-  function clearDay(date: string) {
+  function clearDays(dates: string[]) {
     setBlockedDates((previous) => {
       const next = new Map(previous);
-      next.delete(date);
+      for (const date of dates) {
+        next.delete(date);
+      }
       return next;
     });
   }
 
-  const selectedEntry = selectedDate ? blockedDates.get(selectedDate) : undefined;
+  function handleDayClick(date: string, shiftKey: boolean) {
+    if (shiftKey && anchorDate) {
+      setSelectedDates(selectDateRange(monthGrids, anchorDate, date));
+      return;
+    }
+    setAnchorDate(date);
+    setSelectedDates([date]);
+  }
+
+  // Representative entry for pre-filling the editor when multiple days are
+  // selected with different (or no) existing labels — actions below still
+  // apply uniformly to every selected day, not just this one.
+  const selectedEntry =
+    selectedDates.length > 0 ? blockedDates.get(selectedDates[0]) : undefined;
+  const selectionLabel =
+    selectedDates.length <= 1
+      ? selectedDates[0]
+      : `${selectedDates.length} days selected (${selectedDates[0]} – ${selectedDates[selectedDates.length - 1]})`;
 
   return (
     <form action={action} className="space-y-5">
@@ -159,25 +184,33 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
             </p>
           </div>
 
-          {selectedDate ? (
+          {selectedDates.length > 0 ? (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
               <div className="flex items-center justify-between gap-2">
-                <h4 className="text-sm font-semibold text-slate-950">{selectedDate}</h4>
+                <h4 className="text-sm font-semibold text-slate-950">{selectionLabel}</h4>
                 <button
                   className="text-xs font-medium text-slate-500 hover:text-slate-800"
-                  onClick={() => setSelectedDate(undefined)}
+                  onClick={() => {
+                    setSelectedDates([]);
+                    setAnchorDate(undefined);
+                  }}
                   type="button"
                 >
                   Close
                 </button>
               </div>
+              {selectedDates.length > 1 ? (
+                <p className="mt-1 text-xs text-blue-800">
+                  Actions below apply to all {selectedDates.length} selected days.
+                </p>
+              ) : null}
 
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {quickLabels.map((label) => (
                   <button
                     className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     key={label}
-                    onClick={() => setDayBlocked(selectedDate, label, true)}
+                    onClick={() => setDaysBlocked(selectedDates, label, true)}
                     type="button"
                   >
                     {label}
@@ -190,8 +223,8 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
                 <input
                   className={inputClass}
                   onChange={(event) =>
-                    setDayBlocked(
-                      selectedDate,
+                    setDaysBlocked(
+                      selectedDates,
                       event.target.value,
                       selectedEntry?.advancesCycle ?? true,
                     )
@@ -207,7 +240,7 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
                     <input
                       checked={selectedEntry.advancesCycle}
                       onChange={(event) =>
-                        setDayBlocked(selectedDate, selectedEntry.label, event.target.checked)
+                        setDaysBlocked(selectedDates, selectedEntry.label, event.target.checked)
                       }
                       type="checkbox"
                     />
@@ -215,10 +248,10 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
                   </label>
                   <button
                     className="mt-2 text-xs font-medium text-rose-600 hover:text-rose-800"
-                    onClick={() => clearDay(selectedDate)}
+                    onClick={() => clearDays(selectedDates)}
                     type="button"
                   >
-                    Clear (instructional day)
+                    Clear (instructional day{selectedDates.length > 1 ? "s" : ""})
                   </button>
                 </>
               ) : null}
@@ -226,7 +259,8 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
           ) : (
             <div className="rounded-lg border border-dashed border-slate-300 p-4 text-xs leading-5 text-slate-500">
               Click a day on the calendar to mark it as a holiday, PD day, or
-              other non-instructional day.
+              other non-instructional day. Shift-click a second day to select
+              everything in between (e.g. the first and last day of a break).
             </div>
           )}
         </aside>
@@ -253,6 +287,7 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
                       const blocked = blockedDates.get(cell.date);
                       const cycleDay = cycleDayMap.get(cell.date);
                       const clickable = cell.inRange && !cell.isWeekend;
+                      const isSelected = selectedDates.includes(cell.date);
 
                       return (
                         <button
@@ -262,13 +297,12 @@ export function OnboardingCalendarStep({ action, error }: OnboardingCalendarStep
                               ? "text-slate-300"
                               : blocked
                                 ? "bg-amber-100 font-medium text-amber-900"
-                                : selectedDate === cell.date
-                                  ? "bg-blue-100 text-blue-900 ring-2 ring-blue-400"
-                                  : "text-slate-700 hover:bg-slate-100",
+                                : "text-slate-700 hover:bg-slate-100",
+                            clickable && isSelected ? "ring-2 ring-blue-400" : "",
                           ].join(" ")}
                           disabled={!clickable}
                           key={cell.date}
-                          onClick={() => setSelectedDate(cell.date)}
+                          onClick={(event) => handleDayClick(cell.date, event.shiftKey)}
                           title={blocked?.label}
                           type="button"
                         >
