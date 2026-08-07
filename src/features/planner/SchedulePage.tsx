@@ -40,6 +40,10 @@ type SchedulePageProps = {
   periods: Period[];
   scheduleSlots: ScheduleSlot[];
   selectedDay: number;
+  /** True when arriving from the school-year onboarding wizard — shows a
+   * banner and a "Continue to review" link instead of being a standalone
+   * page. See app/onboarding/. */
+  wizardMode?: boolean;
 };
 
 const inputClass =
@@ -55,9 +59,11 @@ export function SchedulePage({
   periods,
   scheduleSlots,
   selectedDay,
+  wizardMode,
 }: SchedulePageProps) {
   const dayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
   const conflictClass = classes.find((candidate) => candidate.id === conflictClassId);
+  const daySuffix = wizardMode ? "&wizard=1" : "";
 
   return (
     <>
@@ -73,6 +79,21 @@ export function SchedulePage({
           rescheduling and lesson extension land on it correctly.
         </p>
       </section>
+
+      {wizardMode ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-sm text-blue-800">
+            Set up periods and assign classes to the days they meet, then
+            continue to review your instructional time.
+          </p>
+          <Link
+            className="shrink-0 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm"
+            href="/onboarding/review"
+          >
+            Continue to review
+          </Link>
+        </div>
+      ) : null}
 
       {conflictWith ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -99,7 +120,7 @@ export function SchedulePage({
                     ? "bg-blue-600 text-white"
                     : "text-slate-600 hover:bg-slate-100",
                 ].join(" ")}
-                href={`/schedule?day=${day}`}
+                href={`/schedule?day=${day}${daySuffix}`}
                 key={day}
               >
                 Day {day}
@@ -147,6 +168,9 @@ export function SchedulePage({
                             type="hidden"
                             value={selectedDay}
                           />
+                          {wizardMode ? (
+                            <input name="wizard" type="hidden" value="1" />
+                          ) : null}
                           <button
                             className="text-xs font-medium opacity-80 hover:text-rose-600 hover:opacity-100"
                             type="submit"
@@ -162,6 +186,9 @@ export function SchedulePage({
                       >
                         <input name="periodId" type="hidden" value={period.id} />
                         <input name="cycleDay" type="hidden" value={selectedDay} />
+                        {wizardMode ? (
+                          <input name="wizard" type="hidden" value="1" />
+                        ) : null}
                         <select
                           className="flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-700"
                           defaultValue=""
@@ -235,6 +262,9 @@ export function SchedulePage({
                     </span>
                     <form action={actions.deletePeriod}>
                       <input name="id" type="hidden" value={period.id} />
+                      {wizardMode ? (
+                        <input name="wizard" type="hidden" value="1" />
+                      ) : null}
                       <button
                         className="text-xs font-medium text-slate-400 hover:text-rose-600"
                         type="submit"
@@ -248,6 +278,9 @@ export function SchedulePage({
             ) : null}
 
             <form action={actions.createPeriod} className="mt-3 space-y-3">
+              {wizardMode ? (
+                <input name="wizard" type="hidden" value="1" />
+              ) : null}
               <label className="block text-sm">
                 <span className="font-medium text-slate-700">Label</span>
                 <input

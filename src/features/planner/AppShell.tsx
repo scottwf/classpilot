@@ -16,7 +16,8 @@ type AppShellProps = {
     | "students"
     | "calendar"
     | "assistant"
-    | "settings";
+    | "settings"
+    | "onboarding";
   children: React.ReactNode;
   data: PlannerData;
 };

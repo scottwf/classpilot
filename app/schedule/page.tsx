@@ -16,6 +16,7 @@ type ScheduleRouteProps = {
     conflictWith?: string;
     day?: string;
     error?: string;
+    wizard?: string;
   }>;
 };
 
@@ -55,6 +56,7 @@ export default async function ScheduleRoute({ searchParams }: ScheduleRouteProps
         periods={periods}
         scheduleSlots={scheduleSlots}
         selectedDay={selectedDay}
+        wizardMode={query.wizard === "1"}
       />
     </AppShell>
   );

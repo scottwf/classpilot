@@ -17,15 +17,23 @@ function timePattern(value: string): boolean {
   return /^\d{2}:\d{2}$/.test(value);
 }
 
+// Onboarding wizard forms carry a hidden wizard=1 field so the redirect
+// back to /schedule keeps the wizard banner and "Continue to review" link
+// showing across every mutation, not just the first page load.
+function wizardSuffix(formData: FormData): string {
+  return formData.get("wizard") === "1" ? "&wizard=1" : "";
+}
+
 export async function createPeriodAction(formData: FormData) {
   await requireAuth();
 
   const label = String(formData.get("label") ?? "").trim();
   const startTime = String(formData.get("startTime") ?? "").trim();
   const endTime = String(formData.get("endTime") ?? "").trim();
+  const suffix = wizardSuffix(formData);
 
   if (!label || !timePattern(startTime) || !timePattern(endTime) || endTime <= startTime) {
-    redirect("/schedule?error=period");
+    redirect(`/schedule?error=period${suffix}`);
   }
 
   const db = getClassPilotDatabase();
@@ -34,7 +42,7 @@ export async function createPeriodAction(formData: FormData) {
 
   createPeriod(db, { schoolYearId, label, startTime, endTime, sortOrder: nextSortOrder });
 
-  redirect("/schedule");
+  redirect(suffix ? `/schedule?wizard=1` : "/schedule");
 }
 
 export async function updatePeriodAction(formData: FormData) {
@@ -66,12 +74,13 @@ export async function deletePeriodAction(formData: FormData) {
   await requireAuth();
 
   const id = String(formData.get("id") ?? "").trim();
+  const suffix = wizardSuffix(formData);
 
   if (id) {
     deletePeriod(getClassPilotDatabase(), id);
   }
 
-  redirect("/schedule");
+  redirect(suffix ? `/schedule?wizard=1` : "/schedule");
 }
 
 export async function assignScheduleSlotAction(formData: FormData) {
@@ -80,20 +89,21 @@ export async function assignScheduleSlotAction(formData: FormData) {
   const classId = String(formData.get("classId") ?? "").trim();
   const periodId = String(formData.get("periodId") ?? "").trim();
   const cycleDay = Number(formData.get("cycleDay"));
+  const suffix = wizardSuffix(formData);
 
   if (!classId || !periodId || !Number.isInteger(cycleDay) || cycleDay < 1) {
-    redirect("/schedule?error=slot");
+    redirect(`/schedule?error=slot${suffix}`);
   }
 
   const result = assignScheduleSlot(getClassPilotDatabase(), { classId, periodId, cycleDay });
 
   if (result.conflictClassName) {
     redirect(
-      `/schedule?day=${cycleDay}&conflictClassId=${encodeURIComponent(classId)}&conflictWith=${encodeURIComponent(result.conflictClassName)}`,
+      `/schedule?day=${cycleDay}&conflictClassId=${encodeURIComponent(classId)}&conflictWith=${encodeURIComponent(result.conflictClassName)}${suffix}`,
     );
   }
 
-  redirect(`/schedule?day=${cycleDay}`);
+  redirect(`/schedule?day=${cycleDay}${suffix}`);
 }
 
 export async function removeScheduleSlotAction(formData: FormData) {
@@ -101,10 +111,11 @@ export async function removeScheduleSlotAction(formData: FormData) {
 
   const id = String(formData.get("id") ?? "").trim();
   const cycleDay = String(formData.get("cycleDay") ?? "").trim();
+  const suffix = wizardSuffix(formData);
 
   if (id) {
     removeScheduleSlot(getClassPilotDatabase(), id);
   }
 
-  redirect(`/schedule?day=${cycleDay}`);
+  redirect(`/schedule?day=${cycleDay}${suffix}`);
 }

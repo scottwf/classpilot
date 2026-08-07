@@ -4,9 +4,46 @@ import { redirect } from "next/navigation";
 import type { NonInstructionalDay } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
-import { getSchoolYear, updateSchoolYear } from "@/src/lib/db/planner-repository";
+import {
+  deleteSchoolYear,
+  getSchoolYear,
+  setActiveSchoolYear,
+  updateSchoolYear,
+} from "@/src/lib/db/planner-repository";
 
 const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function switchSchoolYearAction(formData: FormData) {
+  await requireAuth();
+
+  const id = String(formData.get("id") ?? "").trim();
+
+  if (!id) {
+    redirect("/calendar?error=year");
+  }
+
+  setActiveSchoolYear(getClassPilotDatabase(), id);
+
+  redirect("/calendar");
+}
+
+export async function deleteSchoolYearAction(formData: FormData) {
+  await requireAuth();
+
+  const id = String(formData.get("id") ?? "").trim();
+
+  if (!id) {
+    redirect("/calendar?error=year");
+  }
+
+  try {
+    deleteSchoolYear(getClassPilotDatabase(), id);
+  } catch {
+    redirect("/calendar?error=delete-active-year");
+  }
+
+  redirect("/calendar");
+}
 
 export async function updateSchoolYearDetailsAction(formData: FormData) {
   await requireAuth();
