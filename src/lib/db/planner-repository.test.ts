@@ -12,16 +12,22 @@ import {
   cascadeRescheduleUnitLessons,
   createClass,
   createLesson,
+  createSchoolYear,
   createUnit,
   createUnitWithLessons,
   deleteClass,
+  deleteSchoolYear,
   duplicateLessonAsContinuation,
+  getActiveSchoolYearId,
   getClassById,
   getLessonById,
   getPlannerData,
   getSchoolYear,
+  getSchoolYearById,
   getUnitById,
+  listSchoolYears,
   seedPlannerData,
+  setActiveSchoolYear,
   updateClass,
   updateLesson,
   updateSchoolYear,
@@ -628,5 +634,97 @@ describe("planner repository", () => {
     expect(() => duplicateLessonAsContinuation(db, sourceId)).toThrow(
       "no more meeting days left",
     );
+  });
+
+  it("creates a second school year and switches the active one", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(getActiveSchoolYearId(db)).toBe("current");
+
+    const nextYearId = createSchoolYear(db, {
+      title: "2027-2028 Grade 6 Homeroom",
+      startDate: "2027-09-01",
+      endDate: "2027-12-17",
+      cycleLength: 5,
+    });
+
+    // Creating a new year doesn't switch to it automatically.
+    expect(getActiveSchoolYearId(db)).toBe("current");
+    expect(getSchoolYear(db).id).toBe("current");
+
+    setActiveSchoolYear(db, nextYearId);
+
+    expect(getActiveSchoolYearId(db)).toBe(nextYearId);
+    expect(getSchoolYear(db).title).toBe("2027-2028 Grade 6 Homeroom");
+  });
+
+  it("lists school years newest-first", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    createSchoolYear(db, {
+      title: "2027-2028",
+      startDate: "2027-09-01",
+      endDate: "2027-12-17",
+      cycleLength: 5,
+    });
+
+    const years = listSchoolYears(db);
+
+    expect(years.map((year) => year.title)).toEqual(["2027-2028", plannerData.schoolYear.title]);
+  });
+
+  it("throws when switching to a nonexistent school year", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(() => setActiveSchoolYear(db, "year-does-not-exist")).toThrow(
+      "School year not found",
+    );
+  });
+
+  it("throws when looking up a nonexistent school year by id", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(() => getSchoolYearById(db, "year-does-not-exist")).toThrow(
+      "School year not found",
+    );
+  });
+
+  it("refuses to delete the active school year", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(() => deleteSchoolYear(db, "current")).toThrow(
+      "Can't delete the active school year",
+    );
+  });
+
+  it("deletes a non-active school year and cascades its classes", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const nextYearId = createSchoolYear(db, {
+      title: "2027-2028",
+      startDate: "2027-09-01",
+      endDate: "2027-12-17",
+      cycleLength: 5,
+    });
+    const classId = createClass(db, {
+      schoolYearId: nextYearId,
+      name: "French",
+      subject: "French",
+      grade: "6",
+      room: "",
+      meetingPattern: "",
+      cycleDays: [],
+    });
+
+    deleteSchoolYear(db, nextYearId);
+
+    expect(() => getSchoolYearById(db, nextYearId)).toThrow("School year not found");
+    expect(getClassById(db, classId)).toBeUndefined();
   });
 });
