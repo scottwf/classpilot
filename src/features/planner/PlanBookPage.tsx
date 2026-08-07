@@ -1,22 +1,40 @@
+import { buildDayAgenda } from "./day-agenda";
 import { DailyPlanner } from "./DailyPlanner";
 import {
   getLessonsForDate,
   getLessonsForWeek,
+  getWeekdayDates,
 } from "./lesson-queries";
-import type { PlannerData } from "./types";
+import type { PlannerData, ScheduleSlot } from "./types";
 import { ViewSwitcher } from "./ViewSwitcher";
 
 type PlanBookPageProps = {
   data: PlannerData;
+  scheduleSlots: ScheduleSlot[];
   selectedDate: string;
   view: "day" | "week";
 };
 
-export function PlanBookPage({ data, selectedDate, view }: PlanBookPageProps) {
-  const visibleLessons =
-    view === "week"
-      ? getLessonsForWeek(data, selectedDate)
-      : getLessonsForDate(data, selectedDate);
+export function PlanBookPage({ data, scheduleSlots, selectedDate, view }: PlanBookPageProps) {
+  const dates = view === "week" ? getWeekdayDates(selectedDate) : [selectedDate];
+  const lessonsInRange =
+    view === "week" ? getLessonsForWeek(data, selectedDate) : getLessonsForDate(data, selectedDate);
+
+  const days = dates.map((date) => ({
+    date,
+    entries: buildDayAgenda(
+      date,
+      data.schoolYear,
+      scheduleSlots,
+      data.classes,
+      lessonsInRange.filter((lesson) => lesson.date === date),
+    ),
+  }));
+
+  const scheduledLessonIds = new Set(
+    days.flatMap((day) => day.entries.flatMap((entry) => (entry.lesson ? [entry.lesson.id] : []))),
+  );
+  const otherLessons = lessonsInRange.filter((lesson) => !scheduledLessonIds.has(lesson.id));
 
   return (
     <>
@@ -27,14 +45,15 @@ export function PlanBookPage({ data, selectedDate, view }: PlanBookPageProps) {
             Start with the lessons you need to teach.
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Use the day and week views for classroom planning. Lessons, units,
-            and outcomes each have their own pages so this screen stays focused.
+            Day and week views show your actual timetable — click a
+            scheduled class to add or open its lesson. Lessons, units, and
+            outcomes each have their own pages so this screen stays focused.
           </p>
         </section>
         <ViewSwitcher date={selectedDate} view={view} />
       </div>
 
-      <DailyPlanner date={selectedDate} lessons={visibleLessons} view={view} />
+      <DailyPlanner date={selectedDate} days={days} otherLessons={otherLessons} view={view} />
     </>
   );
 }

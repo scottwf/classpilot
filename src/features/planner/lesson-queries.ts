@@ -138,6 +138,15 @@ export function getWeekRange(dateKey: string): { start: string; end: string } {
   };
 }
 
+/** The five weekday date keys (Monday..Friday) of the week containing
+ * dateKey — the columns of Plan Book's week view. */
+export function getWeekdayDates(dateKey: string): string[] {
+  const { start } = getWeekRange(dateKey);
+  const monday = parseDate(start);
+
+  return Array.from({ length: 5 }, (_, index) => toDateKey(addDays(monday, index)));
+}
+
 function enrichLesson(
   lesson: LessonPlan,
   unit: UnitPlan,

@@ -7,6 +7,7 @@ import { createLessonAction } from "./actions";
 
 type NewLessonPageProps = {
   searchParams: Promise<{
+    classId?: string;
     date?: string;
     error?: string;
     unitId?: string;
@@ -23,9 +24,15 @@ export default async function NewLessonPage({
   const plannerData = getClassPilotPlannerData();
   const params = await searchParams;
   const selectedDate = params.date ?? "2026-09-11";
+  // Clicking a scheduled class slot on Plan Book links here with classId
+  // instead of unitId (a slot doesn't know which unit) — prefer that
+  // class's first unit so the dropdown starts on the right class.
+  const classUnitId = params.classId
+    ? plannerData.units.find((unit) => unit.classId === params.classId)?.id
+    : undefined;
   const selectedUnitId = plannerData.units.some((unit) => unit.id === params.unitId)
     ? params.unitId
-    : plannerData.units[0]?.id;
+    : (classUnitId ?? plannerData.units[0]?.id);
 
   return (
     <AppShell activePage="lessons" data={plannerData}>

@@ -35,7 +35,7 @@ describe("ClassPilotPlanner", () => {
     expect(
       screen.queryByRole("heading", { name: "Coverage by class" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Today's lessons")).toBeInTheDocument();
+    expect(screen.getByText("Today's schedule")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add lesson" })).toHaveAttribute(
       "href",
       "/lessons/new?date=2026-09-11",
