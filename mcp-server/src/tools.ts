@@ -92,6 +92,10 @@ const unitInputShape = {
     .describe("Curriculum outcome IDs from get_planner_data's outcomes list."),
 };
 
+const classColorEnum = z
+  .enum(["blue", "emerald", "amber", "rose", "violet", "sky", "orange", "teal"])
+  .describe("Identity color for this class on the schedule grid and timetable views.");
+
 const classInputShape = {
   name: z.string().min(1),
   subject: z.string().min(1),
@@ -104,6 +108,7 @@ const classInputShape = {
     .describe(
       "Which of the school year's cycle days (1..cycleLength, from get_planner_data's schoolYear.cycleLength) this class meets on. Empty means every instructional day.",
     ),
+  color: classColorEnum.default("blue"),
 };
 
 function ok(data: unknown): CallToolResult {

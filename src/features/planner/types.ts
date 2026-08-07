@@ -45,6 +45,20 @@ export type UnitPlan = {
   lessons: LessonPlan[];
 };
 
+/** Palette for ClassSection.color — a class's identity color across the
+ * schedule grid and timetable views (Chalk/Planboard-style class colors).
+ * Deliberately a wider set than UnitPlan's 5 colors since a school day can
+ * have 6+ classes that all need to stay visually distinct at once. */
+export type ClassColor =
+  | "blue"
+  | "emerald"
+  | "amber"
+  | "rose"
+  | "violet"
+  | "sky"
+  | "orange"
+  | "teal";
+
 export type ClassSection = {
   id: string;
   schoolYearId: string;
@@ -60,6 +74,9 @@ export type ClassSection = {
    * curriculum minimum). 0/undefined means no target set — the onboarding
    * wizard's time-confirmation step just informational in that case. */
   targetMinutesPerYear?: number;
+  /** Identity color for this class, shown on the schedule grid and
+   * timetable views. */
+  color: ClassColor;
 };
 
 export type NonInstructionalDay = {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ClassSection } from "./types";
+import type { ClassColor, ClassSection } from "./types";
 
 type ClassFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -7,6 +7,28 @@ type ClassFormProps = {
   cycleLength: number;
   error?: string;
   mode: "create" | "edit";
+};
+
+const classColors: ClassColor[] = [
+  "blue",
+  "emerald",
+  "amber",
+  "rose",
+  "violet",
+  "sky",
+  "orange",
+  "teal",
+];
+
+const classColorSwatchClass: Record<ClassColor, string> = {
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  emerald: "bg-emerald-500",
+  orange: "bg-orange-500",
+  rose: "bg-rose-500",
+  sky: "bg-sky-500",
+  teal: "bg-teal-500",
+  violet: "bg-violet-500",
 };
 
 export function ClassForm({
@@ -17,6 +39,7 @@ export function ClassForm({
   mode,
 }: ClassFormProps) {
   const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
+  const selectedColor = classSection?.color ?? "blue";
 
   return (
     <form
@@ -94,6 +117,30 @@ export function ClassForm({
               Day {day}
             </label>
           ))}
+        </div>
+
+        <div>
+          <span className="text-sm font-medium text-slate-700">Color</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {classColors.map((color) => (
+              <label
+                className="flex items-center"
+                key={color}
+                title={color}
+              >
+                <input
+                  className="peer sr-only"
+                  defaultChecked={color === selectedColor}
+                  name="color"
+                  type="radio"
+                  value={color}
+                />
+                <span
+                  className={`size-7 cursor-pointer rounded-full ring-offset-2 peer-checked:ring-2 peer-checked:ring-blue-600 ${classColorSwatchClass[color]}`}
+                />
+              </label>
+            ))}
+          </div>
         </div>
 
         <label className="block">

@@ -33,6 +33,7 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Daily literacy block",
       cycleDays: [],
+      color: "amber",
     },
     {
       id: "grade-6-math",
@@ -43,6 +44,7 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Daily numeracy block",
       cycleDays: [],
+      color: "blue",
     },
     {
       id: "grade-6-science",
@@ -53,6 +55,7 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Mon/Wed/Fri inquiry block",
       cycleDays: [],
+      color: "violet",
     },
     {
       id: "grade-6-social-studies",
@@ -63,6 +66,7 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Tue/Thu project block",
       cycleDays: [],
+      color: "teal",
     },
     {
       id: "grade-6-homeroom",
@@ -73,6 +77,7 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Morning meeting and end-of-day routines",
       cycleDays: [],
+      color: "rose",
     },
   ],
   outcomes: [

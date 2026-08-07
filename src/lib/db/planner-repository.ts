@@ -37,6 +37,7 @@ type ClassSectionRow = {
   meeting_pattern: string;
   cycle_days_json: string;
   target_minutes_per_year: number | null;
+  color: ClassSection["color"];
 };
 
 type CurriculumOutcomeRow = {
@@ -115,6 +116,7 @@ export type CreateClassInput = {
   meetingPattern: string;
   cycleDays: number[];
   targetMinutesPerYear?: number;
+  color?: ClassSection["color"];
 };
 
 export type UpdateClassInput = CreateClassInput & {
@@ -148,8 +150,8 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
   `);
 
   const insertClass = db.prepare(`
-    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       school_year_id = excluded.school_year_id,
       name = excluded.name,
@@ -158,7 +160,8 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
       room = excluded.room,
       meeting_pattern = excluded.meeting_pattern,
       cycle_days_json = excluded.cycle_days_json,
-      target_minutes_per_year = excluded.target_minutes_per_year
+      target_minutes_per_year = excluded.target_minutes_per_year,
+      color = excluded.color
   `);
 
   const insertOutcome = db.prepare(`
@@ -222,6 +225,7 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
         classSection.meetingPattern,
         JSON.stringify(classSection.cycleDays),
         classSection.targetMinutesPerYear ?? null,
+        classSection.color ?? "blue",
       );
     }
 
@@ -613,8 +617,8 @@ export function createClass(db: ClassPilotDatabase, input: CreateClassInput): st
   const id = `class-${crypto.randomUUID()}`;
 
   db.prepare(`
-    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     input.schoolYearId,
@@ -625,6 +629,7 @@ export function createClass(db: ClassPilotDatabase, input: CreateClassInput): st
     input.meetingPattern,
     JSON.stringify(input.cycleDays),
     input.targetMinutesPerYear ?? null,
+    input.color ?? "blue",
   );
 
   return id;
@@ -641,7 +646,8 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
       room = ?,
       meeting_pattern = ?,
       cycle_days_json = ?,
-      target_minutes_per_year = ?
+      target_minutes_per_year = ?,
+      color = ?
     WHERE id = ?
   `).run(
     input.schoolYearId,
@@ -652,6 +658,7 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
     input.meetingPattern,
     JSON.stringify(input.cycleDays),
     input.targetMinutesPerYear ?? null,
+    input.color ?? "blue",
     input.id,
   );
 
@@ -663,7 +670,7 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
 export function getClassById(db: ClassPilotDatabase, id: string): ClassSection | undefined {
   const row = db
     .prepare(
-      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year FROM class_sections WHERE id = ?",
+      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color FROM class_sections WHERE id = ?",
     )
     .get(id) as ClassSectionRow | undefined;
 
@@ -676,7 +683,7 @@ export function listClassesForSchoolYear(
 ): ClassSection[] {
   const rows = db
     .prepare(
-      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year FROM class_sections WHERE school_year_id = ? ORDER BY rowid",
+      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color FROM class_sections WHERE school_year_id = ? ORDER BY rowid",
     )
     .all(schoolYearId) as ClassSectionRow[];
 
@@ -896,6 +903,7 @@ function mapClassSection(row: ClassSectionRow): ClassSection {
     meetingPattern: row.meeting_pattern,
     cycleDays: JSON.parse(row.cycle_days_json) as number[],
     targetMinutesPerYear: row.target_minutes_per_year ?? undefined,
+    color: row.color,
   };
 }
 

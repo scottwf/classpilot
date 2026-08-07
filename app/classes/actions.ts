@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import type { ClassColor } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
 import {
@@ -9,6 +10,17 @@ import {
   getActiveSchoolYearId,
   updateClass,
 } from "@/src/lib/db/planner-repository";
+
+const classColors: ClassColor[] = [
+  "blue",
+  "emerald",
+  "amber",
+  "rose",
+  "violet",
+  "sky",
+  "orange",
+  "teal",
+];
 
 export async function createClassAction(formData: FormData) {
   await requireAuth();
@@ -70,10 +82,14 @@ function readClassInput(formData: FormData) {
     targetMinutesRaw && Number.isInteger(Number(targetMinutesRaw)) && Number(targetMinutesRaw) > 0
       ? Number(targetMinutesRaw)
       : undefined;
+  const colorRaw = String(formData.get("color") ?? "").trim();
+  const color = classColors.includes(colorRaw as ClassColor)
+    ? (colorRaw as ClassColor)
+    : "blue";
 
   if (!name || !subject || !grade) {
     return undefined;
   }
 
-  return { name, subject, grade, room, meetingPattern, cycleDays, targetMinutesPerYear };
+  return { name, subject, grade, room, meetingPattern, cycleDays, targetMinutesPerYear, color };
 }

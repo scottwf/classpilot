@@ -1,5 +1,27 @@
 import Link from "next/link";
-import type { ClassSection, Period, ScheduleSlot } from "./types";
+import type { ClassColor, ClassSection, Period, ScheduleSlot } from "./types";
+
+const classColorClass: Record<ClassColor, string> = {
+  amber: "bg-amber-100 text-amber-950",
+  blue: "bg-blue-100 text-blue-950",
+  emerald: "bg-emerald-100 text-emerald-950",
+  orange: "bg-orange-100 text-orange-950",
+  rose: "bg-rose-100 text-rose-950",
+  sky: "bg-sky-100 text-sky-950",
+  teal: "bg-teal-100 text-teal-950",
+  violet: "bg-violet-100 text-violet-950",
+};
+
+const classDotColorClass: Record<ClassColor, string> = {
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  emerald: "bg-emerald-500",
+  orange: "bg-orange-500",
+  rose: "bg-rose-500",
+  sky: "bg-sky-500",
+  teal: "bg-teal-500",
+  violet: "bg-violet-500",
+};
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
 
@@ -111,14 +133,12 @@ export function SchedulePage({
                     </div>
 
                     {assignedClass ? (
-                      <div className="flex flex-1 items-center justify-between gap-2 rounded-md bg-blue-50 px-3 py-2">
+                      <div
+                        className={`flex flex-1 items-center justify-between gap-2 rounded-md px-3 py-2 ${classColorClass[assignedClass.color]}`}
+                      >
                         <div>
-                          <div className="font-medium text-blue-950">
-                            {assignedClass.name}
-                          </div>
-                          <div className="text-xs text-blue-700">
-                            {assignedClass.subject}
-                          </div>
+                          <div className="font-medium">{assignedClass.name}</div>
+                          <div className="text-xs opacity-80">{assignedClass.subject}</div>
                         </div>
                         <form action={actions.removeSlot}>
                           <input name="id" type="hidden" value={slot!.id} />
@@ -128,7 +148,7 @@ export function SchedulePage({
                             value={selectedDay}
                           />
                           <button
-                            className="text-xs font-medium text-blue-700 hover:text-rose-600"
+                            className="text-xs font-medium opacity-80 hover:text-rose-600 hover:opacity-100"
                             type="submit"
                           >
                             Remove
@@ -173,6 +193,23 @@ export function SchedulePage({
         </section>
 
         <aside className="space-y-4">
+          {classes.length > 0 ? (
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-950">Classes</h3>
+              <ul className="mt-3 space-y-1.5">
+                {classes.map((classSection) => (
+                  <li className="flex items-center gap-2 text-sm text-slate-700" key={classSection.id}>
+                    <span
+                      aria-hidden="true"
+                      className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[classSection.color]}`}
+                    />
+                    {classSection.name}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-950">
               Bell schedule
