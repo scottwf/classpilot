@@ -1,7 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { ClassColor, DayLabelScheme } from "@/src/features/planner/types";
+import type {
+  ClassColor,
+  DayLabelScheme,
+  NonInstructionalDay,
+} from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
 import {
@@ -26,6 +30,34 @@ const classColors: ClassColor[] = [
 ];
 
 const dayLabelSchemes: DayLabelScheme[] = ["numeric", "letters", "odd-even"];
+const dateKeyPatternForBlocked = /^\d{4}-\d{2}-\d{2}$/;
+
+// The calendar step builds this client-side and hands it over as JSON —
+// re-validate the shape rather than trusting form data.
+function parseBlockedDates(raw: string): NonInstructionalDay[] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+
+  return parsed.filter((entry): entry is NonInstructionalDay => {
+    return (
+      typeof entry === "object" &&
+      entry !== null &&
+      typeof (entry as NonInstructionalDay).date === "string" &&
+      dateKeyPatternForBlocked.test((entry as NonInstructionalDay).date) &&
+      typeof (entry as NonInstructionalDay).label === "string" &&
+      typeof (entry as NonInstructionalDay).advancesCycle === "boolean"
+    );
+  });
+}
 
 export async function createOnboardingYearAction(formData: FormData) {
   await requireAuth();
@@ -38,6 +70,7 @@ export async function createOnboardingYearAction(formData: FormData) {
   const dayLabelScheme = dayLabelSchemes.includes(dayLabelSchemeRaw as DayLabelScheme)
     ? (dayLabelSchemeRaw as DayLabelScheme)
     : "numeric";
+  const blockedDates = parseBlockedDates(String(formData.get("blockedDatesJson") ?? "[]"));
 
   if (
     !title ||
@@ -57,6 +90,7 @@ export async function createOnboardingYearAction(formData: FormData) {
     endDate,
     cycleLength,
     dayLabelScheme,
+    blockedDates,
   });
   // The rest of the app (classes, schedule, calendar) always operates on
   // whichever year is "active" — the new year becomes it immediately so the

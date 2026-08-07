@@ -326,6 +326,7 @@ export type CreateSchoolYearInput = {
   endDate: string;
   cycleLength: number;
   dayLabelScheme?: DayLabelScheme;
+  blockedDates?: NonInstructionalDay[];
 };
 
 export function createSchoolYear(db: ClassPilotDatabase, input: CreateSchoolYearInput): string {
@@ -339,7 +340,7 @@ export function createSchoolYear(db: ClassPilotDatabase, input: CreateSchoolYear
     input.title,
     input.startDate,
     input.endDate,
-    JSON.stringify([]),
+    JSON.stringify(input.blockedDates ?? []),
     input.cycleLength,
     input.dayLabelScheme ?? "numeric",
   );
