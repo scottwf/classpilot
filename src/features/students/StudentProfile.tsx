@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { calculateAge } from "./age";
 import type {
   NoteCategory,
   ReminderCategory,
@@ -102,7 +103,11 @@ export function StudentProfile({ profile, error, actions }: StudentProfileProps)
             </Detail>
             <Detail label="Interests">{profile.interests || "—"}</Detail>
             <Detail label="Strengths">{profile.strengths || "—"}</Detail>
-            <Detail label="Birthdate">{profile.birthdate || "—"}</Detail>
+            <Detail label="Birthdate">
+              {profile.birthdate
+                ? `${profile.birthdate} (age ${calculateAge(profile.birthdate) ?? "—"})`
+                : "—"}
+            </Detail>
             <Detail label="Student number">
               {profile.studentNumber || "—"}
             </Detail>
