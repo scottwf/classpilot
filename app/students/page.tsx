@@ -13,7 +13,7 @@ export default async function StudentsRoute() {
   await requireAuth();
 
   const plannerData = getClassPilotPlannerData();
-  const roster = listRoster(getClassPilotDatabase());
+  const roster = listRoster(getClassPilotDatabase(), plannerData.schoolYear.id);
 
   return (
     <AppShell activePage="students" data={plannerData}>

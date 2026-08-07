@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { StudentStatus } from "@/src/features/students/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { getActiveSchoolYearId } from "@/src/lib/db/planner-repository";
 import { createStudent } from "@/src/lib/db/students-repository";
 
 const statuses = new Set<StudentStatus>(["active", "inactive", "transferred"]);
@@ -19,8 +20,10 @@ export async function createStudentAction(formData: FormData) {
   }
 
   const status = String(formData.get("status") ?? "active");
+  const db = getClassPilotDatabase();
 
-  const id = createStudent(getClassPilotDatabase(), {
+  const id = createStudent(db, {
+    schoolYearId: getActiveSchoolYearId(db),
     firstName,
     lastName,
     preferredName: String(formData.get("preferredName") ?? "").trim(),
