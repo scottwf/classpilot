@@ -69,8 +69,6 @@ export async function deleteClassAction(formData: FormData) {
 
 function readClassInput(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
-  const subject = String(formData.get("subject") ?? "").trim();
-  const grade = String(formData.get("grade") ?? "").trim();
   const room = String(formData.get("room") ?? "").trim();
   const meetingPattern = String(formData.get("meetingPattern") ?? "").trim();
   const cycleDays = formData
@@ -87,9 +85,39 @@ function readClassInput(formData: FormData) {
     ? (colorRaw as ClassColor)
     : "blue";
 
-  if (!name || !subject || !grade) {
+  const isInstructional = formData.get("isInstructional") !== null;
+  let subject: string;
+  let grade: string;
+
+  if (isInstructional) {
+    const [choiceGrade, choiceSubject] = String(formData.get("curriculumChoice") ?? "")
+      .split("|")
+      .map((part) => part.trim());
+
+    if (!choiceGrade || !choiceSubject) {
+      return undefined;
+    }
+
+    grade = choiceGrade;
+    subject = choiceSubject;
+  } else {
+    subject = String(formData.get("subjectFreeText") ?? "").trim();
+    grade = String(formData.get("gradeFreeText") ?? "").trim();
+  }
+
+  if (!name) {
     return undefined;
   }
 
-  return { name, subject, grade, room, meetingPattern, cycleDays, targetMinutesPerYear, color };
+  return {
+    name,
+    subject,
+    grade,
+    room,
+    meetingPattern,
+    cycleDays,
+    targetMinutesPerYear,
+    color,
+    isInstructional,
+  };
 }

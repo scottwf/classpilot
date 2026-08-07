@@ -109,6 +109,12 @@ const classInputShape = {
       "Which of the school year's cycle days (1..cycleLength, from get_planner_data's schoolYear.cycleLength) this class meets on. Empty means every instructional day.",
     ),
   color: classColorEnum.default("blue"),
+  isInstructional: z
+    .boolean()
+    .default(true)
+    .describe(
+      "False for non-instructional blocks (recess, supervision, one-off assemblies) — these skip curriculum outcomes and instructional-time tracking.",
+    ),
 };
 
 function ok(data: unknown): CallToolResult {

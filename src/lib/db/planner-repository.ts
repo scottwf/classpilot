@@ -1,6 +1,7 @@
 import type {
   ClassSection,
   CurriculumOutcome,
+  DayLabelScheme,
   LessonSections,
   LessonPlan,
   NonInstructionalDay,
@@ -25,6 +26,7 @@ type SchoolYearRow = {
   end_date: string;
   blocked_dates_json: string;
   cycle_length_days: number;
+  day_label_scheme: SchoolYear["dayLabelScheme"];
 };
 
 type ClassSectionRow = {
@@ -38,6 +40,7 @@ type ClassSectionRow = {
   cycle_days_json: string;
   target_minutes_per_year: number | null;
   color: ClassSection["color"];
+  is_instructional: number;
 };
 
 type CurriculumOutcomeRow = {
@@ -117,6 +120,7 @@ export type CreateClassInput = {
   cycleDays: number[];
   targetMinutesPerYear?: number;
   color?: ClassSection["color"];
+  isInstructional?: boolean;
 };
 
 export type UpdateClassInput = CreateClassInput & {
@@ -133,14 +137,15 @@ export function isPlannerSeeded(db: ClassPilotDatabase): boolean {
 
 export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData) {
   const insertSchoolYear = db.prepare(`
-    INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json, cycle_length_days)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json, cycle_length_days, day_label_scheme)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
       start_date = excluded.start_date,
       end_date = excluded.end_date,
       blocked_dates_json = excluded.blocked_dates_json,
-      cycle_length_days = excluded.cycle_length_days
+      cycle_length_days = excluded.cycle_length_days,
+      day_label_scheme = excluded.day_label_scheme
   `);
 
   const insertAppState = db.prepare(`
@@ -150,8 +155,8 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
   `);
 
   const insertClass = db.prepare(`
-    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       school_year_id = excluded.school_year_id,
       name = excluded.name,
@@ -161,7 +166,8 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
       meeting_pattern = excluded.meeting_pattern,
       cycle_days_json = excluded.cycle_days_json,
       target_minutes_per_year = excluded.target_minutes_per_year,
-      color = excluded.color
+      color = excluded.color,
+      is_instructional = excluded.is_instructional
   `);
 
   const insertOutcome = db.prepare(`
@@ -211,6 +217,7 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
       plannerData.schoolYear.endDate,
       JSON.stringify(plannerData.schoolYear.blockedDates),
       plannerData.schoolYear.cycleLength,
+      plannerData.schoolYear.dayLabelScheme ?? "numeric",
     );
     insertAppState.run(appStateId, seedSchoolYearId);
 
@@ -226,6 +233,7 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
         JSON.stringify(classSection.cycleDays),
         classSection.targetMinutesPerYear ?? null,
         classSection.color ?? "blue",
+        classSection.isInstructional === false ? 0 : 1,
       );
     }
 
@@ -305,7 +313,7 @@ export function setActiveSchoolYear(db: ClassPilotDatabase, id: string): void {
 export function listSchoolYears(db: ClassPilotDatabase): SchoolYear[] {
   const rows = db
     .prepare(
-      "SELECT id, title, start_date, end_date, blocked_dates_json, cycle_length_days FROM school_years ORDER BY start_date DESC, rowid DESC",
+      "SELECT id, title, start_date, end_date, blocked_dates_json, cycle_length_days, day_label_scheme FROM school_years ORDER BY start_date DESC, rowid DESC",
     )
     .all() as SchoolYearRow[];
 
@@ -317,15 +325,24 @@ export type CreateSchoolYearInput = {
   startDate: string;
   endDate: string;
   cycleLength: number;
+  dayLabelScheme?: DayLabelScheme;
 };
 
 export function createSchoolYear(db: ClassPilotDatabase, input: CreateSchoolYearInput): string {
   const id = `year-${crypto.randomUUID()}`;
 
   db.prepare(
-    `INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json, cycle_length_days)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, input.title, input.startDate, input.endDate, JSON.stringify([]), input.cycleLength);
+    `INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json, cycle_length_days, day_label_scheme)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    input.title,
+    input.startDate,
+    input.endDate,
+    JSON.stringify([]),
+    input.cycleLength,
+    input.dayLabelScheme ?? "numeric",
+  );
 
   return id;
 }
@@ -346,7 +363,7 @@ export function deleteSchoolYear(db: ClassPilotDatabase, id: string): void {
 export function getSchoolYearById(db: ClassPilotDatabase, id: string): SchoolYear {
   const row = db
     .prepare(
-      "SELECT id, title, start_date, end_date, blocked_dates_json, cycle_length_days FROM school_years WHERE id = ?",
+      "SELECT id, title, start_date, end_date, blocked_dates_json, cycle_length_days, day_label_scheme FROM school_years WHERE id = ?",
     )
     .get(id) as SchoolYearRow | undefined;
 
@@ -369,6 +386,7 @@ export type UpdateSchoolYearInput = {
   endDate: string;
   blockedDates: NonInstructionalDay[];
   cycleLength: number;
+  dayLabelScheme?: DayLabelScheme;
 };
 
 export function updateSchoolYear(
@@ -382,7 +400,7 @@ export function updateSchoolYear(
   const result = db
     .prepare(
       `UPDATE school_years
-       SET title = ?, start_date = ?, end_date = ?, blocked_dates_json = ?, cycle_length_days = ?
+       SET title = ?, start_date = ?, end_date = ?, blocked_dates_json = ?, cycle_length_days = ?, day_label_scheme = ?
        WHERE id = ?`,
     )
     .run(
@@ -391,6 +409,7 @@ export function updateSchoolYear(
       input.endDate,
       JSON.stringify(blockedDates),
       input.cycleLength,
+      input.dayLabelScheme ?? "numeric",
       input.id,
     );
 
@@ -617,8 +636,8 @@ export function createClass(db: ClassPilotDatabase, input: CreateClassInput): st
   const id = `class-${crypto.randomUUID()}`;
 
   db.prepare(`
-    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     input.schoolYearId,
@@ -630,6 +649,7 @@ export function createClass(db: ClassPilotDatabase, input: CreateClassInput): st
     JSON.stringify(input.cycleDays),
     input.targetMinutesPerYear ?? null,
     input.color ?? "blue",
+    input.isInstructional === false ? 0 : 1,
   );
 
   return id;
@@ -647,7 +667,8 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
       meeting_pattern = ?,
       cycle_days_json = ?,
       target_minutes_per_year = ?,
-      color = ?
+      color = ?,
+      is_instructional = ?
     WHERE id = ?
   `).run(
     input.schoolYearId,
@@ -659,6 +680,7 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
     JSON.stringify(input.cycleDays),
     input.targetMinutesPerYear ?? null,
     input.color ?? "blue",
+    input.isInstructional === false ? 0 : 1,
     input.id,
   );
 
@@ -670,7 +692,7 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
 export function getClassById(db: ClassPilotDatabase, id: string): ClassSection | undefined {
   const row = db
     .prepare(
-      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color FROM class_sections WHERE id = ?",
+      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional FROM class_sections WHERE id = ?",
     )
     .get(id) as ClassSectionRow | undefined;
 
@@ -683,7 +705,7 @@ export function listClassesForSchoolYear(
 ): ClassSection[] {
   const rows = db
     .prepare(
-      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color FROM class_sections WHERE school_year_id = ? ORDER BY rowid",
+      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional FROM class_sections WHERE school_year_id = ? ORDER BY rowid",
     )
     .all(schoolYearId) as ClassSectionRow[];
 
@@ -869,6 +891,7 @@ function mapSchoolYear(row: SchoolYearRow): SchoolYear {
     endDate: row.end_date,
     blockedDates: parseBlockedDates(row.blocked_dates_json),
     cycleLength: row.cycle_length_days,
+    dayLabelScheme: row.day_label_scheme,
   };
 }
 
@@ -904,6 +927,7 @@ function mapClassSection(row: ClassSectionRow): ClassSection {
     cycleDays: JSON.parse(row.cycle_days_json) as number[],
     targetMinutesPerYear: row.target_minutes_per_year ?? undefined,
     color: row.color,
+    isInstructional: row.is_instructional !== 0,
   };
 }
 

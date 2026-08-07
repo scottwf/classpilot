@@ -1,11 +1,17 @@
 import Link from "next/link";
-import type { ClassColor, ClassSection } from "./types";
+import { getDayLabel } from "./cycle";
+import type { GradeSubjects } from "./curriculum-subjects";
+import type { ClassColor, ClassSection, DayLabelScheme } from "./types";
 
 type ClassFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   classSection?: ClassSection;
   cycleLength: number;
+  dayLabelScheme: DayLabelScheme;
   error?: string;
+  /** Grades and subjects that have curriculum outcomes loaded — populates
+   * the instructional-class curriculum picker below. */
+  gradeSubjects: GradeSubjects[];
   mode: "create" | "edit";
 };
 
@@ -35,11 +41,22 @@ export function ClassForm({
   action,
   classSection,
   cycleLength,
+  dayLabelScheme,
   error,
+  gradeSubjects,
   mode,
 }: ClassFormProps) {
   const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
   const selectedColor = classSection?.color ?? "blue";
+  const isInstructional = classSection?.isInstructional ?? true;
+  const curriculumChoice =
+    classSection && isInstructional
+      ? `${classSection.grade}|${classSection.subject}`
+      : "";
+  const curriculumChoiceExists = gradeSubjects.some(
+    (entry) =>
+      entry.grade === classSection?.grade && entry.subjects.includes(classSection?.subject ?? ""),
+  );
 
   return (
     <form
@@ -60,20 +77,73 @@ export function ClassForm({
           name="name"
           required
         />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            defaultValue={classSection?.subject}
-            label="Subject"
-            name="subject"
-            required
+        <div>
+          <input
+            className="peer"
+            defaultChecked={isInstructional}
+            id="isInstructional"
+            name="isInstructional"
+            type="checkbox"
+            value="1"
           />
-          <Field
-            defaultValue={classSection?.grade}
-            label="Grade"
-            name="grade"
-            required
-          />
+          <label
+            className="ml-2 text-sm font-medium text-slate-700"
+            htmlFor="isInstructional"
+          >
+            This is an instructional class (has curriculum outcomes)
+          </label>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Uncheck for non-instructional blocks on the schedule — recess,
+            supervision, a one-off assembly — which skip curriculum outcomes
+            and instructional-time tracking.
+          </p>
+
+          <div className="mt-3 hidden peer-checked:block">
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">
+                Grade and subject
+              </span>
+              <select
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                defaultValue={curriculumChoiceExists ? curriculumChoice : ""}
+                name="curriculumChoice"
+              >
+                <option value="">Select a subject…</option>
+                {gradeSubjects.map((entry) => (
+                  <optgroup key={entry.grade} label={`Grade ${entry.grade}`}>
+                    {entry.subjects.map((subject) => (
+                      <option key={subject} value={`${entry.grade}|${subject}`}>
+                        {subject}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs leading-5 text-slate-500">
+                From curriculum outcomes already loaded on the{" "}
+                <Link className="text-blue-700 underline" href="/outcomes">
+                  Outcomes
+                </Link>{" "}
+                page.
+              </span>
+            </label>
+          </div>
+
+          <div className="mt-3 grid gap-4 peer-checked:hidden sm:grid-cols-2">
+            <Field
+              defaultValue={isInstructional ? undefined : classSection?.subject}
+              label="Subject or label"
+              name="subjectFreeText"
+              placeholder="e.g. Recess, Supervision"
+            />
+            <Field
+              defaultValue={isInstructional ? undefined : classSection?.grade}
+              label="Grade (optional)"
+              name="gradeFreeText"
+            />
+          </div>
         </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field defaultValue={classSection?.room} label="Room" name="room" />
           <Field
@@ -114,7 +184,7 @@ export function ClassForm({
                 type="checkbox"
                 value={day}
               />
-              Day {day}
+              {getDayLabel(dayLabelScheme, day)}
             </label>
           ))}
         </div>

@@ -77,6 +77,11 @@ export type ClassSection = {
   /** Identity color for this class, shown on the schedule grid and
    * timetable views. */
   color: ClassColor;
+  /** False for non-instructional blocks on the schedule (recess,
+   * supervision, one-off assemblies) — these skip the curriculum outcome
+   * picker and are excluded from instructional-time tracking. Defaults to
+   * true (a real class). */
+  isInstructional: boolean;
 };
 
 export type NonInstructionalDay = {
@@ -90,6 +95,11 @@ export type NonInstructionalDay = {
   advancesCycle: boolean;
 };
 
+/** How cycle day numbers are displayed — purely cosmetic, the underlying
+ * storage and every scheduling/cycle calculation always uses plain numbers
+ * (1..cycleLength). See getDayLabel() in cycle.ts. */
+export type DayLabelScheme = "numeric" | "letters" | "odd-even";
+
 export type SchoolYear = {
   id: string;
   title: string;
@@ -99,6 +109,7 @@ export type SchoolYear = {
   /** Length of the school's rotating day cycle (e.g. 2 for odd/even days,
    * 5 or 6 for a multi-day rotation). */
   cycleLength: number;
+  dayLabelScheme: DayLabelScheme;
 };
 
 export type PlannerData = {

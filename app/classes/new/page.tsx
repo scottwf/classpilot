@@ -1,5 +1,6 @@
 import { AppShell } from "@/src/features/planner/AppShell";
 import { ClassForm } from "@/src/features/planner/ClassForm";
+import { groupSubjectsByGrade } from "@/src/features/planner/curriculum-subjects";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { createClassAction } from "../actions";
@@ -34,7 +35,9 @@ export default async function NewClassPage({ searchParams }: NewClassPageProps) 
       <ClassForm
         action={createClassAction}
         cycleLength={plannerData.schoolYear.cycleLength}
+        dayLabelScheme={plannerData.schoolYear.dayLabelScheme}
         error={params.error}
+        gradeSubjects={groupSubjectsByGrade(plannerData.outcomes)}
         mode="create"
       />
     </AppShell>

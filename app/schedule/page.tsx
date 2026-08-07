@@ -52,6 +52,7 @@ export default async function ScheduleRoute({ searchParams }: ScheduleRouteProps
         conflictClassId={query.conflictClassId}
         conflictWith={query.conflictWith}
         cycleLength={cycleLength}
+        dayLabelScheme={plannerData.schoolYear.dayLabelScheme}
         error={query.error}
         periods={periods}
         scheduleSlots={scheduleSlots}

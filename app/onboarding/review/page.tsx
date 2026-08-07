@@ -41,9 +41,14 @@ export default async function OnboardingReviewRoute() {
   const schoolYearId = plannerData.schoolYear.id;
   const periods = getPeriods(db, schoolYearId);
   const scheduleSlots = getScheduleSlots(db, schoolYearId);
+  // Non-instructional blocks (recess, supervision, assemblies) aren't real
+  // curriculum time — exclude them from the review.
+  const instructionalClasses = plannerData.classes.filter(
+    (classSection) => classSection.isInstructional,
+  );
   const summary = computeInstructionalTimeSummary(
     plannerData.schoolYear,
-    plannerData.classes,
+    instructionalClasses,
     periods,
     scheduleSlots,
   );
@@ -73,9 +78,9 @@ export default async function OnboardingReviewRoute() {
       ) : null}
 
       <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        {plannerData.classes.length === 0 ? (
+        {instructionalClasses.length === 0 ? (
           <p className="p-6 text-center text-sm text-slate-500">
-            No classes yet —{" "}
+            No instructional classes yet —{" "}
             <Link className="text-blue-700 underline" href="/onboarding/classes">
               go back and add some
             </Link>
@@ -83,7 +88,7 @@ export default async function OnboardingReviewRoute() {
           </p>
         ) : (
           <ul className="divide-y divide-slate-200">
-            {plannerData.classes.map((classSection) => {
+            {instructionalClasses.map((classSection) => {
               const entry = summaryByClassId.get(classSection.id);
               const scheduledMinutes = entry?.scheduledMinutes ?? 0;
               const target = classSection.targetMinutesPerYear;

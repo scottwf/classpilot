@@ -80,6 +80,14 @@ export default async function OnboardingRoute({ searchParams }: OnboardingPagePr
             term length for no rotation. You can change this later.
           </span>
         </label>
+        <label className="block text-sm">
+          <span className="font-medium text-slate-700">Cycle day labels</span>
+          <select className={inputClass} defaultValue="numeric" name="dayLabelScheme">
+            <option value="numeric">Numeric — Day 1, Day 2...</option>
+            <option value="letters">Letters — Day A, Day B...</option>
+            <option value="odd-even">Odd/Even — for a 2-day cycle</option>
+          </select>
+        </label>
         <button
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
           type="submit"

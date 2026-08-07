@@ -1,4 +1,4 @@
-import type { ClassSection, SchoolYear } from "./types";
+import type { ClassSection, DayLabelScheme, SchoolYear } from "./types";
 
 type CycleSchoolYear = Pick<SchoolYear, "startDate" | "endDate" | "blockedDates" | "cycleLength">;
 type CycleClassSection = Pick<ClassSection, "cycleDays">;
@@ -87,6 +87,37 @@ export function getClassMeetingDates(
     .filter(([, cycleDay]) => meetsEveryDay || cycleDaySet.has(cycleDay))
     .map(([date]) => date)
     .sort();
+}
+
+const letterForCycleDay = (cycleDay: number): string => {
+  // 1 -> A, 2 -> B, ... 26 -> Z, 27 -> AA, matching spreadsheet column
+  // naming — a school's cycle length realistically never gets close to 26,
+  // but this avoids silently breaking instead of just looking odd.
+  let n = cycleDay;
+  let label = "";
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    label = String.fromCharCode(65 + remainder) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+};
+
+/**
+ * Cosmetic display label for a cycle day number — never affects storage or
+ * any scheduling/cycle calculation, which always use plain numbers
+ * (1..cycleLength). "odd-even" only really makes sense for a 2-day cycle;
+ * beyond cycle day 2 it falls back to the plain numeric label.
+ */
+export function getDayLabel(scheme: DayLabelScheme, cycleDay: number): string {
+  if (scheme === "letters") {
+    return `Day ${letterForCycleDay(cycleDay)}`;
+  }
+  if (scheme === "odd-even") {
+    if (cycleDay === 1) return "Odd Day";
+    if (cycleDay === 2) return "Even Day";
+  }
+  return `Day ${cycleDay}`;
 }
 
 /**

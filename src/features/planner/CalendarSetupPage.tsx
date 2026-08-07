@@ -219,6 +219,24 @@ export function CalendarSetupPage({
                 assigned specific cycle days below.
               </span>
             </label>
+            <label className="block text-sm">
+              <span className="font-medium text-slate-700">
+                Cycle day labels
+              </span>
+              <select
+                className={inputClass}
+                defaultValue={schoolYear.dayLabelScheme}
+                name="dayLabelScheme"
+              >
+                <option value="numeric">Numeric — Day 1, Day 2...</option>
+                <option value="letters">Letters — Day A, Day B...</option>
+                <option value="odd-even">Odd/Even — for a 2-day cycle</option>
+              </select>
+              <span className="mt-1 block text-xs leading-5 text-slate-500">
+                Purely how cycle days are displayed — doesn&apos;t change how
+                scheduling works.
+              </span>
+            </label>
             <button
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
               type="submit"

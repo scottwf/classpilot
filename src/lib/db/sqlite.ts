@@ -225,6 +225,18 @@ export function migrate(db: ClassPilotDatabase) {
     "color",
     "TEXT NOT NULL DEFAULT 'blue'",
   );
+  addColumnIfMissing(
+    db,
+    "class_sections",
+    "is_instructional",
+    "INTEGER NOT NULL DEFAULT 1",
+  );
+  addColumnIfMissing(
+    db,
+    "school_years",
+    "day_label_scheme",
+    "TEXT NOT NULL DEFAULT 'numeric'",
+  );
 
   // Multi-year scoping. These columns can't carry a NOT NULL DEFAULT in the
   // same ALTER as a REFERENCES clause (SQLite restriction, verified against

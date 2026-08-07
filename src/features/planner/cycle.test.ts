@@ -3,6 +3,7 @@ import {
   buildCycleDayMap,
   getClassMeetingDates,
   getCycleDayForDate,
+  getDayLabel,
   getNextClassMeetingDate,
 } from "./cycle";
 
@@ -95,5 +96,28 @@ describe("getNextClassMeetingDate", () => {
 
   it("returns undefined when there are no more meeting days in the year", () => {
     expect(getNextClassMeetingDate(schoolYear, { cycleDays: [1] }, "2026-09-14")).toBeUndefined();
+  });
+});
+
+describe("getDayLabel", () => {
+  it("labels numerically by default", () => {
+    expect(getDayLabel("numeric", 1)).toBe("Day 1");
+    expect(getDayLabel("numeric", 6)).toBe("Day 6");
+  });
+
+  it("labels with letters", () => {
+    expect(getDayLabel("letters", 1)).toBe("Day A");
+    expect(getDayLabel("letters", 2)).toBe("Day B");
+    expect(getDayLabel("letters", 26)).toBe("Day Z");
+    expect(getDayLabel("letters", 27)).toBe("Day AA");
+  });
+
+  it("labels odd/even for the first two cycle days", () => {
+    expect(getDayLabel("odd-even", 1)).toBe("Odd Day");
+    expect(getDayLabel("odd-even", 2)).toBe("Even Day");
+  });
+
+  it("falls back to numeric for odd-even beyond a 2-day cycle", () => {
+    expect(getDayLabel("odd-even", 3)).toBe("Day 3");
   });
 });

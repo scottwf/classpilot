@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/src/features/planner/AppShell";
+import { groupSubjectsByGrade } from "@/src/features/planner/curriculum-subjects";
 import { OnboardingSteps } from "@/src/features/planner/OnboardingSteps";
 import type { ClassColor } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
@@ -46,6 +47,7 @@ export default async function OnboardingClassesRoute({
 
   const plannerData = getClassPilotPlannerData();
   const params = await searchParams;
+  const gradeSubjects = groupSubjectsByGrade(plannerData.outcomes);
 
   return (
     <AppShell activePage="onboarding" data={plannerData}>
@@ -96,7 +98,9 @@ export default async function OnboardingClassesRoute({
                       {classSection.name}
                     </span>
                     <span className="text-slate-500">
-                      {classSection.subject} · Grade {classSection.grade}
+                      {classSection.isInstructional
+                        ? `${classSection.subject} · Grade ${classSection.grade}`
+                        : "Non-instructional"}
                     </span>
                   </div>
                   <form action={removeOnboardingClassAction}>
@@ -139,14 +143,68 @@ export default async function OnboardingClassesRoute({
                 <span className="font-medium text-slate-700">Class name</span>
                 <input className={inputClass} name="name" required />
               </label>
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">Subject</span>
-                <input className={inputClass} name="subject" required />
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">Grade</span>
-                <input className={inputClass} name="grade" required />
-              </label>
+              <div>
+                <input
+                  className="peer"
+                  defaultChecked
+                  id="isInstructional"
+                  name="isInstructional"
+                  type="checkbox"
+                  value="1"
+                />
+                <label
+                  className="ml-2 text-sm font-medium text-slate-700"
+                  htmlFor="isInstructional"
+                >
+                  Instructional class (has curriculum outcomes)
+                </label>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Uncheck for recess, supervision, or a one-off assembly.
+                </p>
+
+                <div className="mt-3 hidden peer-checked:block">
+                  <label className="block text-sm">
+                    <span className="font-medium text-slate-700">
+                      Grade and subject
+                    </span>
+                    <select
+                      className={inputClass}
+                      defaultValue=""
+                      name="curriculumChoice"
+                    >
+                      <option value="">Select a subject…</option>
+                      {gradeSubjects.map((entry) => (
+                        <optgroup key={entry.grade} label={`Grade ${entry.grade}`}>
+                          {entry.subjects.map((subject) => (
+                            <option key={subject} value={`${entry.grade}|${subject}`}>
+                              {subject}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-3 grid gap-3 peer-checked:hidden sm:grid-cols-2">
+                  <label className="block text-sm">
+                    <span className="font-medium text-slate-700">
+                      Subject or label
+                    </span>
+                    <input
+                      className={inputClass}
+                      name="subjectFreeText"
+                      placeholder="e.g. Recess"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="font-medium text-slate-700">
+                      Grade (optional)
+                    </span>
+                    <input className={inputClass} name="gradeFreeText" />
+                  </label>
+                </div>
+              </div>
 
               <div>
                 <span className="text-sm font-medium text-slate-700">Color</span>

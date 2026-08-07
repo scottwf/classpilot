@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { ClassColor, ClassSection, Period, ScheduleSlot } from "./types";
+import { getDayLabel } from "./cycle";
+import type { ClassColor, ClassSection, DayLabelScheme, Period, ScheduleSlot } from "./types";
 
 const classColorClass: Record<ClassColor, string> = {
   amber: "bg-amber-100 text-amber-950",
@@ -36,6 +37,7 @@ type SchedulePageProps = {
   conflictClassId?: string;
   conflictWith?: string;
   cycleLength: number;
+  dayLabelScheme: DayLabelScheme;
   error?: string;
   periods: Period[];
   scheduleSlots: ScheduleSlot[];
@@ -55,6 +57,7 @@ export function SchedulePage({
   conflictClassId,
   conflictWith,
   cycleLength,
+  dayLabelScheme,
   error,
   periods,
   scheduleSlots,
@@ -97,7 +100,7 @@ export function SchedulePage({
 
       {conflictWith ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {conflictClass?.name ?? "This class"} now shares Day {selectedDay} with{" "}
+          {conflictClass?.name ?? "This class"} now shares {getDayLabel(dayLabelScheme, selectedDay)} with{" "}
           {conflictWith} in the same period. Both are saved — double-check
           that&apos;s intentional.
         </div>
@@ -123,7 +126,7 @@ export function SchedulePage({
                 href={`/schedule?day=${day}${daySuffix}`}
                 key={day}
               >
-                Day {day}
+                {getDayLabel(dayLabelScheme, day)}
               </Link>
             ))}
           </div>

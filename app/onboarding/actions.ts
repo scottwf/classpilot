@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { ClassColor } from "@/src/features/planner/types";
+import type { ClassColor, DayLabelScheme } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
 import {
@@ -25,6 +25,8 @@ const classColors: ClassColor[] = [
   "teal",
 ];
 
+const dayLabelSchemes: DayLabelScheme[] = ["numeric", "letters", "odd-even"];
+
 export async function createOnboardingYearAction(formData: FormData) {
   await requireAuth();
 
@@ -32,6 +34,10 @@ export async function createOnboardingYearAction(formData: FormData) {
   const startDate = String(formData.get("startDate") ?? "").trim();
   const endDate = String(formData.get("endDate") ?? "").trim();
   const cycleLength = Number(formData.get("cycleLength"));
+  const dayLabelSchemeRaw = String(formData.get("dayLabelScheme") ?? "").trim();
+  const dayLabelScheme = dayLabelSchemes.includes(dayLabelSchemeRaw as DayLabelScheme)
+    ? (dayLabelSchemeRaw as DayLabelScheme)
+    : "numeric";
 
   if (
     !title ||
@@ -45,7 +51,13 @@ export async function createOnboardingYearAction(formData: FormData) {
   }
 
   const db = getClassPilotDatabase();
-  const yearId = createSchoolYear(db, { title, startDate, endDate, cycleLength });
+  const yearId = createSchoolYear(db, {
+    title,
+    startDate,
+    endDate,
+    cycleLength,
+    dayLabelScheme,
+  });
   // The rest of the app (classes, schedule, calendar) always operates on
   // whichever year is "active" — the new year becomes it immediately so the
   // remaining wizard steps (and the existing /schedule page they hand off
@@ -60,8 +72,6 @@ export async function addOnboardingClassAction(formData: FormData) {
 
   const db = getClassPilotDatabase();
   const name = String(formData.get("name") ?? "").trim();
-  const subject = String(formData.get("subject") ?? "").trim();
-  const grade = String(formData.get("grade") ?? "").trim();
   const colorRaw = String(formData.get("color") ?? "").trim();
   const color = classColors.includes(colorRaw as ClassColor) ? (colorRaw as ClassColor) : "blue";
   const targetMinutesRaw = String(formData.get("targetMinutesPerYear") ?? "").trim();
@@ -70,7 +80,27 @@ export async function addOnboardingClassAction(formData: FormData) {
       ? Number(targetMinutesRaw)
       : undefined;
 
-  if (!name || !subject || !grade) {
+  const isInstructional = formData.get("isInstructional") !== null;
+  let subject: string;
+  let grade: string;
+
+  if (isInstructional) {
+    const [choiceGrade, choiceSubject] = String(formData.get("curriculumChoice") ?? "")
+      .split("|")
+      .map((part) => part.trim());
+
+    if (!choiceGrade || !choiceSubject) {
+      redirect("/onboarding/classes?error=missing");
+    }
+
+    grade = choiceGrade;
+    subject = choiceSubject;
+  } else {
+    subject = String(formData.get("subjectFreeText") ?? "").trim();
+    grade = String(formData.get("gradeFreeText") ?? "").trim();
+  }
+
+  if (!name) {
     redirect("/onboarding/classes?error=missing");
   }
 
@@ -84,6 +114,7 @@ export async function addOnboardingClassAction(formData: FormData) {
     cycleDays: [],
     color,
     targetMinutesPerYear,
+    isInstructional,
   });
 
   redirect("/onboarding/classes");

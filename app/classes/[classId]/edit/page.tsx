@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AppShell } from "@/src/features/planner/AppShell";
 import { ClassForm } from "@/src/features/planner/ClassForm";
+import { groupSubjectsByGrade } from "@/src/features/planner/curriculum-subjects";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { getClassById } from "@/src/lib/db/planner-repository";
@@ -45,7 +46,9 @@ export default async function EditClassPage({
         action={updateClassAction}
         classSection={classSection}
         cycleLength={plannerData.schoolYear.cycleLength}
+        dayLabelScheme={plannerData.schoolYear.dayLabelScheme}
         error={query.error}
+        gradeSubjects={groupSubjectsByGrade(plannerData.outcomes)}
         mode="edit"
       />
     </AppShell>

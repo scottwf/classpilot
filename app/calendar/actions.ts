@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { NonInstructionalDay } from "@/src/features/planner/types";
+import type { DayLabelScheme, NonInstructionalDay } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/src/lib/db/planner-repository";
 
 const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
+const dayLabelSchemes: DayLabelScheme[] = ["numeric", "letters", "odd-even"];
 
 export async function switchSchoolYearAction(formData: FormData) {
   await requireAuth();
@@ -52,6 +53,10 @@ export async function updateSchoolYearDetailsAction(formData: FormData) {
   const startDate = String(formData.get("startDate") ?? "").trim();
   const endDate = String(formData.get("endDate") ?? "").trim();
   const cycleLength = Number(formData.get("cycleLength"));
+  const dayLabelSchemeRaw = String(formData.get("dayLabelScheme") ?? "").trim();
+  const dayLabelScheme = dayLabelSchemes.includes(dayLabelSchemeRaw as DayLabelScheme)
+    ? (dayLabelSchemeRaw as DayLabelScheme)
+    : "numeric";
 
   if (
     !title ||
@@ -73,6 +78,7 @@ export async function updateSchoolYearDetailsAction(formData: FormData) {
     endDate,
     blockedDates: current.blockedDates,
     cycleLength,
+    dayLabelScheme,
   });
 
   redirect("/calendar");
@@ -115,6 +121,7 @@ export async function addNonInstructionalDaysAction(formData: FormData) {
     endDate: current.endDate,
     blockedDates: Array.from(byDate.values()),
     cycleLength: current.cycleLength,
+    dayLabelScheme: current.dayLabelScheme,
   });
 
   redirect("/calendar");
@@ -149,6 +156,7 @@ export async function cancelInstructionalDayAction(formData: FormData) {
     endDate: current.endDate,
     blockedDates: Array.from(byDate.values()),
     cycleLength: current.cycleLength,
+    dayLabelScheme: current.dayLabelScheme,
   });
 
   redirect("/calendar");
@@ -172,6 +180,7 @@ export async function removeNonInstructionalDayAction(formData: FormData) {
     endDate: current.endDate,
     blockedDates: current.blockedDates.filter((day) => day.date !== date),
     cycleLength: current.cycleLength,
+    dayLabelScheme: current.dayLabelScheme,
   });
 
   redirect("/calendar");

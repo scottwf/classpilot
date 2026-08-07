@@ -15,6 +15,7 @@ export const plannerData: PlannerData = {
     // No rotating cycle in the demo data (cycleLength 5 with every class
     // left unrestricted below is equivalent to "no cycle" — see cycle.ts).
     cycleLength: 5,
+    dayLabelScheme: "numeric",
     blockedDates: [
       { date: "2026-09-07", label: "Labour Day", advancesCycle: true },
       { date: "2026-10-12", label: "Thanksgiving", advancesCycle: true },
@@ -34,6 +35,7 @@ export const plannerData: PlannerData = {
       meetingPattern: "Daily literacy block",
       cycleDays: [],
       color: "amber",
+      isInstructional: true,
     },
     {
       id: "grade-6-math",
@@ -45,6 +47,7 @@ export const plannerData: PlannerData = {
       meetingPattern: "Daily numeracy block",
       cycleDays: [],
       color: "blue",
+      isInstructional: true,
     },
     {
       id: "grade-6-science",
@@ -56,6 +59,7 @@ export const plannerData: PlannerData = {
       meetingPattern: "Mon/Wed/Fri inquiry block",
       cycleDays: [],
       color: "violet",
+      isInstructional: true,
     },
     {
       id: "grade-6-social-studies",
@@ -67,6 +71,7 @@ export const plannerData: PlannerData = {
       meetingPattern: "Tue/Thu project block",
       cycleDays: [],
       color: "teal",
+      isInstructional: true,
     },
     {
       id: "grade-6-homeroom",
@@ -78,6 +83,7 @@ export const plannerData: PlannerData = {
       meetingPattern: "Morning meeting and end-of-day routines",
       cycleDays: [],
       color: "rose",
+      isInstructional: true,
     },
   ],
   outcomes: [
