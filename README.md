@@ -196,6 +196,61 @@ A technical code summary, plan-vs-implementation gap analysis, and clean/secure 
 
 The schema and privacy design for the upcoming Student Information CMS is in [docs/student-cms-plan.md](docs/student-cms-plan.md).
 
+## Roadmap
+
+Tracked, not yet built. Grouped by area; roughly the order they'll get picked up.
+
+**Onboarding wizard**
+- Range-select multiple calendar days (shift-click first + last day of a
+  break) to label them all in one action, instead of one day per click.
+- Default a new class's color to one not already in use in the active year,
+  instead of every class starting out blue.
+- Grade-driven class picker: pick a grade, then check off which curriculum
+  subjects to add (each pre-wired to that subject's outcomes) plus common
+  non-instructional defaults (recess, lunch, staff meeting), instead of
+  adding classes one at a time. Support adding a second grade afterward, and
+  combined/split-grade classes (e.g. a single Grade 6/7 Science class whose
+  outcomes span both grades).
+- Bell-schedule step: show all cycle days at once instead of one day per
+  tab; reconsider whether "periods" are still needed as a separate concept
+  now that instructional and non-instructional classes both exist, versus
+  clicking a class directly onto a day/time grid.
+
+**Plan Book**
+- Real week view — the Day/Week toggle currently renders the same content
+  either way.
+- Once classes are scheduled, show that day/week's actual timetable and let
+  the teacher click a slot to add a lesson directly into it.
+
+**Units & lessons**
+- Unit creation: enter a start date and a number of lesson days instead of
+  an end date, with the end date computed from the class's actual
+  instructional days (respecting calendar non-instructional days and the
+  class's cycle days). Show the class's previous unit's end date so new
+  units don't accidentally overlap.
+- Fix the unit outcome picker — it currently lists every curriculum outcome
+  from every subject and grade unfiltered, instead of just the outcomes for
+  the unit's own class subject, and shows only the code, not the outcome's
+  title.
+- Click the unit timeline to open an add-lesson modal instead of
+  navigating to a separate page with no context.
+- Unit-level notes/comments, and a "copy this unit to another school year"
+  action that surfaces last year's lesson reflections and unit notes so a
+  re-taught unit gets improved instead of blindly repeated.
+
+**Students**
+- Show calculated age on the student profile.
+- Upcoming-birthday reminders on the dashboard.
+- A real chat interface for the AI Assistant with tool-calling, so
+  reminders and notes can be created conversationally instead of only
+  through manual forms.
+
+**Other**
+- Pacing / overload checks across a class's units.
+- Interactive unit-timeline drag/resize.
+- Full AI lesson drafting UI (the prompt/parse layer already exists;
+  the orchestrator and UI to use it don't yet).
+
 ## Repository Hygiene
 
 Ignored by Git:
