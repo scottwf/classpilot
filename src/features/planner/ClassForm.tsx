@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { classColorPalette, pickUnusedClassColor } from "./class-color";
 import { getDayLabel } from "./cycle";
 import type { GradeSubjects } from "./curriculum-subjects";
 import type { ClassColor, ClassSection, DayLabelScheme } from "./types";
@@ -9,22 +10,16 @@ type ClassFormProps = {
   cycleLength: number;
   dayLabelScheme: DayLabelScheme;
   error?: string;
+  /** Other classes already in the active year — used to default a new
+   * class's color to one not already in use. */
+  existingClasses: ClassSection[];
   /** Grades and subjects that have curriculum outcomes loaded — populates
    * the instructional-class curriculum picker below. */
   gradeSubjects: GradeSubjects[];
   mode: "create" | "edit";
 };
 
-const classColors: ClassColor[] = [
-  "blue",
-  "emerald",
-  "amber",
-  "rose",
-  "violet",
-  "sky",
-  "orange",
-  "teal",
-];
+const classColors = classColorPalette;
 
 const classColorSwatchClass: Record<ClassColor, string> = {
   amber: "bg-amber-500",
@@ -43,11 +38,12 @@ export function ClassForm({
   cycleLength,
   dayLabelScheme,
   error,
+  existingClasses,
   gradeSubjects,
   mode,
 }: ClassFormProps) {
   const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
-  const selectedColor = classSection?.color ?? "blue";
+  const selectedColor = classSection?.color ?? pickUnusedClassColor(existingClasses);
   const isInstructional = classSection?.isInstructional ?? true;
   const curriculumChoice =
     classSection && isInstructional

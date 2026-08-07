@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/src/features/planner/AppShell";
+import { classColorPalette, pickUnusedClassColor } from "@/src/features/planner/class-color";
 import { groupSubjectsByGrade } from "@/src/features/planner/curriculum-subjects";
 import { OnboardingSteps } from "@/src/features/planner/OnboardingSteps";
 import type { ClassColor } from "@/src/features/planner/types";
@@ -14,16 +15,7 @@ type OnboardingClassesPageProps = {
 const inputClass =
   "mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
 
-const classColors: ClassColor[] = [
-  "blue",
-  "emerald",
-  "amber",
-  "rose",
-  "violet",
-  "sky",
-  "orange",
-  "teal",
-];
+const classColors = classColorPalette;
 
 const classColorSwatchClass: Record<ClassColor, string> = {
   amber: "bg-amber-500",
@@ -48,6 +40,7 @@ export default async function OnboardingClassesRoute({
   const plannerData = getClassPilotPlannerData();
   const params = await searchParams;
   const gradeSubjects = groupSubjectsByGrade(plannerData.outcomes);
+  const defaultColor = pickUnusedClassColor(plannerData.classes);
 
   return (
     <AppShell activePage="onboarding" data={plannerData}>
@@ -209,11 +202,11 @@ export default async function OnboardingClassesRoute({
               <div>
                 <span className="text-sm font-medium text-slate-700">Color</span>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {classColors.map((color, index) => (
+                  {classColors.map((color) => (
                     <label className="flex items-center" key={color} title={color}>
                       <input
                         className="peer sr-only"
-                        defaultChecked={index === 0}
+                        defaultChecked={color === defaultColor}
                         name="color"
                         type="radio"
                         value={color}

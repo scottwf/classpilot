@@ -48,6 +48,7 @@ export default async function EditClassPage({
         cycleLength={plannerData.schoolYear.cycleLength}
         dayLabelScheme={plannerData.schoolYear.dayLabelScheme}
         error={query.error}
+        existingClasses={plannerData.classes}
         gradeSubjects={groupSubjectsByGrade(plannerData.outcomes)}
         mode="edit"
       />

@@ -37,6 +37,7 @@ export default async function NewClassPage({ searchParams }: NewClassPageProps) 
         cycleLength={plannerData.schoolYear.cycleLength}
         dayLabelScheme={plannerData.schoolYear.dayLabelScheme}
         error={params.error}
+        existingClasses={plannerData.classes}
         gradeSubjects={groupSubjectsByGrade(plannerData.outcomes)}
         mode="create"
       />
