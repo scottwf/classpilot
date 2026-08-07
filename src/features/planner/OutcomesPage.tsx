@@ -22,7 +22,7 @@ export function OutcomesPage({ data }: OutcomesPageProps) {
       </section>
 
       <OutcomeMap coverage={buildOutcomeCoverage(data)} />
-      <CurriculumLibrary outcomes={data.outcomes} />
+      <CurriculumLibrary classes={data.classes} outcomes={data.outcomes} />
     </>
   );
 }

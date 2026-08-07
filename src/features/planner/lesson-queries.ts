@@ -1,4 +1,5 @@
 import type {
+  ClassColor,
   ClassSection,
   CurriculumOutcome,
   LessonPlan,
@@ -18,7 +19,9 @@ export type EnrichedLesson = LessonPlan & {
 };
 
 export type SubjectOutcomeCoverage = {
+  classId: string;
   subject: string;
+  color: ClassColor;
   covered: CurriculumOutcome[];
   planned: CurriculumOutcome[];
   uncovered: CurriculumOutcome[];
@@ -84,7 +87,9 @@ export function sortLessonBank(
 }
 
 export function buildOutcomeCoverage(data: PlannerData): SubjectOutcomeCoverage[] {
-  return data.classes.map((classSection) => {
+  // Non-instructional blocks (recess, supervision, assemblies) have no
+  // curriculum outcomes to cover.
+  return data.classes.filter((classSection) => classSection.isInstructional).map((classSection) => {
     const classUnits = data.units.filter((unit) => unit.classId === classSection.id);
     const subjectOutcomes = data.outcomes.filter(
       (outcome) => outcome.subject === classSection.subject,
@@ -106,7 +111,9 @@ export function buildOutcomeCoverage(data: PlannerData): SubjectOutcomeCoverage[
     );
 
     return {
+      classId: classSection.id,
       subject: classSection.subject,
+      color: classSection.color,
       covered: subjectOutcomes.filter((outcome) => coveredIds.has(outcome.id)),
       planned: subjectOutcomes.filter(
         (outcome) => !coveredIds.has(outcome.id) && plannedIds.has(outcome.id),

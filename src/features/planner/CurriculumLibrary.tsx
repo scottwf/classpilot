@@ -1,12 +1,31 @@
-import type { CurriculumOutcome } from "./types";
+import type { ClassColor, ClassSection, CurriculumOutcome } from "./types";
 
 type CurriculumLibraryProps = {
   outcomes: CurriculumOutcome[];
+  classes: ClassSection[];
 };
 
-export function CurriculumLibrary({ outcomes }: CurriculumLibraryProps) {
+const classDotColorClass: Record<ClassColor, string> = {
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  emerald: "bg-emerald-500",
+  orange: "bg-orange-500",
+  rose: "bg-rose-500",
+  sky: "bg-sky-500",
+  teal: "bg-teal-500",
+  violet: "bg-violet-500",
+};
+
+export function CurriculumLibrary({ outcomes, classes }: CurriculumLibraryProps) {
   const subjects = summarizeSubjects(outcomes);
   const featuredOutcomes = outcomes.slice(0, 5);
+  // The active year's instructional class teaching each subject, if any —
+  // used to color-match the subject tile to that class.
+  const classBySubject = new Map(
+    classes
+      .filter((classSection) => classSection.isInstructional)
+      .map((classSection) => [classSection.subject, classSection]),
+  );
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -23,19 +42,29 @@ export function CurriculumLibrary({ outcomes }: CurriculumLibraryProps) {
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {subjects.map((subject) => (
-          <div
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
-            key={subject.name}
-          >
-            <div className="text-sm font-medium text-slate-950">
-              {subject.name}
+        {subjects.map((subject) => {
+          const matchingClass = classBySubject.get(subject.name);
+
+          return (
+            <div
+              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+              key={subject.name}
+            >
+              <div className="flex items-center gap-1.5 text-sm font-medium text-slate-950">
+                {matchingClass ? (
+                  <span
+                    aria-hidden="true"
+                    className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[matchingClass.color]}`}
+                  />
+                ) : null}
+                {subject.name}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                {subject.count} outcomes
+              </div>
             </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {subject.count} outcomes
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="mt-4 space-y-2">
