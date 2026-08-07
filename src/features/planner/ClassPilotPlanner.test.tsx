@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ClassPilotPlanner } from "./ClassPilotPlanner";
 import { LessonDetailPage } from "./LessonDetailPage";
@@ -19,16 +19,17 @@ describe("ClassPilotPlanner", () => {
     expect(
       screen.getByRole("heading", { name: "Start with the lessons you need to teach." }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Lessons" })).toHaveAttribute(
+    const primaryNav = within(screen.getByRole("navigation", { name: "Primary" }));
+    expect(primaryNav.getByRole("link", { name: "Lessons" })).toHaveAttribute(
       "href",
       "/lessons",
     );
-    expect(screen.getByRole("link", { name: "Outcomes" })).toHaveAttribute(
+    expect(primaryNav.getByRole("link", { name: "Outcomes" })).toHaveAttribute(
       "href",
       "/outcomes",
     );
     expect(
-      screen.getByRole("link", { name: "Unit Timeline" }),
+      primaryNav.getByRole("link", { name: "Unit Timeline" }),
     ).toHaveAttribute("href", "/units");
     expect(screen.queryByRole("heading", { name: "All class lessons" })).not.toBeInTheDocument();
     expect(

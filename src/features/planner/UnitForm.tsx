@@ -122,8 +122,8 @@ export function UnitForm({
               No curriculum outcomes found for {selectedClass?.subject || "this class"}
               {selectedClass ? `, Grade ${selectedClass.grade}` : ""}. Check the
               class&apos;s subject/grade on the{" "}
-              <Link className="text-blue-700 underline" href="/classes">
-                Classes
+              <Link className="text-blue-700 underline" href="/settings">
+                Settings
               </Link>{" "}
               page.
             </p>

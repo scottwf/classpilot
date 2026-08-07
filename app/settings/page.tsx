@@ -1,10 +1,12 @@
 import { AppShell } from "@/src/features/planner/AppShell";
+import { ClassesPage } from "@/src/features/planner/ClassesPage";
 import { SettingsPage } from "@/src/features/planner/SettingsPage";
 import { isAiConfigured } from "@/src/lib/ai/config";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { listSchoolYears } from "@/src/lib/db/planner-repository";
 import { getAppSettings } from "@/src/lib/db/settings-repository";
+import { deleteClassAction } from "../classes/actions";
 import {
   clearAiApiKeyAction,
   deleteSchoolYearAction,
@@ -49,6 +51,7 @@ export default async function SettingsRoute({ searchParams }: SettingsRouteProps
         switchYearAction={switchSchoolYearAction}
         updateAction={updateSettingsAction}
       />
+      <ClassesPage data={plannerData} deleteAction={deleteClassAction} />
     </AppShell>
   );
 }

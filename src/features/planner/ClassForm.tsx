@@ -243,7 +243,7 @@ export function ClassForm({
           </button>
           <Link
             className="rounded-md px-4 py-2 text-center text-sm font-medium text-slate-600 hover:bg-slate-100"
-            href="/classes"
+            href="/settings"
           >
             Cancel
           </Link>
