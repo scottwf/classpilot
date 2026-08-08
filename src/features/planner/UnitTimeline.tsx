@@ -39,11 +39,25 @@ type DragState = {
   liveEndIndex: number;
 };
 
+type PendingDrag = {
+  pointerId: number;
+  mode: DragMode;
+  unit: UnitPlan;
+  startX: number;
+  originalStartIndex: number;
+  originalEndIndex: number;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
 const labelColumnWidth = 180;
+/** Pointer must move at least this many pixels before a "move" gesture on
+ * the unit bar engages pointer capture and starts an actual drag — below
+ * this, releasing the pointer is a plain click that should reach the
+ * nested Link normally. Resize handles skip this (they aren't links). */
+const dragActivationThresholdPx = 4;
 
 export function UnitTimeline({
   classes,
@@ -55,11 +69,42 @@ export function UnitTimeline({
   const [modalUnit, setModalUnit] = useState<UnitPlan | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pendingMoveRef = useRef<PendingDrag | null>(null);
 
   function columnWidth(): number {
     const el = containerRef.current;
     if (!el || instructionalDays.length === 0) return 0;
     return (el.clientWidth - labelColumnWidth) / instructionalDays.length;
+  }
+
+  function computeLivePosition(
+    pending: Pick<PendingDrag, "mode" | "originalStartIndex" | "originalEndIndex" | "startX">,
+    clientX: number,
+  ) {
+    const width = columnWidth();
+    const deltaDays = width ? Math.round((clientX - pending.startX) / width) : 0;
+    const span = pending.originalEndIndex - pending.originalStartIndex;
+
+    if (pending.mode === "move") {
+      const nextStart = clamp(
+        pending.originalStartIndex + deltaDays,
+        0,
+        Math.max(0, instructionalDays.length - 1 - span),
+      );
+      return { liveEndIndex: nextStart + span, liveStartIndex: nextStart };
+    }
+
+    if (pending.mode === "resize-start") {
+      const nextStart = clamp(pending.originalStartIndex + deltaDays, 0, pending.originalEndIndex);
+      return { liveEndIndex: pending.originalEndIndex, liveStartIndex: nextStart };
+    }
+
+    const nextEnd = clamp(
+      pending.originalEndIndex + deltaDays,
+      pending.originalStartIndex,
+      instructionalDays.length - 1,
+    );
+    return { liveEndIndex: nextEnd, liveStartIndex: pending.originalStartIndex };
   }
 
   function startDrag(
@@ -83,31 +128,63 @@ export function UnitTimeline({
     });
   }
 
+  /**
+   * The unit bar wraps a navigable Link, so a plain click must still reach
+   * it. Unlike the resize handles (startDrag, below — not links, safe to
+   * capture immediately), moving a unit only starts an actual drag once the
+   * pointer has moved past a small threshold; a release before that is a
+   * normal click and is left alone so the browser's native click still
+   * fires on the Link.
+   */
+  function handleMovePointerDown(event: React.PointerEvent<HTMLElement>, unit: UnitPlan) {
+    const position = getUnitTimelinePosition(unit, instructionalDays);
+    const startIndex = position.gridColumnStart - 1;
+    const endIndex = startIndex + position.gridColumnSpan - 1;
+
+    pendingMoveRef.current = {
+      mode: "move",
+      originalEndIndex: endIndex,
+      originalStartIndex: startIndex,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      unit,
+    };
+  }
+
+  function handleMovePointerMove(event: React.PointerEvent<HTMLElement>) {
+    if (drag) {
+      handleDragMove(event);
+      return;
+    }
+
+    const pending = pendingMoveRef.current;
+    if (!pending) return;
+
+    if (Math.abs(event.clientX - pending.startX) < dragActivationThresholdPx) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(pending.pointerId);
+    setDrag({
+      ...computeLivePosition(pending, event.clientX),
+      mode: pending.mode,
+      originalEndIndex: pending.originalEndIndex,
+      originalStartIndex: pending.originalStartIndex,
+      startX: pending.startX,
+      unit: pending.unit,
+    });
+  }
+
+  function handleMovePointerUp(event: React.PointerEvent<HTMLElement>) {
+    pendingMoveRef.current = null;
+
+    if (!drag) return;
+    void handleDragEnd(event);
+  }
+
   function handleDragMove(event: React.PointerEvent<HTMLElement>) {
     if (!drag) return;
-    const width = columnWidth();
-    if (!width) return;
-    const deltaDays = Math.round((event.clientX - drag.startX) / width);
-    const span = drag.originalEndIndex - drag.originalStartIndex;
-
-    if (drag.mode === "move") {
-      const nextStart = clamp(
-        drag.originalStartIndex + deltaDays,
-        0,
-        Math.max(0, instructionalDays.length - 1 - span),
-      );
-      setDrag({ ...drag, liveEndIndex: nextStart + span, liveStartIndex: nextStart });
-    } else if (drag.mode === "resize-start") {
-      const nextStart = clamp(drag.originalStartIndex + deltaDays, 0, drag.originalEndIndex);
-      setDrag({ ...drag, liveStartIndex: nextStart });
-    } else {
-      const nextEnd = clamp(
-        drag.originalEndIndex + deltaDays,
-        drag.originalStartIndex,
-        instructionalDays.length - 1,
-      );
-      setDrag({ ...drag, liveEndIndex: nextEnd });
-    }
+    setDrag({ ...drag, ...computeLivePosition(drag, event.clientX) });
   }
 
   async function handleDragEnd(event: React.PointerEvent<HTMLElement>) {
@@ -230,9 +307,9 @@ export function UnitTimeline({
                       <div
                         className={`relative z-10 mx-1 mt-5 h-11 ${isDragging ? "cursor-grabbing opacity-90" : "cursor-grab"}`}
                         key={unit.id}
-                        onPointerDown={(event) => startDrag(event, unit, "move")}
-                        onPointerMove={handleDragMove}
-                        onPointerUp={handleDragEnd}
+                        onPointerDown={(event) => handleMovePointerDown(event, unit)}
+                        onPointerMove={handleMovePointerMove}
+                        onPointerUp={handleMovePointerUp}
                         style={{
                           gridColumn: `${position.gridColumnStart} / span ${position.gridColumnSpan}`,
                           gridRow: "1",

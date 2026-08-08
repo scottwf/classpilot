@@ -1,5 +1,16 @@
+// @vitest-environment node
+//
+// Vitest's default environment (jsdom, set globally in vitest.config.ts) is a
+// browser-like sandbox that can't bundle the Node-only `node:sqlite` module
+// buildContextPrompt (transitively) imports. Force the real Node environment.
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { availableToolsForDriver } from "./chat";
+import { createClassPilotDatabase } from "@/src/lib/db/sqlite";
+import { seedPlannerData } from "@/src/lib/db/planner-repository";
+import { plannerData } from "@/src/features/planner/seed-data";
+import { availableToolsForDriver, buildContextPrompt } from "./chat";
 import { assistantTools } from "./tools";
 
 describe("availableToolsForDriver", () => {
@@ -22,5 +33,21 @@ describe("availableToolsForDriver", () => {
     for (const name of hostedNames) {
       expect(allNames.has(name)).toBe(true);
     }
+  });
+});
+
+describe("buildContextPrompt", () => {
+  it("includes today's date and the active school year's range", () => {
+    const path = join(mkdtempSync(join(tmpdir(), "classpilot-test-")), "test.sqlite");
+    const db = createClassPilotDatabase(path);
+    seedPlannerData(db, plannerData);
+
+    const prompt = buildContextPrompt(db);
+    const today = new Date().toISOString().slice(0, 10);
+
+    expect(prompt).toContain(`Today's date: ${today}`);
+    expect(prompt).toContain(plannerData.schoolYear.startDate);
+    expect(prompt).toContain(plannerData.schoolYear.endDate);
+    expect(prompt).toContain(plannerData.schoolYear.title);
   });
 });

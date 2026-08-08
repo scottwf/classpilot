@@ -1,4 +1,5 @@
 import { AiError, type AiConfig } from "@/src/lib/ai/types";
+import { getPlannerData } from "@/src/lib/db/planner-repository";
 import type { ClassPilotDatabase } from "@/src/lib/db/sqlite";
 import { assistantTools, findTool, type AssistantTool } from "./tools";
 
@@ -182,12 +183,37 @@ const baseSystemPrompt = [
   "app. You have tools to look up and change real classes, units, lessons,",
   "and (when available) student records. Prefer calling a list_* tool to look",
   "up real IDs before creating or updating something — never invent an id.",
+  "All dates are YYYY-MM-DD. When the teacher gives a date without a year",
+  "(e.g. \"October 19\"), resolve it using the current date and the active",
+  "school year's date range below — pick the year that actually falls",
+  "inside the school year, not necessarily the current calendar year.",
+  "Before creating a unit, call list_units for that class and check the new",
+  "unit's date range against existing ones — if it would overlap another",
+  "unit on the same class, say so and confirm with the teacher before",
+  "proceeding (create_unit does not block overlaps, it only reports them",
+  "back to you).",
   "For content generation (draft_unit_outline, draft_lesson_sections), draft",
   "first and confirm with the teacher before saving with save_unit_from_outline",
   "or create_lesson, unless the teacher has clearly already approved the plan.",
   "Keep replies brief and concrete: say what you did or found, not what you",
   "'re about to do.",
 ].join("\n");
+
+/** Exported for direct testing — see chat.test.ts. Today's date and the
+ * active school year's range are injected into the system prompt so the
+ * model can resolve year-less dates ("October 19") correctly instead of
+ * guessing a year outside the school year (the actual cause of a unit
+ * landing at the wrong date and overlapping an existing one). */
+export function buildContextPrompt(db: ClassPilotDatabase): string {
+  const planner = getPlannerData(db);
+  const today = new Date().toISOString().slice(0, 10);
+
+  return [
+    "",
+    `Today's date: ${today}.`,
+    `Active school year: "${planner.schoolYear.title}", ${planner.schoolYear.startDate} to ${planner.schoolYear.endDate}, cycle length ${planner.schoolYear.cycleLength} day(s).`,
+  ].join("\n");
+}
 
 const noStudentToolsNotice = [
   "",
@@ -227,7 +253,8 @@ export async function runAssistantChat(input: RunAssistantChatInput): Promise<As
   const availableTools = availableToolsForDriver(input.driver);
 
   const systemPrompt =
-    input.driver === "hosted" ? `${baseSystemPrompt}${noStudentToolsNotice}` : baseSystemPrompt;
+    (input.driver === "hosted" ? `${baseSystemPrompt}${noStudentToolsNotice}` : baseSystemPrompt) +
+    buildContextPrompt(input.db);
 
   const conversation: OrchestratorMessage[] = [
     { content: systemPrompt, role: "system" },

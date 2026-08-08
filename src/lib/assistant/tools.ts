@@ -14,7 +14,7 @@ import {
   getStudentProfile,
   listRoster,
 } from "@/src/lib/db/students-repository";
-import { computeUnitEndDate } from "@/src/features/planner/unit-pacing";
+import { computeUnitEndDate, findOverlappingUnitIds } from "@/src/features/planner/unit-pacing";
 import type { ClassColor } from "@/src/features/planner/types";
 import { generateUnitOutline } from "@/src/lib/ai/unit-outline";
 import { generateLessonSections } from "@/src/lib/ai/lesson-draft";
@@ -322,6 +322,14 @@ const createUnitTool: AssistantTool = {
             .map((outcome) => outcome.id)
         : explicitOutcomeIds;
 
+    const otherUnits = planner.units
+      .filter((unit) => unit.classId === classId)
+      .map((unit) => ({ classId: unit.classId, endDate: unit.endDate, id: unit.id, startDate: unit.startDate }));
+    const overlapsExistingUnit = findOverlappingUnitIds([
+      ...otherUnits,
+      { classId, endDate, id: "__new__", startDate },
+    ]).has("__new__");
+
     const unitId = createUnit(db, {
       classId,
       color: color as (typeof unitColors)[number],
@@ -331,7 +339,15 @@ const createUnitTool: AssistantTool = {
       title,
     });
 
-    return ok({ endDate, outcomeCount: outcomeIds.length, unitId });
+    return ok({
+      endDate,
+      outcomeCount: outcomeIds.length,
+      overlapsExistingUnit,
+      overlapWarning: overlapsExistingUnit
+        ? "This unit's dates overlap another unit already on this class — mention this to the teacher."
+        : undefined,
+      unitId,
+    });
   },
   name: "create_unit",
   parameters: {

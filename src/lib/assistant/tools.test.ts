@@ -125,6 +125,45 @@ describe("create_unit", () => {
     expect(endDate).toBe("2026-09-03");
   });
 
+  it("reports no overlap for a unit that doesn't collide with an existing one", async () => {
+    // The seeded grade-6-science class already has "Diversity of Living
+    // Things" running 2026-09-01 to 2026-09-25 — start well after that.
+    const db = seededDb();
+    const result = await tool("create_unit").execute(db, {
+      classId: "grade-6-science",
+      title: "Ecosystems",
+      startDate: "2026-11-01",
+      lessonDayCount: 3,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toMatchObject({ overlapsExistingUnit: false });
+  });
+
+  it("flags overlapsExistingUnit and includes a warning when a new unit collides with an existing one", async () => {
+    const db = seededDb();
+    const first = await tool("create_unit").execute(db, {
+      classId: "grade-6-science",
+      title: "Cells",
+      startDate: "2026-09-01",
+      endDate: "2026-09-30",
+    });
+    expect(first.ok).toBe(true);
+
+    const second = await tool("create_unit").execute(db, {
+      classId: "grade-6-science",
+      title: "Diversity of Life",
+      startDate: "2026-09-15",
+      endDate: "2026-10-15",
+    });
+
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.data).toMatchObject({ overlapsExistingUnit: true });
+    expect((second.data as { overlapWarning?: string }).overlapWarning).toMatch(/overlap/i);
+  });
+
   it("attaches every outcome for the class's subject/grade when includeAllClassOutcomes is set", async () => {
     const db = seededDb();
     const planner = getPlannerData(db);
