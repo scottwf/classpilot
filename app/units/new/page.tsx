@@ -36,6 +36,8 @@ export default async function NewUnitPage({ searchParams }: NewUnitPageProps) {
         error={params.error}
         mode="create"
         outcomes={plannerData.outcomes}
+        schoolYear={plannerData.schoolYear}
+        units={plannerData.units}
       />
     </AppShell>
   );

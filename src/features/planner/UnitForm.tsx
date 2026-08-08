@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import type { CurriculumOutcome, ClassSection, UnitPlan } from "./types";
+import { useMemo, useState } from "react";
+import { getClassMeetingDates } from "./cycle";
+import type { CurriculumOutcome, ClassSection, SchoolYear, UnitPlan } from "./types";
 
 type UnitFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -10,10 +11,14 @@ type UnitFormProps = {
   error?: string;
   mode: "create" | "edit";
   outcomes: CurriculumOutcome[];
+  schoolYear: SchoolYear;
   unit?: UnitPlan;
+  units: UnitPlan[];
 };
 
 const colors: UnitPlan["color"][] = ["blue", "emerald", "amber", "rose", "violet"];
+const defaultStartDate = "2026-09-01";
+const defaultLessonDays = 10;
 
 export function UnitForm({
   action,
@@ -21,7 +26,9 @@ export function UnitForm({
   error,
   mode,
   outcomes,
+  schoolYear,
   unit,
+  units,
 }: UnitFormProps) {
   const [selectedClassId, setSelectedClassId] = useState(
     unit?.classId ?? classes[0]?.id,
@@ -33,6 +40,37 @@ export function UnitForm({
           outcome.subject === selectedClass.subject && outcome.grade === selectedClass.grade,
       )
     : [];
+
+  const meetingDates = useMemo(
+    () => (selectedClass ? getClassMeetingDates(schoolYear, selectedClass) : []),
+    [schoolYear, selectedClass],
+  );
+
+  const [startDate, setStartDate] = useState(unit?.startDate ?? defaultStartDate);
+  const [lessonDays, setLessonDays] = useState(() => {
+    if (!unit) return defaultLessonDays;
+    const count = meetingDates.filter(
+      (date) => date >= unit.startDate && date <= unit.endDate,
+    ).length;
+    return count > 0 ? count : defaultLessonDays;
+  });
+
+  const futureMeetingDates = meetingDates.filter((date) => date >= startDate);
+  const computedEndDate =
+    futureMeetingDates[Math.max(0, lessonDays - 1)] ??
+    futureMeetingDates[futureMeetingDates.length - 1] ??
+    startDate;
+  const actualLessonDays = Math.min(lessonDays, futureMeetingDates.length);
+
+  const otherClassUnits = units.filter(
+    (candidate) => candidate.classId === selectedClassId && candidate.id !== unit?.id,
+  );
+  const previousUnit = otherClassUnits
+    .filter((candidate) => candidate.endDate < startDate)
+    .sort((a, b) => (a.endDate < b.endDate ? 1 : -1))[0];
+  const overlappingUnit = otherClassUnits.find(
+    (candidate) => candidate.startDate <= computedEndDate && candidate.endDate >= startDate,
+  );
 
   return (
     <form
@@ -50,21 +88,63 @@ export function UnitForm({
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            defaultValue={unit?.startDate ?? "2026-09-01"}
-            label="Start date"
-            name="startDate"
-            required
-            type="date"
-          />
-          <Field
-            defaultValue={unit?.endDate ?? "2026-09-25"}
-            label="End date"
-            name="endDate"
-            required
-            type="date"
-          />
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">
+              Start date
+            </span>
+            <input
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              name="startDate"
+              onChange={(event) => setStartDate(event.target.value)}
+              required
+              type="date"
+              value={startDate}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">
+              Lesson days
+            </span>
+            <input
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              min={1}
+              onChange={(event) =>
+                setLessonDays(Math.max(1, Number(event.target.value) || 1))
+              }
+              required
+              type="number"
+              value={lessonDays}
+            />
+          </label>
+          <input name="endDate" type="hidden" value={computedEndDate} />
         </div>
+
+        <p className="text-sm text-slate-600">
+          {futureMeetingDates.length === 0
+            ? selectedClass
+              ? "This class has no scheduled meeting days on or after the start date."
+              : "Choose a class to compute the unit's end date from its schedule."
+            : `Ends ${computedEndDate}${
+                actualLessonDays < lessonDays
+                  ? ` — only ${actualLessonDays} of ${lessonDays} lesson days fit before the end of the school year.`
+                  : ` (${actualLessonDays} lesson days for this class).`
+              }`}
+        </p>
+
+        {previousUnit ? (
+          <p className="text-sm text-slate-600">
+            {selectedClass?.name ?? "This class"}&apos;s previous unit,{" "}
+            <span className="font-medium text-slate-950">{previousUnit.title}</span>, ends{" "}
+            {previousUnit.endDate}.
+          </p>
+        ) : null}
+
+        {overlappingUnit ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            This overlaps &quot;{overlappingUnit.title}&quot; ({overlappingUnit.startDate} –{" "}
+            {overlappingUnit.endDate}) for the same class.
+          </p>
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">

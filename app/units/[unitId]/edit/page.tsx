@@ -51,7 +51,9 @@ export default async function EditUnitPage({
         error={query.error}
         mode="edit"
         outcomes={plannerData.outcomes}
+        schoolYear={plannerData.schoolYear}
         unit={unit}
+        units={plannerData.units}
       />
     </AppShell>
   );
