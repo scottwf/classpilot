@@ -6,16 +6,25 @@ import {
   getWeekdayDates,
 } from "./lesson-queries";
 import type { PlannerData, ScheduleSlot } from "./types";
+import { UpcomingBirthdaysCard } from "./UpcomingBirthdaysCard";
 import { ViewSwitcher } from "./ViewSwitcher";
+import type { UpcomingBirthday } from "@/src/features/students/birthdays";
 
 type PlanBookPageProps = {
   data: PlannerData;
   scheduleSlots: ScheduleSlot[];
   selectedDate: string;
+  upcomingBirthdays?: UpcomingBirthday[];
   view: "day" | "week";
 };
 
-export function PlanBookPage({ data, scheduleSlots, selectedDate, view }: PlanBookPageProps) {
+export function PlanBookPage({
+  data,
+  scheduleSlots,
+  selectedDate,
+  upcomingBirthdays = [],
+  view,
+}: PlanBookPageProps) {
   const dates = view === "week" ? getWeekdayDates(selectedDate) : [selectedDate];
   const lessonsInRange =
     view === "week" ? getLessonsForWeek(data, selectedDate) : getLessonsForDate(data, selectedDate);
@@ -52,6 +61,8 @@ export function PlanBookPage({ data, scheduleSlots, selectedDate, view }: PlanBo
         </section>
         <ViewSwitcher date={selectedDate} view={view} />
       </div>
+
+      <UpcomingBirthdaysCard birthdays={upcomingBirthdays} />
 
       <DailyPlanner date={selectedDate} days={days} otherLessons={otherLessons} view={view} />
     </>

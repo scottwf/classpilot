@@ -1,11 +1,13 @@
 import { AppShell } from "./AppShell";
 import { PlanBookPage } from "./PlanBookPage";
 import type { PlannerData, ScheduleSlot } from "./types";
+import type { UpcomingBirthday } from "@/src/features/students/birthdays";
 
 type ClassPilotPlannerProps = {
   data: PlannerData;
   scheduleSlots?: ScheduleSlot[];
   selectedDate?: string;
+  upcomingBirthdays?: UpcomingBirthday[];
   view?: "day" | "week";
 };
 
@@ -15,6 +17,7 @@ export function ClassPilotPlanner({
   data,
   scheduleSlots = [],
   selectedDate = defaultSelectedDate,
+  upcomingBirthdays = [],
   view = "day",
 }: ClassPilotPlannerProps) {
   return (
@@ -23,6 +26,7 @@ export function ClassPilotPlanner({
         data={data}
         scheduleSlots={scheduleSlots}
         selectedDate={selectedDate}
+        upcomingBirthdays={upcomingBirthdays}
         view={view}
       />
     </AppShell>
