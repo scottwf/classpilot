@@ -31,6 +31,13 @@ export type AssistantChatResult = {
   /** Which provider actually drove this turn — surfaced in the UI so the
    * teacher can tell whether student-record tools were available. */
   driver: "local" | "hosted";
+  /** Every message generated this turn — the user's message, any
+   * assistant/tool-call/tool-result pairs from intermediate rounds, and
+   * the final assistant reply — in order. The caller appends these to its
+   * running history and passes the whole thing back as `messages` on the
+   * next call, so the model keeps context (e.g. IDs it already looked up)
+   * across turns instead of re-discovering it every time. */
+  newMessages: OrchestratorMessage[];
 };
 
 const maxToolCallRounds = 8;
@@ -236,9 +243,13 @@ export async function runAssistantChat(input: RunAssistantChatInput): Promise<As
     );
 
     if (assistantMessage.toolCalls.length === 0) {
+      const reply = assistantMessage.content?.trim() || "(no response)";
+      conversation.push({ content: reply, role: "assistant" });
+
       return {
         driver: input.driver,
-        reply: assistantMessage.content?.trim() || "(no response)",
+        newMessages: conversation.slice(1),
+        reply,
         toolCalls: toolCallRecords,
       };
     }
@@ -272,10 +283,14 @@ export async function runAssistantChat(input: RunAssistantChatInput): Promise<As
     }
   }
 
+  const reply =
+    "I ran out of tool-call steps for this turn — here's what I did so far. Ask me to continue if needed.";
+  conversation.push({ content: reply, role: "assistant" });
+
   return {
     driver: input.driver,
-    reply:
-      "I ran out of tool-call steps for this turn — here's what I did so far. Ask me to continue if needed.",
+    newMessages: conversation.slice(1),
+    reply,
     toolCalls: toolCallRecords,
   };
 }
