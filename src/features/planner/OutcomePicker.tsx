@@ -7,19 +7,32 @@ import type { CurriculumOutcome } from "./types";
 type OutcomePickerProps = {
   outcomes: CurriculumOutcome[];
   /** Checkbox name — the surrounding <form> collects these as usual, this
-   * component doesn't manage form state itself. */
-  name: string;
+   * component doesn't manage form state itself. Ignored when selectable is
+   * false. */
+  name?: string;
   selectedIds?: string[];
   emptyMessage: React.ReactNode;
+  /** False for a plain browse/search view with no checkboxes — the
+   * Outcomes page uses this to let a teacher look up an outcome's full
+   * description without being inside a form. Defaults to true (a picker). */
+  selectable?: boolean;
 };
 
 /**
- * Checkbox list of curriculum outcomes with a search box (matches code or
- * description, e.g. typing "pattern" surfaces every outcome that mentions
- * it) and a per-row expand toggle for the full description — outcome codes
- * alone aren't enough to pick the right one from a list of 40+.
+ * Checkbox list of curriculum outcomes with a search box (matches code,
+ * description, or subject, e.g. typing "pattern" surfaces every outcome
+ * that mentions it) and a per-row expand toggle for the full description —
+ * outcome codes alone aren't enough to pick the right one from a list of
+ * 40+. Set selectable={false} for a read-only browse/search view (no
+ * checkboxes, no name/selectedIds needed).
  */
-export function OutcomePicker({ outcomes, name, selectedIds, emptyMessage }: OutcomePickerProps) {
+export function OutcomePicker({
+  outcomes,
+  name,
+  selectedIds,
+  emptyMessage,
+  selectable = true,
+}: OutcomePickerProps) {
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const selected = new Set(selectedIds ?? []);
@@ -29,7 +42,8 @@ export function OutcomePicker({ outcomes, name, selectedIds, emptyMessage }: Out
     ? outcomes.filter(
         (outcome) =>
           outcome.code.toLowerCase().includes(normalizedQuery) ||
-          outcome.description.toLowerCase().includes(normalizedQuery),
+          outcome.description.toLowerCase().includes(normalizedQuery) ||
+          outcome.subject.toLowerCase().includes(normalizedQuery),
       )
     : outcomes;
 
@@ -62,13 +76,15 @@ export function OutcomePicker({ outcomes, name, selectedIds, emptyMessage }: Out
           return (
             <div className="rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50" key={outcome.id}>
               <div className="flex items-start gap-2">
-                <input
-                  className="mt-1"
-                  defaultChecked={selected.has(outcome.id)}
-                  name={name}
-                  type="checkbox"
-                  value={outcome.id}
-                />
+                {selectable ? (
+                  <input
+                    className="mt-1"
+                    defaultChecked={selected.has(outcome.id)}
+                    name={name}
+                    type="checkbox"
+                    value={outcome.id}
+                  />
+                ) : null}
                 <button
                   className="flex flex-1 items-start gap-1 text-left"
                   onClick={() => setExpandedId(isExpanded ? null : outcome.id)}
