@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HostedProviderFields } from "./HostedProviderFields";
 import type { SchoolYear } from "./types";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
@@ -172,54 +173,12 @@ export function SettingsPage({
               </span>
             </div>
 
-            <div className="mt-3 space-y-4">
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">API key</span>
-                <input
-                  autoComplete="off"
-                  className={inputClass}
-                  name="aiApiKey"
-                  placeholder={
-                    aiApiKeySet
-                      ? "•••••••••••••••• (set — leave blank to keep it)"
-                      : "sk-..."
-                  }
-                  type="password"
-                />
-                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                  For OpenAI, OpenRouter, DeepSeek, or any OpenAI-compatible
-                  API. Never shown again once saved — leave blank on future
-                  saves to keep it, or use{" "}
-                  <span className="font-medium">Clear key</span> below to
-                  remove it.
-                </span>
-              </label>
-
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">Base URL</span>
-                <input
-                  className={inputClass}
-                  defaultValue={aiBaseUrl}
-                  name="aiBaseUrl"
-                  placeholder="https://api.openai.com/v1 (default)"
-                  type="text"
-                />
-                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                  Change this for OpenRouter, DeepSeek, or another
-                  OpenAI-compatible endpoint.
-                </span>
-              </label>
-
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">Model</span>
-                <input
-                  className={inputClass}
-                  defaultValue={aiModel}
-                  name="aiModel"
-                  placeholder="gpt-4o-mini (default)"
-                  type="text"
-                />
-              </label>
+            <div className="mt-3">
+              <HostedProviderFields
+                aiApiKeySet={aiApiKeySet}
+                aiBaseUrl={aiBaseUrl}
+                aiModel={aiModel}
+              />
             </div>
           </div>
 
