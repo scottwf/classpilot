@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useState } from "react";
+import { createLessonAction } from "@/app/lessons/new/actions";
 import { getUnitTimelinePosition } from "./timeline";
 import type { ClassSection, InstructionalDay, UnitPlan } from "./types";
 
@@ -22,8 +26,11 @@ export function UnitTimeline({
   units,
   instructionalDays,
 }: UnitTimelineProps) {
+  const [modalUnit, setModalUnit] = useState<UnitPlan | null>(null);
+
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+    <>
+      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-950">
@@ -108,27 +115,42 @@ export function UnitTimeline({
                     );
 
                     return (
-                      <Link
-                        className={`z-10 mx-1 mt-5 h-11 rounded-md border px-3 py-2 text-sm font-semibold shadow-sm ${colorClass[unit.color]}`}
-                        href={`/units/${unit.id}`}
+                      <div
+                        className="relative z-10 mx-1 mt-5 h-11"
                         key={unit.id}
                         style={{
                           gridColumn: `${position.gridColumnStart} / span ${position.gridColumnSpan}`,
                           gridRow: "1",
                         }}
-                        title={`${unit.title}: ${position.instructionalDays} instructional days`}
                       >
-                        <div className="truncate">{unit.title}</div>
-                        <div className="mt-1 flex gap-1">
-                          {unit.lessons.map((lesson) => (
-                            <span
-                              aria-label={lesson.title}
-                              className="size-1.5 rounded-full bg-current opacity-60"
-                              key={lesson.id}
-                            />
-                          ))}
-                        </div>
-                      </Link>
+                        <Link
+                          className={`block size-full rounded-md border px-3 py-2 text-sm font-semibold shadow-sm ${colorClass[unit.color]}`}
+                          href={`/units/${unit.id}`}
+                          title={`${unit.title}: ${position.instructionalDays} instructional days`}
+                        >
+                          <div className="truncate pr-5">{unit.title}</div>
+                          <div className="mt-1 flex gap-1">
+                            {unit.lessons.map((lesson) => (
+                              <span
+                                aria-label={lesson.title}
+                                className="size-1.5 rounded-full bg-current opacity-60"
+                                key={lesson.id}
+                              />
+                            ))}
+                          </div>
+                        </Link>
+                        <button
+                          aria-label={`Add lesson to ${unit.title}`}
+                          className="absolute right-1 top-1 z-20 rounded-full bg-white/70 p-0.5 text-current hover:bg-white"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setModalUnit(unit);
+                          }}
+                          type="button"
+                        >
+                          <Plus aria-hidden="true" className="size-3.5" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -138,5 +160,96 @@ export function UnitTimeline({
         </div>
       </div>
     </section>
+
+    {modalUnit ? (
+      <AddLessonModal onClose={() => setModalUnit(null)} unit={modalUnit} />
+    ) : null}
+    </>
+  );
+}
+
+function AddLessonModal({
+  onClose,
+  unit,
+}: {
+  onClose: () => void;
+  unit: UnitPlan;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h3 className="text-lg font-semibold text-slate-950">
+          Add lesson to {unit.title}
+        </h3>
+        <form action={createLessonAction} className="mt-4 space-y-4">
+          <input name="unitId" type="hidden" value={unit.id} />
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">
+              Lesson title
+            </span>
+            <input
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              name="title"
+              required
+              type="text"
+            />
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">Date</span>
+              <input
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                defaultValue={unit.startDate}
+                min={unit.startDate}
+                max={unit.endDate}
+                name="date"
+                required
+                type="date"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">
+                Duration minutes
+              </span>
+              <input
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                defaultValue={55}
+                min={1}
+                name="durationMinutes"
+                required
+                type="number"
+              />
+            </label>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              className="rounded-md px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              onClick={onClose}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+              type="submit"
+            >
+              Save lesson
+            </button>
+          </div>
+        </form>
+        <Link
+          className="mt-3 inline-block text-sm text-blue-700 underline"
+          href={`/units/${unit.id}`}
+        >
+          Open full unit page for more options
+        </Link>
+      </div>
+    </div>
   );
 }
