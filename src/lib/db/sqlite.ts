@@ -236,6 +236,18 @@ export function migrate(db: ClassPilotDatabase) {
   );
   addColumnIfMissing(
     db,
+    "app_settings",
+    "ai_local_base_url",
+    "TEXT NOT NULL DEFAULT ''",
+  );
+  addColumnIfMissing(
+    db,
+    "app_settings",
+    "ai_local_model",
+    "TEXT NOT NULL DEFAULT ''",
+  );
+  addColumnIfMissing(
+    db,
     "school_years",
     "day_label_scheme",
     "TEXT NOT NULL DEFAULT 'numeric'",

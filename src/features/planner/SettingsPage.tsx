@@ -8,6 +8,9 @@ type SettingsPageProps = {
   aiApiKeySet: boolean;
   aiBaseUrl: string;
   aiModel: string;
+  aiLocalConfigured: boolean;
+  aiLocalBaseUrl: string;
+  aiLocalModel: string;
   clearApiKeyAction: ServerAction;
   saved?: string;
   updateAction: ServerAction;
@@ -32,6 +35,9 @@ export function SettingsPage({
   aiApiKeySet,
   aiBaseUrl,
   aiModel,
+  aiLocalConfigured,
+  aiLocalBaseUrl,
+  aiLocalModel,
   clearApiKeyAction,
   saved,
   updateAction,
@@ -140,74 +146,128 @@ export function SettingsPage({
       </section>
 
       <section className="max-w-2xl rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-slate-950">
-            AI provider
-          </h3>
-          <span
-            className={[
-              "rounded-md px-2 py-1 text-xs font-medium",
-              aiConfigured
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-amber-50 text-amber-700",
-            ].join(" ")}
-          >
-            {aiConfigured ? "Configured" : "Not configured"}
-          </span>
-        </div>
+        <p className="text-sm leading-6 text-slate-600">
+          The assistant uses two separate providers. The hosted provider
+          drafts content — unit outlines, lesson sections, lesson resources —
+          and never sees student data. The local model drives the assistant
+          chat&apos;s tool-calling and is the only one ever given access to
+          student records, so they stay on your network.
+        </p>
 
-        <form action={updateAction} className="mt-4 space-y-4">
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">
-              Hosted provider API key
-            </span>
-            <input
-              autoComplete="off"
-              className={inputClass}
-              name="aiApiKey"
-              placeholder={
-                aiApiKeySet
-                  ? "•••••••••••••••• (set — leave blank to keep it)"
-                  : "sk-..."
-              }
-              type="password"
-            />
-            <span className="mt-1 block text-xs leading-5 text-slate-500">
-              For a hosted provider like OpenAI. Leave the local model URL
-              below blank if using this. Never shown again once saved — leave
-              blank on future saves to keep it, or use{" "}
-              <span className="font-medium">Clear key</span> below to remove
-              it.
-            </span>
-          </label>
+        <form action={updateAction} className="mt-4 space-y-6">
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-950">
+                Hosted provider (content generation)
+              </h3>
+              <span
+                className={[
+                  "rounded-md px-2 py-1 text-xs font-medium",
+                  aiConfigured
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-700",
+                ].join(" ")}
+              >
+                {aiConfigured ? "Configured" : "Not configured"}
+              </span>
+            </div>
 
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">
-              Local model base URL
-            </span>
-            <input
-              className={inputClass}
-              defaultValue={aiBaseUrl}
-              name="aiBaseUrl"
-              placeholder="http://localhost:11434/v1 (Ollama, LM Studio, ...)"
-              type="text"
-            />
-            <span className="mt-1 block text-xs leading-5 text-slate-500">
-              For full-privacy homelab use — no API key required, nothing
-              leaves your network. Set this instead of an API key.
-            </span>
-          </label>
+            <div className="mt-3 space-y-4">
+              <label className="block text-sm">
+                <span className="font-medium text-slate-700">API key</span>
+                <input
+                  autoComplete="off"
+                  className={inputClass}
+                  name="aiApiKey"
+                  placeholder={
+                    aiApiKeySet
+                      ? "•••••••••••••••• (set — leave blank to keep it)"
+                      : "sk-..."
+                  }
+                  type="password"
+                />
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  For OpenAI, OpenRouter, DeepSeek, or any OpenAI-compatible
+                  API. Never shown again once saved — leave blank on future
+                  saves to keep it, or use{" "}
+                  <span className="font-medium">Clear key</span> below to
+                  remove it.
+                </span>
+              </label>
 
-          <label className="block text-sm">
-            <span className="font-medium text-slate-700">Model</span>
-            <input
-              className={inputClass}
-              defaultValue={aiModel}
-              name="aiModel"
-              placeholder="gpt-4o-mini (default)"
-              type="text"
-            />
-          </label>
+              <label className="block text-sm">
+                <span className="font-medium text-slate-700">Base URL</span>
+                <input
+                  className={inputClass}
+                  defaultValue={aiBaseUrl}
+                  name="aiBaseUrl"
+                  placeholder="https://api.openai.com/v1 (default)"
+                  type="text"
+                />
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  Change this for OpenRouter, DeepSeek, or another
+                  OpenAI-compatible endpoint.
+                </span>
+              </label>
+
+              <label className="block text-sm">
+                <span className="font-medium text-slate-700">Model</span>
+                <input
+                  className={inputClass}
+                  defaultValue={aiModel}
+                  name="aiModel"
+                  placeholder="gpt-4o-mini (default)"
+                  type="text"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 pt-6">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-950">
+                Local model (assistant chat + student records)
+              </h3>
+              <span
+                className={[
+                  "rounded-md px-2 py-1 text-xs font-medium",
+                  aiLocalConfigured
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-amber-50 text-amber-700",
+                ].join(" ")}
+              >
+                {aiLocalConfigured ? "Configured" : "Not configured"}
+              </span>
+            </div>
+
+            <div className="mt-3 space-y-4">
+              <label className="block text-sm">
+                <span className="font-medium text-slate-700">Base URL</span>
+                <input
+                  className={inputClass}
+                  defaultValue={aiLocalBaseUrl}
+                  name="aiLocalBaseUrl"
+                  placeholder="http://localhost:11434/v1 (Ollama, LM Studio, ...)"
+                  type="text"
+                />
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  No API key needed. Without this configured, the assistant
+                  chat can&apos;t access student records at all.
+                </span>
+              </label>
+
+              <label className="block text-sm">
+                <span className="font-medium text-slate-700">Model</span>
+                <input
+                  className={inputClass}
+                  defaultValue={aiLocalModel}
+                  name="aiLocalModel"
+                  placeholder="e.g. llama3.1, qwen2.5 — needs tool-calling support"
+                  type="text"
+                />
+              </label>
+            </div>
+          </div>
 
           <button
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
@@ -223,7 +283,7 @@ export function SettingsPage({
               className="text-xs font-medium text-slate-400 hover:text-rose-600"
               type="submit"
             >
-              Clear API key
+              Clear hosted API key
             </button>
           </form>
         ) : null}

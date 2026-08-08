@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getAiConfig, isAiConfigured } from "./config";
+import { getAiConfig, getLocalAiConfig, isAiConfigured, isLocalAiConfigured } from "./config";
 
 afterEach(() => {
   delete process.env.CLASSPILOT_AI_API_KEY;
   delete process.env.CLASSPILOT_AI_BASE_URL;
   delete process.env.CLASSPILOT_AI_MODEL;
+  delete process.env.CLASSPILOT_AI_LOCAL_BASE_URL;
+  delete process.env.CLASSPILOT_AI_LOCAL_MODEL;
 });
 
 describe("getAiConfig", () => {
@@ -75,6 +77,58 @@ describe("getAiConfig", () => {
       apiKey: "sk-env",
       baseUrl: "http://settings-host:11434/v1",
       model: "env-model",
+    });
+  });
+});
+
+describe("getLocalAiConfig", () => {
+  it("returns null when nothing is configured", () => {
+    expect(getLocalAiConfig()).toBeNull();
+    expect(isLocalAiConfigured()).toBe(false);
+  });
+
+  it("returns null when only a base URL is set (no default model)", () => {
+    expect(getLocalAiConfig({ baseUrl: "http://localhost:11434/v1" })).toBeNull();
+  });
+
+  it("returns null when only a model is set (no default base URL)", () => {
+    expect(getLocalAiConfig({ model: "llama3.1" })).toBeNull();
+  });
+
+  it("enables once both base URL and model are set, with no API key", () => {
+    expect(
+      getLocalAiConfig({ baseUrl: "http://localhost:11434/v1/", model: "llama3.1" }),
+    ).toEqual({
+      apiKey: "",
+      baseUrl: "http://localhost:11434/v1",
+      model: "llama3.1",
+    });
+    expect(
+      isLocalAiConfigured({ baseUrl: "http://localhost:11434/v1", model: "llama3.1" }),
+    ).toBe(true);
+  });
+
+  it("falls back to the environment when overrides are unset", () => {
+    process.env.CLASSPILOT_AI_LOCAL_BASE_URL = "http://xbox:11434/v1";
+    process.env.CLASSPILOT_AI_LOCAL_MODEL = "qwen2.5";
+
+    expect(getLocalAiConfig()).toEqual({
+      apiKey: "",
+      baseUrl: "http://xbox:11434/v1",
+      model: "qwen2.5",
+    });
+  });
+
+  it("prefers overrides over the environment when both are set", () => {
+    process.env.CLASSPILOT_AI_LOCAL_BASE_URL = "http://env-host:11434/v1";
+    process.env.CLASSPILOT_AI_LOCAL_MODEL = "env-model";
+
+    expect(
+      getLocalAiConfig({ baseUrl: "http://settings-host:11434/v1", model: "settings-model" }),
+    ).toEqual({
+      apiKey: "",
+      baseUrl: "http://settings-host:11434/v1",
+      model: "settings-model",
     });
   });
 });

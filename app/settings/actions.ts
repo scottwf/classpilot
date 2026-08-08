@@ -15,6 +15,8 @@ export async function updateSettingsAction(formData: FormData) {
   const submittedKey = String(formData.get("aiApiKey") ?? "").trim();
   const aiBaseUrl = String(formData.get("aiBaseUrl") ?? "").trim();
   const aiModel = String(formData.get("aiModel") ?? "").trim();
+  const aiLocalBaseUrl = String(formData.get("aiLocalBaseUrl") ?? "").trim();
+  const aiLocalModel = String(formData.get("aiLocalModel") ?? "").trim();
 
   updateAppSettings(db, {
     // The field is never pre-filled with the real secret (see SettingsPage),
@@ -23,6 +25,8 @@ export async function updateSettingsAction(formData: FormData) {
     aiApiKey: submittedKey || current.aiApiKey,
     aiBaseUrl,
     aiModel,
+    aiLocalBaseUrl,
+    aiLocalModel,
   });
 
   redirect("/settings?saved=1");

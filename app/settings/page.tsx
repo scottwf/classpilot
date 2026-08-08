@@ -1,7 +1,7 @@
 import { AppShell } from "@/src/features/planner/AppShell";
 import { ClassesPage } from "@/src/features/planner/ClassesPage";
 import { SettingsPage } from "@/src/features/planner/SettingsPage";
-import { isAiConfigured } from "@/src/lib/ai/config";
+import { isAiConfigured, isLocalAiConfigured } from "@/src/lib/ai/config";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { listSchoolYears } from "@/src/lib/db/planner-repository";
@@ -43,6 +43,12 @@ export default async function SettingsRoute({ searchParams }: SettingsRouteProps
           model: settings.aiModel,
         })}
         aiModel={settings.aiModel}
+        aiLocalBaseUrl={settings.aiLocalBaseUrl}
+        aiLocalConfigured={isLocalAiConfigured({
+          baseUrl: settings.aiLocalBaseUrl,
+          model: settings.aiLocalModel,
+        })}
+        aiLocalModel={settings.aiLocalModel}
         clearApiKeyAction={clearAiApiKeyAction}
         deleteYearAction={deleteSchoolYearAction}
         error={query.error}
