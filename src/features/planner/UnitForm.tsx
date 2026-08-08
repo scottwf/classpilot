@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { getClassMeetingDates } from "./cycle";
 import { formatClassGrade } from "./curriculum-subjects";
+import { computeUnitEndDate } from "./unit-pacing";
 import type { CurriculumOutcome, ClassSection, SchoolYear, UnitPlan } from "./types";
 
 type UnitFormProps = {
@@ -59,12 +60,10 @@ export function UnitForm({
     return count > 0 ? count : defaultLessonDays;
   });
 
-  const futureMeetingDates = meetingDates.filter((date) => date >= startDate);
-  const computedEndDate =
-    futureMeetingDates[Math.max(0, lessonDays - 1)] ??
-    futureMeetingDates[futureMeetingDates.length - 1] ??
-    startDate;
-  const actualLessonDays = Math.min(lessonDays, futureMeetingDates.length);
+  const hasFutureMeetingDay = meetingDates.some((date) => date >= startDate);
+  const { endDate: computedEndDate, actualLessonDays } = selectedClass
+    ? computeUnitEndDate(schoolYear, selectedClass, startDate, lessonDays)
+    : { endDate: startDate, actualLessonDays: 0 };
 
   const otherClassUnits = units.filter(
     (candidate) => candidate.classId === selectedClassId && candidate.id !== unit?.id,
@@ -124,7 +123,7 @@ export function UnitForm({
         </div>
 
         <p className="text-sm text-slate-600">
-          {futureMeetingDates.length === 0
+          {!hasFutureMeetingDay
             ? selectedClass
               ? "This class has no scheduled meeting days on or after the start date."
               : "Choose a class to compute the unit's end date from its schedule."

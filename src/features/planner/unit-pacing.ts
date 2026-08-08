@@ -40,6 +40,33 @@ export function computeUnitPacing(
 }
 
 /**
+ * Computes a unit's end date from a start date and a target lesson-day
+ * count, using the class's actual meeting days (not raw calendar days) —
+ * the core calculation behind UnitForm's "start date + lesson days" fields
+ * and the assistant's create_unit tool, kept in one place so both agree.
+ * `actualLessonDays` is less than `lessonDayCount` when the school year
+ * runs out of meeting days first.
+ */
+export function computeUnitEndDate(
+  schoolYear: PacingSchoolYear,
+  classSection: PacingClassSection,
+  startDate: string,
+  lessonDayCount: number,
+): { endDate: string; actualLessonDays: number } {
+  const meetingDates = getClassMeetingDates(schoolYear, classSection);
+  const futureMeetingDates = meetingDates.filter((date) => date >= startDate);
+  const endDate =
+    futureMeetingDates[Math.max(0, lessonDayCount - 1)] ??
+    futureMeetingDates[futureMeetingDates.length - 1] ??
+    startDate;
+
+  return {
+    endDate,
+    actualLessonDays: Math.min(lessonDayCount, futureMeetingDates.length),
+  };
+}
+
+/**
  * IDs of every unit whose date range overlaps another unit on the same
  * class — two units both claiming the same class's time is very likely a
  * planning mistake (a teacher can still choose to leave it, e.g. a short

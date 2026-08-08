@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeUnitPacing, findOverlappingUnitIds } from "./unit-pacing";
+import { computeUnitEndDate, computeUnitPacing, findOverlappingUnitIds } from "./unit-pacing";
 
 // 2026-09-01 is a Tuesday; 2026-09-01..04 are four weekday instructional
 // days with no weekend or blocked date in between.
@@ -98,5 +98,32 @@ describe("findOverlappingUnitIds", () => {
     ];
 
     expect(findOverlappingUnitIds(units)).toEqual(new Set(["a", "b"]));
+  });
+});
+
+describe("computeUnitEndDate", () => {
+  it("picks the Nth meeting date on or after the start date", () => {
+    const result = computeUnitEndDate(schoolYear, dailyClass, "2026-09-01", 3);
+
+    // 09-01, 09-02, 09-03 are the class's first three meeting days.
+    expect(result).toEqual({ actualLessonDays: 3, endDate: "2026-09-03" });
+  });
+
+  it("caps actualLessonDays and falls back to the last available meeting date when the school year runs out", () => {
+    const shortSchoolYear = { ...schoolYear, endDate: "2026-09-04" };
+
+    const result = computeUnitEndDate(shortSchoolYear, dailyClass, "2026-09-01", 10);
+
+    expect(result).toEqual({ actualLessonDays: 4, endDate: "2026-09-04" });
+  });
+
+  it("only counts the class's own cycle days", () => {
+    const everyOtherDayClass = { cycleDays: [1] };
+    const cycleSchoolYear = { ...schoolYear, cycleLength: 2 };
+
+    const result = computeUnitEndDate(cycleSchoolYear, everyOtherDayClass, "2026-09-01", 2);
+
+    // Cycle day 1 lands on 09-01 and 09-03.
+    expect(result).toEqual({ actualLessonDays: 2, endDate: "2026-09-03" });
   });
 });

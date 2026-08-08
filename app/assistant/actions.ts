@@ -3,13 +3,11 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
-import { createUnitWithLessons } from "@/src/lib/db/planner-repository";
-import { buildInstructionalDays } from "@/src/features/planner/timeline";
-import { scheduleLessonDates } from "@/src/features/planner/schedule";
 import { generateUnitOutline } from "@/src/lib/ai/unit-outline";
 import { parseUnitOutlineDraft } from "@/src/lib/ai/parse";
+import { saveUnitOutlineDraft } from "@/src/lib/ai/save-unit-outline";
 import { AiError, type UnitOutlineDraft } from "@/src/lib/ai/types";
-import type { LessonSections, UnitPlan } from "@/src/features/planner/types";
+import type { UnitPlan } from "@/src/features/planner/types";
 
 const unitColors = new Set<UnitPlan["color"]>([
   "blue",
@@ -144,106 +142,22 @@ async function saveDraft(formData: FormData): Promise<AssistantState> {
     return fail("That class no longer exists.");
   }
 
-  const codeToId = new Map(
-    planner.outcomes.map((outcome) => [outcome.code, outcome.id]),
-  );
-
-  const instructionalDayKeys = buildInstructionalDays(planner.schoolYear).map(
-    (day) => day.key,
-  );
-  const dates = scheduleLessonDates(
-    instructionalDayKeys,
-    startDate,
-    draft.lessonSequence.length,
-    values.lessonsPerWeek,
-  );
-
-  const lessons = draft.lessonSequence.map((lesson, index) => ({
-    date: dates[index],
-    durationMinutes: values.lessonMinutes,
-    outcomeIds: lesson.outcomeCodes
-      .map((code) => codeToId.get(code))
-      .filter((id): id is string => Boolean(id)),
-    sections: buildLessonSections(lesson.focus, index === 0 ? draft : undefined),
-    status: "planned" as const,
-    summary: lesson.focus,
-    title: lesson.title,
-  }));
-
-  // Unit outcomes: the teacher's selected outcomes plus any the model tagged.
-  const unitOutcomeIds = Array.from(
-    new Set([
-      ...values.outcomeIds,
-      ...lessons.flatMap((lesson) => lesson.outcomeIds),
-    ]),
-  );
-
   let unitId: string;
   try {
-    unitId = createUnitWithLessons(getClassPilotDatabase(), {
-      unit: {
-        classId,
-        color,
-        endDate: dates[dates.length - 1],
-        outcomeIds: unitOutcomeIds,
-        startDate: dates[0],
-        title: draft.title,
-      },
-      lessons,
+    unitId = saveUnitOutlineDraft(getClassPilotDatabase(), planner, {
+      classId,
+      color,
+      draft,
+      lessonMinutes: values.lessonMinutes,
+      lessonsPerWeek: values.lessonsPerWeek,
+      selectedOutcomeIds: values.outcomeIds,
+      startDate,
     });
   } catch {
     return fail("Could not save the unit. Please try again.");
   }
 
   redirect(`/units/${unitId}?created=1`);
-}
-
-// Folds the unit-level guidance into the first lesson's section fields so the
-// big ideas, essential questions, assessment, and differentiation ideas are not
-// lost when the draft is saved (the unit model has no description field yet).
-function buildLessonSections(
-  focus: string,
-  unitGuidance?: UnitOutlineDraft,
-): LessonSections | undefined {
-  if (!unitGuidance) {
-    return focus ? { ...emptySections(), lessonFlow: focus } : undefined;
-  }
-
-  const learningGoals = [
-    unitGuidance.bigIdeas.length
-      ? `Big ideas:\n- ${unitGuidance.bigIdeas.join("\n- ")}`
-      : "",
-    unitGuidance.essentialQuestions.length
-      ? `Essential questions:\n- ${unitGuidance.essentialQuestions.join("\n- ")}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-
-  return {
-    ...emptySections(),
-    learningGoals,
-    lessonFlow: focus,
-    assessment: unitGuidance.assessmentIdeas.length
-      ? `- ${unitGuidance.assessmentIdeas.join("\n- ")}`
-      : "",
-    differentiation: unitGuidance.differentiationNotes.length
-      ? `- ${unitGuidance.differentiationNotes.join("\n- ")}`
-      : "",
-  };
-}
-
-function emptySections(): LessonSections {
-  return {
-    assessment: "",
-    differentiation: "",
-    learningGoals: "",
-    lessonFlow: "",
-    materials: "",
-    mindsOn: "",
-    reflection: "",
-    resources: "",
-  };
 }
 
 function readFormValues(formData: FormData): AssistantFormValues {
