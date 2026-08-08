@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { TestProviderButton } from "./TestProviderButton";
 
 type HostedProviderFieldsProps = {
   aiApiKeySet: boolean;
@@ -74,6 +75,9 @@ export function HostedProviderFields({
   const selectedPreset = presets.find((preset) => preset.id === presetId) ?? presets[0];
   const effectiveBaseUrl = presetId === "custom" ? customBaseUrl : selectedPreset.baseUrl;
 
+  const apiKeyRef = useRef<HTMLInputElement>(null);
+  const modelRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="space-y-4">
       <label className="block text-sm">
@@ -87,6 +91,7 @@ export function HostedProviderFields({
               ? "•••••••••••••••• (set — leave blank to keep it)"
               : "sk-..."
           }
+          ref={apiKeyRef}
           type="password"
         />
         <span className="mt-1 block text-xs leading-5 text-slate-500">
@@ -134,9 +139,16 @@ export function HostedProviderFields({
           defaultValue={aiModel}
           name="aiModel"
           placeholder={selectedPreset.modelPlaceholder || "model name"}
+          ref={modelRef}
           type="text"
         />
       </label>
+
+      <TestProviderButton
+        getApiKey={() => apiKeyRef.current?.value ?? ""}
+        getBaseUrl={() => effectiveBaseUrl}
+        getModel={() => modelRef.current?.value ?? ""}
+      />
     </div>
   );
 }

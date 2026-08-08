@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HostedProviderFields } from "./HostedProviderFields";
+import { LocalProviderFields } from "./LocalProviderFields";
 import type { SchoolYear } from "./types";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
@@ -21,9 +22,6 @@ type SettingsPageProps = {
   deleteYearAction: ServerAction;
   error?: string;
 };
-
-const inputClass =
-  "mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
 
 const errorMessages: Record<string, string> = {
   year: "Something went wrong with that school year action. Try again.",
@@ -199,32 +197,8 @@ export function SettingsPage({
               </span>
             </div>
 
-            <div className="mt-3 space-y-4">
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">Base URL</span>
-                <input
-                  className={inputClass}
-                  defaultValue={aiLocalBaseUrl}
-                  name="aiLocalBaseUrl"
-                  placeholder="http://localhost:11434/v1 (Ollama, LM Studio, ...)"
-                  type="text"
-                />
-                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                  No API key needed. Without this configured, the assistant
-                  chat can&apos;t access student records at all.
-                </span>
-              </label>
-
-              <label className="block text-sm">
-                <span className="font-medium text-slate-700">Model</span>
-                <input
-                  className={inputClass}
-                  defaultValue={aiLocalModel}
-                  name="aiLocalModel"
-                  placeholder="e.g. llama3.1, qwen2.5 — needs tool-calling support"
-                  type="text"
-                />
-              </label>
+            <div className="mt-3">
+              <LocalProviderFields aiLocalBaseUrl={aiLocalBaseUrl} aiLocalModel={aiLocalModel} />
             </div>
           </div>
 
