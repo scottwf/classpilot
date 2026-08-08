@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
-import { createLesson } from "@/src/lib/db/planner-repository";
+import { createLesson, updateLessonDate } from "@/src/lib/db/planner-repository";
 import {
   lessonSummaryFromSections,
   readLessonSections,
@@ -119,6 +119,22 @@ export async function createLessonAction(formData: FormData) {
   });
 
   redirect(`/lessons?created=1`);
+}
+
+/**
+ * Moves an existing lesson (picked from the bank) onto a clicked schedule
+ * slot's date, instead of creating a new lesson — everything else about
+ * the lesson (title, sections, outcomes, unit) stays as-is.
+ */
+export async function moveLessonToDateAction(formData: FormData) {
+  await requireAuth();
+
+  const lessonId = requiredString(formData, "lessonId");
+  const date = requiredString(formData, "date");
+
+  updateLessonDate(getClassPilotDatabase(), { date, id: lessonId });
+
+  redirect(`/?date=${date}`);
 }
 
 function requiredString(formData: FormData, key: string): string {

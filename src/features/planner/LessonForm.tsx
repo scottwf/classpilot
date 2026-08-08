@@ -20,6 +20,7 @@ type LessonFormProps = {
   classes: ClassSection[];
   error?: string;
   initialClassId?: string;
+  initialDate?: string;
   initialUnitId?: string;
   lesson?: EditableLesson;
   mode: "create" | "edit";
@@ -39,6 +40,7 @@ export function LessonForm({
   classes,
   error,
   initialClassId,
+  initialDate,
   initialUnitId,
   lesson,
   mode,
@@ -151,7 +153,9 @@ export function LessonForm({
         <div className="grid gap-4 sm:grid-cols-3">
           <Field
             defaultValue={
-              lesson?.date ?? unitOptions.find((unit) => unit.id === selectedUnitId)?.startDate
+              lesson?.date ??
+              initialDate ??
+              unitOptions.find((unit) => unit.id === selectedUnitId)?.startDate
             }
             key={selectedUnitId}
             label="Date"

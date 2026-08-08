@@ -30,6 +30,7 @@ import {
   setActiveSchoolYear,
   updateClass,
   updateLesson,
+  updateLessonDate,
   updateSchoolYear,
   updateUnit,
   updateUnitDates,
@@ -260,6 +261,30 @@ describe("planner repository", () => {
       unitId: "unit-ratios",
     });
     expect(lesson?.outcomeIds).toEqual(["sk-grade-6-mathematics-n6-5"]);
+  });
+
+  it("moves a lesson's date, leaving everything else untouched", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const before = getLessonById(db, "lesson-ratio-language");
+    updateLessonDate(db, { date: "2026-10-02", id: "lesson-ratio-language" });
+    const after = getLessonById(db, "lesson-ratio-language");
+
+    expect(after?.date).toBe("2026-10-02");
+    expect(after).toMatchObject({
+      ...before,
+      date: "2026-10-02",
+    });
+  });
+
+  it("throws when moving a nonexistent lesson", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(() =>
+      updateLessonDate(db, { date: "2026-10-02", id: "lesson-does-not-exist" }),
+    ).toThrow("Lesson not found");
   });
 
   it("reads and updates the school year calendar", () => {

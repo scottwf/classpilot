@@ -655,6 +655,24 @@ export function updateUnitDates(
   }
 }
 
+/**
+ * Patches only a lesson's date — used to "move" an existing lesson from
+ * the bank onto a clicked schedule slot, without touching its title,
+ * sections, or outcomes.
+ */
+export function updateLessonDate(
+  db: ClassPilotDatabase,
+  input: { id: string; date: string },
+) {
+  const result = db
+    .prepare("UPDATE lesson_plans SET date = ? WHERE id = ?")
+    .run(input.date, input.id);
+
+  if (result.changes === 0) {
+    throw new Error(`Lesson not found: ${input.id}`);
+  }
+}
+
 export function createClass(db: ClassPilotDatabase, input: CreateClassInput): string {
   const id = `class-${crypto.randomUUID()}`;
 
