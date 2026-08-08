@@ -107,6 +107,12 @@ const classInputShape = {
     .describe(
       "False for non-instructional blocks (recess, supervision, one-off assemblies) — these skip curriculum outcomes and instructional-time tracking.",
     ),
+  combinedGrades: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "Other grades whose curriculum outcomes also apply, for a combined-grade split class (e.g. a 5/6 split). `grade` stays the class's primary/display grade. Empty for a single-grade class.",
+    ),
 };
 
 function ok(data: unknown): CallToolResult {

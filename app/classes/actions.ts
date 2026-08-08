@@ -88,6 +88,7 @@ function readClassInput(formData: FormData) {
   const isInstructional = formData.get("isInstructional") !== null;
   let subject: string;
   let grade: string;
+  let combinedGrades: string[] = [];
 
   if (isInstructional) {
     const [choiceGrade, choiceSubject] = String(formData.get("curriculumChoice") ?? "")
@@ -100,6 +101,10 @@ function readClassInput(formData: FormData) {
 
     grade = choiceGrade;
     subject = choiceSubject;
+    combinedGrades = formData
+      .getAll("combinedGrades")
+      .map((value) => String(value).trim())
+      .filter((value) => value.length > 0 && value !== grade);
   } else {
     subject = String(formData.get("subjectFreeText") ?? "").trim();
     grade = String(formData.get("gradeFreeText") ?? "").trim();
@@ -119,5 +124,6 @@ function readClassInput(formData: FormData) {
     targetMinutesPerYear,
     color,
     isInstructional,
+    combinedGrades,
   };
 }

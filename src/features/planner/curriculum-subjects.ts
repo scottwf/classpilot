@@ -1,4 +1,4 @@
-import type { CurriculumOutcome } from "./types";
+import type { ClassSection, CurriculumOutcome } from "./types";
 
 export type GradeSubjects = {
   grade: string;
@@ -26,4 +26,21 @@ export function groupSubjectsByGrade(outcomes: CurriculumOutcome[]): GradeSubjec
       subjects: Array.from(subjects).sort((a, b) => a.localeCompare(b)),
     }))
     .sort((a, b) => a.grade.localeCompare(b.grade, undefined, { numeric: true }));
+}
+
+/**
+ * Display label for a class's grade(s) — "6", or "5/6" for a combined-grade
+ * split class. `grade` stays the primary/display grade in storage;
+ * `combinedGrades` only widens which outcomes apply.
+ */
+export function formatClassGrade(
+  classSection: Pick<ClassSection, "grade" | "combinedGrades">,
+): string {
+  if (!classSection.combinedGrades || classSection.combinedGrades.length === 0) {
+    return classSection.grade;
+  }
+
+  return [classSection.grade, ...classSection.combinedGrades]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    .join("/");
 }

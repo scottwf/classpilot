@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { getClassMeetingDates } from "./cycle";
+import { formatClassGrade } from "./curriculum-subjects";
 import type { CurriculumOutcome, ClassSection, SchoolYear, UnitPlan } from "./types";
 
 type UnitFormProps = {
@@ -34,10 +35,13 @@ export function UnitForm({
     unit?.classId ?? classes[0]?.id,
   );
   const selectedClass = classes.find((classSection) => classSection.id === selectedClassId);
+  const selectedClassGrades = selectedClass
+    ? [selectedClass.grade, ...(selectedClass.combinedGrades ?? [])]
+    : [];
   const classOutcomes = selectedClass
     ? outcomes.filter(
         (outcome) =>
-          outcome.subject === selectedClass.subject && outcome.grade === selectedClass.grade,
+          outcome.subject === selectedClass.subject && selectedClassGrades.includes(outcome.grade),
       )
     : [];
 
@@ -191,7 +195,7 @@ export function UnitForm({
           </h3>
           <p className="mt-1 text-xs leading-5 text-slate-500">
             {selectedClass
-              ? `${selectedClass.subject} outcomes for Grade ${selectedClass.grade}. Lesson-level outcome tracking builds on this foundation.`
+              ? `${selectedClass.subject} outcomes for Grade ${formatClassGrade(selectedClass)}. Lesson-level outcome tracking builds on this foundation.`
               : "Choose a class to see its curriculum outcomes."}
           </p>
         </div>
@@ -200,7 +204,7 @@ export function UnitForm({
           {classOutcomes.length === 0 ? (
             <p className="px-2 py-1.5 text-sm text-slate-500">
               No curriculum outcomes found for {selectedClass?.subject || "this class"}
-              {selectedClass ? `, Grade ${selectedClass.grade}` : ""}. Check the
+              {selectedClass ? `, Grade ${formatClassGrade(selectedClass)}` : ""}. Check the
               class&apos;s subject/grade on the{" "}
               <Link className="text-blue-700 underline" href="/settings">
                 Settings

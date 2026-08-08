@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { classColorPalette, pickUnusedClassColor } from "./class-color";
 import { getDayLabel } from "./cycle";
 import type { GradeSubjects } from "./curriculum-subjects";
@@ -45,7 +48,7 @@ export function ClassForm({
   const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
   const selectedColor = classSection?.color ?? pickUnusedClassColor(existingClasses);
   const isInstructional = classSection?.isInstructional ?? true;
-  const curriculumChoice =
+  const initialCurriculumChoice =
     classSection && isInstructional
       ? `${classSection.grade}|${classSection.subject}`
       : "";
@@ -53,6 +56,16 @@ export function ClassForm({
     (entry) =>
       entry.grade === classSection?.grade && entry.subjects.includes(classSection?.subject ?? ""),
   );
+
+  const [curriculumChoice, setCurriculumChoice] = useState(
+    curriculumChoiceExists ? initialCurriculumChoice : "",
+  );
+  const [selectedGrade, selectedSubject] = curriculumChoice.split("|");
+  const otherGradesWithSameSubject = selectedSubject
+    ? gradeSubjects.filter(
+        (entry) => entry.grade !== selectedGrade && entry.subjects.includes(selectedSubject),
+      )
+    : [];
 
   return (
     <form
@@ -101,8 +114,9 @@ export function ClassForm({
               </span>
               <select
                 className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-                defaultValue={curriculumChoiceExists ? curriculumChoice : ""}
                 name="curriculumChoice"
+                onChange={(event) => setCurriculumChoice(event.target.value)}
+                value={curriculumChoice}
               >
                 <option value="">Select a subject…</option>
                 {gradeSubjects.map((entry) => (
@@ -123,6 +137,35 @@ export function ClassForm({
                 page.
               </span>
             </label>
+
+            {otherGradesWithSameSubject.length > 0 ? (
+              <div className="mt-3">
+                <span className="text-sm font-medium text-slate-700">
+                  Combine with other grades (optional)
+                </span>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  For a split class (e.g. a combined 5/6). Outcomes from the
+                  grades checked here are added on top of Grade {selectedGrade}
+                  &apos;s.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {otherGradesWithSameSubject.map((entry) => (
+                    <label
+                      className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 has-checked:border-blue-600 has-checked:bg-blue-50 has-checked:text-blue-700"
+                      key={entry.grade}
+                    >
+                      <input
+                        defaultChecked={classSection?.combinedGrades?.includes(entry.grade)}
+                        name="combinedGrades"
+                        type="checkbox"
+                        value={entry.grade}
+                      />
+                      Grade {entry.grade}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-3 grid gap-4 peer-checked:hidden sm:grid-cols-2">

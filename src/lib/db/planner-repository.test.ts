@@ -372,6 +372,58 @@ describe("planner repository", () => {
     expect(getClassById(db, classId)).toBeUndefined();
   });
 
+  it("stores and updates a class's combined grades", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const classId = createClass(db, {
+      schoolYearId: "current",
+      name: "Grade 5/6 Split",
+      subject: "Mathematics",
+      grade: "6",
+      room: "Room 3",
+      meetingPattern: "",
+      cycleDays: [],
+      combinedGrades: ["5"],
+    });
+
+    expect(getClassById(db, classId)).toMatchObject({
+      grade: "6",
+      combinedGrades: ["5"],
+    });
+
+    updateClass(db, {
+      id: classId,
+      schoolYearId: "current",
+      name: "Grade 5/6 Split",
+      subject: "Mathematics",
+      grade: "6",
+      room: "Room 3",
+      meetingPattern: "",
+      cycleDays: [],
+      combinedGrades: [],
+    });
+
+    expect(getClassById(db, classId)).toMatchObject({ combinedGrades: [] });
+  });
+
+  it("defaults combinedGrades to an empty array when omitted", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const classId = createClass(db, {
+      schoolYearId: "current",
+      name: "Grade 6 French",
+      subject: "French",
+      grade: "6",
+      room: "",
+      meetingPattern: "",
+      cycleDays: [],
+    });
+
+    expect(getClassById(db, classId)).toMatchObject({ combinedGrades: [] });
+  });
+
   it("throws when updating a nonexistent class", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     seedPlannerData(db, plannerData);

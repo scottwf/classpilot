@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupSubjectsByGrade } from "./curriculum-subjects";
+import { formatClassGrade, groupSubjectsByGrade } from "./curriculum-subjects";
 import type { CurriculumOutcome } from "./types";
 
 function outcome(overrides: Partial<CurriculumOutcome>): CurriculumOutcome {
@@ -56,5 +56,17 @@ describe("groupSubjectsByGrade", () => {
 
   it("returns an empty array for no outcomes", () => {
     expect(groupSubjectsByGrade([])).toEqual([]);
+  });
+});
+
+describe("formatClassGrade", () => {
+  it("returns the plain grade for a single-grade class", () => {
+    expect(formatClassGrade({ grade: "6", combinedGrades: [] })).toBe("6");
+    expect(formatClassGrade({ grade: "6", combinedGrades: undefined })).toBe("6");
+  });
+
+  it("joins grades in numeric order for a combined-grade class", () => {
+    expect(formatClassGrade({ grade: "6", combinedGrades: ["5"] })).toBe("5/6");
+    expect(formatClassGrade({ grade: "5", combinedGrades: ["6"] })).toBe("5/6");
   });
 });

@@ -70,6 +70,10 @@ export type ClassSection = {
   /** Which cycle days (1..schoolYear.cycleLength) this class meets on.
    * Empty means "every instructional day" (the pre-cycle-system default). */
   cycleDays: number[];
+  /** Other grades whose curriculum outcomes also apply to this class, for a
+   * combined-grade split class (e.g. a 5/6 split) — `grade` stays the
+   * class's primary/display grade. Empty for a single-grade class. */
+  combinedGrades?: string[];
   /** Optional target total instructional minutes for the year (e.g. a
    * curriculum minimum). 0/undefined means no target set — the onboarding
    * wizard's time-confirmation step just informational in that case. */

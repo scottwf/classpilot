@@ -41,6 +41,7 @@ type ClassSectionRow = {
   target_minutes_per_year: number | null;
   color: ClassSection["color"];
   is_instructional: number;
+  combined_grades_json: string;
 };
 
 type CurriculumOutcomeRow = {
@@ -121,6 +122,7 @@ export type CreateClassInput = {
   targetMinutesPerYear?: number;
   color?: ClassSection["color"];
   isInstructional?: boolean;
+  combinedGrades?: string[];
 };
 
 export type UpdateClassInput = CreateClassInput & {
@@ -155,8 +157,8 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
   `);
 
   const insertClass = db.prepare(`
-    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional, combined_grades_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       school_year_id = excluded.school_year_id,
       name = excluded.name,
@@ -167,7 +169,8 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
       cycle_days_json = excluded.cycle_days_json,
       target_minutes_per_year = excluded.target_minutes_per_year,
       color = excluded.color,
-      is_instructional = excluded.is_instructional
+      is_instructional = excluded.is_instructional,
+      combined_grades_json = excluded.combined_grades_json
   `);
 
   const insertOutcome = db.prepare(`
@@ -234,6 +237,7 @@ export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData
         classSection.targetMinutesPerYear ?? null,
         classSection.color ?? "blue",
         classSection.isInstructional === false ? 0 : 1,
+        JSON.stringify(classSection.combinedGrades ?? []),
       );
     }
 
@@ -655,8 +659,8 @@ export function createClass(db: ClassPilotDatabase, input: CreateClassInput): st
   const id = `class-${crypto.randomUUID()}`;
 
   db.prepare(`
-    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO class_sections (id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional, combined_grades_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     input.schoolYearId,
@@ -669,6 +673,7 @@ export function createClass(db: ClassPilotDatabase, input: CreateClassInput): st
     input.targetMinutesPerYear ?? null,
     input.color ?? "blue",
     input.isInstructional === false ? 0 : 1,
+    JSON.stringify(input.combinedGrades ?? []),
   );
 
   return id;
@@ -687,7 +692,8 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
       cycle_days_json = ?,
       target_minutes_per_year = ?,
       color = ?,
-      is_instructional = ?
+      is_instructional = ?,
+      combined_grades_json = ?
     WHERE id = ?
   `).run(
     input.schoolYearId,
@@ -700,6 +706,7 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
     input.targetMinutesPerYear ?? null,
     input.color ?? "blue",
     input.isInstructional === false ? 0 : 1,
+    JSON.stringify(input.combinedGrades ?? []),
     input.id,
   );
 
@@ -711,7 +718,7 @@ export function updateClass(db: ClassPilotDatabase, input: UpdateClassInput) {
 export function getClassById(db: ClassPilotDatabase, id: string): ClassSection | undefined {
   const row = db
     .prepare(
-      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional FROM class_sections WHERE id = ?",
+      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional, combined_grades_json FROM class_sections WHERE id = ?",
     )
     .get(id) as ClassSectionRow | undefined;
 
@@ -724,7 +731,7 @@ export function listClassesForSchoolYear(
 ): ClassSection[] {
   const rows = db
     .prepare(
-      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional FROM class_sections WHERE school_year_id = ? ORDER BY rowid",
+      "SELECT id, school_year_id, name, subject, grade, room, meeting_pattern, cycle_days_json, target_minutes_per_year, color, is_instructional, combined_grades_json FROM class_sections WHERE school_year_id = ? ORDER BY rowid",
     )
     .all(schoolYearId) as ClassSectionRow[];
 
@@ -947,6 +954,7 @@ function mapClassSection(row: ClassSectionRow): ClassSection {
     targetMinutesPerYear: row.target_minutes_per_year ?? undefined,
     color: row.color,
     isInstructional: row.is_instructional !== 0,
+    combinedGrades: JSON.parse(row.combined_grades_json) as string[],
   };
 }
 

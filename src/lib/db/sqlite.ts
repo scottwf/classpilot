@@ -230,6 +230,12 @@ export function migrate(db: ClassPilotDatabase) {
   );
   addColumnIfMissing(
     db,
+    "class_sections",
+    "combined_grades_json",
+    "TEXT NOT NULL DEFAULT '[]'",
+  );
+  addColumnIfMissing(
+    db,
     "school_years",
     "day_label_scheme",
     "TEXT NOT NULL DEFAULT 'numeric'",
