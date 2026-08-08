@@ -633,6 +633,24 @@ export function updateUnit(
   }
 }
 
+/**
+ * Patches only a unit's date range — used by the timeline's drag/resize
+ * interaction, which shouldn't require re-submitting title/color/outcomes
+ * just to move a unit's dates.
+ */
+export function updateUnitDates(
+  db: ClassPilotDatabase,
+  input: { id: string; startDate: string; endDate: string },
+) {
+  const result = db
+    .prepare("UPDATE unit_plans SET start_date = ?, end_date = ? WHERE id = ?")
+    .run(input.startDate, input.endDate, input.id);
+
+  if (result.changes === 0) {
+    throw new Error(`Unit not found: ${input.id}`);
+  }
+}
+
 export function createClass(db: ClassPilotDatabase, input: CreateClassInput): string {
   const id = `class-${crypto.randomUUID()}`;
 

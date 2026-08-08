@@ -32,6 +32,7 @@ import {
   updateLesson,
   updateSchoolYear,
   updateUnit,
+  updateUnitDates,
 } from "./planner-repository";
 import { plannerData } from "@/src/features/planner/seed-data";
 
@@ -425,6 +426,44 @@ describe("planner repository", () => {
       "sk-grade-6-mathematics-p6-1",
       "sk-grade-6-mathematics-p6-2",
     ]);
+  });
+
+  it("patches only a unit's dates, leaving other fields untouched", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+
+    seedPlannerData(db, plannerData);
+    const unitId = createUnit(db, {
+      classId: "grade-6-math",
+      color: "blue",
+      endDate: "2026-12-04",
+      outcomeIds: ["sk-grade-6-mathematics-p6-1"],
+      startDate: "2026-11-16",
+      title: "Patterns and Graphs",
+    });
+
+    updateUnitDates(db, { endDate: "2026-12-08", id: unitId, startDate: "2026-11-20" });
+
+    const unit = getUnitById(db, unitId);
+
+    expect(unit).toMatchObject({
+      color: "blue",
+      endDate: "2026-12-08",
+      startDate: "2026-11-20",
+      title: "Patterns and Graphs",
+    });
+  });
+
+  it("throws when patching dates on a unit that doesn't exist", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(() =>
+      updateUnitDates(db, {
+        endDate: "2026-12-08",
+        id: "unit-does-not-exist",
+        startDate: "2026-11-20",
+      }),
+    ).toThrow("Unit not found");
   });
 
   it("cascades a lesson date shift across the rest of the unit", () => {

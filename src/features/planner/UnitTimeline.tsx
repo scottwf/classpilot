@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createLessonAction } from "@/app/lessons/new/actions";
+import { moveUnitAction } from "@/app/units/actions";
 import { getUnitTimelinePosition } from "./timeline";
 import type { ClassSection, InstructionalDay, UnitPlan } from "./types";
 
@@ -21,12 +22,104 @@ type UnitTimelineProps = {
   instructionalDays: InstructionalDay[];
 };
 
+type DragMode = "move" | "resize-start" | "resize-end";
+
+type DragState = {
+  mode: DragMode;
+  unit: UnitPlan;
+  startX: number;
+  originalStartIndex: number;
+  originalEndIndex: number;
+  liveStartIndex: number;
+  liveEndIndex: number;
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+const labelColumnWidth = 180;
+
 export function UnitTimeline({
   classes,
   units,
   instructionalDays,
 }: UnitTimelineProps) {
   const [modalUnit, setModalUnit] = useState<UnitPlan | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  function columnWidth(): number {
+    const el = containerRef.current;
+    if (!el || instructionalDays.length === 0) return 0;
+    return (el.clientWidth - labelColumnWidth) / instructionalDays.length;
+  }
+
+  function startDrag(
+    event: React.PointerEvent<HTMLElement>,
+    unit: UnitPlan,
+    mode: DragMode,
+  ) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const position = getUnitTimelinePosition(unit, instructionalDays);
+    const startIndex = position.gridColumnStart - 1;
+    const endIndex = startIndex + position.gridColumnSpan - 1;
+
+    setDrag({
+      liveEndIndex: endIndex,
+      liveStartIndex: startIndex,
+      mode,
+      originalEndIndex: endIndex,
+      originalStartIndex: startIndex,
+      startX: event.clientX,
+      unit,
+    });
+  }
+
+  function handleDragMove(event: React.PointerEvent<HTMLElement>) {
+    if (!drag) return;
+    const width = columnWidth();
+    if (!width) return;
+    const deltaDays = Math.round((event.clientX - drag.startX) / width);
+    const span = drag.originalEndIndex - drag.originalStartIndex;
+
+    if (drag.mode === "move") {
+      const nextStart = clamp(
+        drag.originalStartIndex + deltaDays,
+        0,
+        Math.max(0, instructionalDays.length - 1 - span),
+      );
+      setDrag({ ...drag, liveEndIndex: nextStart + span, liveStartIndex: nextStart });
+    } else if (drag.mode === "resize-start") {
+      const nextStart = clamp(drag.originalStartIndex + deltaDays, 0, drag.originalEndIndex);
+      setDrag({ ...drag, liveStartIndex: nextStart });
+    } else {
+      const nextEnd = clamp(
+        drag.originalEndIndex + deltaDays,
+        drag.originalStartIndex,
+        instructionalDays.length - 1,
+      );
+      setDrag({ ...drag, liveEndIndex: nextEnd });
+    }
+  }
+
+  async function handleDragEnd(event: React.PointerEvent<HTMLElement>) {
+    if (!drag) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+
+    const newStartDate = instructionalDays[drag.liveStartIndex]?.key;
+    const newEndDate = instructionalDays[drag.liveEndIndex]?.key;
+    const changed =
+      newStartDate !== undefined &&
+      newEndDate !== undefined &&
+      (newStartDate !== drag.unit.startDate || newEndDate !== drag.unit.endDate);
+    const { unit } = drag;
+    setDrag(null);
+
+    if (changed && newStartDate && newEndDate) {
+      await moveUnitAction(unit.id, newStartDate, newEndDate);
+    }
+  }
 
   return (
     <>
@@ -37,7 +130,7 @@ export function UnitTimeline({
             Unit Planner Timeline
           </h2>
           <p className="text-sm text-slate-600">
-            Drag-and-resize planning will come after the timeline model is stable.
+            Drag a unit to move it, or drag its edges to resize.
           </p>
         </div>
         <Link
@@ -50,7 +143,7 @@ export function UnitTimeline({
       </div>
 
       <div className="overflow-x-auto">
-        <div className="min-w-[980px]">
+        <div className="min-w-[980px]" ref={containerRef}>
           <div
             className="grid border-b border-slate-200 bg-slate-50"
             style={{
@@ -109,15 +202,22 @@ export function UnitTimeline({
                   ))}
 
                   {classUnits.map((unit) => {
-                    const position = getUnitTimelinePosition(
-                      unit,
-                      instructionalDays,
-                    );
+                    const isDragging = drag !== null && drag.unit.id === unit.id;
+                    const position = isDragging && drag
+                      ? {
+                          gridColumnSpan: drag.liveEndIndex - drag.liveStartIndex + 1,
+                          gridColumnStart: drag.liveStartIndex + 1,
+                          instructionalDays: drag.liveEndIndex - drag.liveStartIndex + 1,
+                        }
+                      : getUnitTimelinePosition(unit, instructionalDays);
 
                     return (
                       <div
-                        className="relative z-10 mx-1 mt-5 h-11"
+                        className={`relative z-10 mx-1 mt-5 h-11 ${isDragging ? "cursor-grabbing opacity-90" : "cursor-grab"}`}
                         key={unit.id}
+                        onPointerDown={(event) => startDrag(event, unit, "move")}
+                        onPointerMove={handleDragMove}
+                        onPointerUp={handleDragEnd}
                         style={{
                           gridColumn: `${position.gridColumnStart} / span ${position.gridColumnSpan}`,
                           gridRow: "1",
@@ -128,8 +228,8 @@ export function UnitTimeline({
                           href={`/units/${unit.id}`}
                           title={`${unit.title}: ${position.instructionalDays} instructional days`}
                         >
-                          <div className="truncate pr-5">{unit.title}</div>
-                          <div className="mt-1 flex gap-1">
+                          <div className="truncate px-1.5 pr-5">{unit.title}</div>
+                          <div className="mt-1 flex gap-1 px-1.5">
                             {unit.lessons.map((lesson) => (
                               <span
                                 aria-label={lesson.title}
@@ -146,10 +246,33 @@ export function UnitTimeline({
                             event.preventDefault();
                             setModalUnit(unit);
                           }}
+                          onPointerDown={(event) => event.stopPropagation()}
                           type="button"
                         >
                           <Plus aria-hidden="true" className="size-3.5" />
                         </button>
+                        <div
+                          aria-label={`Resize ${unit.title} start date`}
+                          className="absolute inset-y-0 left-0 z-30 w-1.5 cursor-col-resize"
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            startDrag(event, unit, "resize-start");
+                          }}
+                          onPointerMove={handleDragMove}
+                          onPointerUp={handleDragEnd}
+                          role="separator"
+                        />
+                        <div
+                          aria-label={`Resize ${unit.title} end date`}
+                          className="absolute inset-y-0 right-0 z-30 w-1.5 cursor-col-resize"
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            startDrag(event, unit, "resize-end");
+                          }}
+                          onPointerMove={handleDragMove}
+                          onPointerUp={handleDragEnd}
+                          role="separator"
+                        />
                       </div>
                     );
                   })}
