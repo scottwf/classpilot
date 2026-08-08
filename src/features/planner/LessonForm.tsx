@@ -9,6 +9,7 @@ import {
 } from "@/app/lessons/new/actions";
 import { formatClassGrade } from "./curriculum-subjects";
 import { LessonSectionFields } from "./LessonSectionFields";
+import { OutcomePicker } from "./OutcomePicker";
 import type { ClassSection, CurriculumOutcome, LessonPlan, UnitPlan } from "./types";
 
 type EditableLesson = LessonPlan & { unitId: string };
@@ -149,7 +150,10 @@ export function LessonForm({
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Field
-            defaultValue={lesson?.date}
+            defaultValue={
+              lesson?.date ?? unitOptions.find((unit) => unit.id === selectedUnitId)?.startDate
+            }
+            key={selectedUnitId}
             label="Date"
             name="date"
             required
@@ -224,6 +228,11 @@ export function LessonForm({
 
         <label className="block" key={`summary-${formVersion}`}>
           <span className="text-sm font-medium text-slate-700">Summary</span>
+          <span className="mt-1 block text-xs leading-5 text-slate-500">
+            What this lesson covers, in a sentence or two. Optional, but if
+            you fill it in before drafting with AI, it&apos;s used as the
+            lesson&apos;s focus.
+          </span>
           <textarea
             className="mt-2 min-h-32 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
             defaultValue={draftedSummary}
@@ -260,7 +269,11 @@ export function LessonForm({
             <>
               <label className="mt-3 block">
                 <span className="text-xs font-medium text-slate-700">
-                  Notes for the AI (optional)
+                  Teaching preferences (optional)
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  Style or approach, not the lesson topic — that comes from
+                  the title, unit, and Summary above.
                 </span>
                 <textarea
                   className="mt-1 min-h-16 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
@@ -303,36 +316,20 @@ export function LessonForm({
           </p>
         </div>
         <div
-          className="max-h-96 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2"
+          className="max-h-96 overflow-y-auto rounded-lg border border-slate-200 p-2"
           ref={outcomesContainerRef}
         >
-          {classOutcomes.length === 0 ? (
-            <p className="px-2 py-1.5 text-sm text-slate-500">
-              No curriculum outcomes found for {selectedClass?.subject || "this class"}
-              {selectedClass ? `, Grade ${formatClassGrade(selectedClass)}` : ""}.
-            </p>
-          ) : (
-            classOutcomes.map((outcome) => (
-              <label
-                className="flex gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                key={outcome.id}
-              >
-                <input
-                  className="mt-1"
-                  defaultChecked={lesson?.outcomeIds.includes(outcome.id)}
-                  name="outcomeIds"
-                  type="checkbox"
-                  value={outcome.id}
-                />
-                <span>
-                  <span className="font-semibold text-slate-950">
-                    {outcome.code}
-                  </span>{" "}
-                  {outcome.subject}
-                </span>
-              </label>
-            ))
-          )}
+          <OutcomePicker
+            emptyMessage={
+              <>
+                No curriculum outcomes found for {selectedClass?.subject || "this class"}
+                {selectedClass ? `, Grade ${formatClassGrade(selectedClass)}` : ""}.
+              </>
+            }
+            name="outcomeIds"
+            outcomes={classOutcomes}
+            selectedIds={lesson?.outcomeIds}
+          />
         </div>
 
         {error ? (

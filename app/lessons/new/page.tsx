@@ -33,8 +33,7 @@ export default async function NewLessonPage({
           Add a lesson to the plan book.
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Save a planned lesson to SQLite and connect it to a unit and any
-          outcomes you want to track.
+          Connect this lesson to a unit and any outcomes you want to track.
         </p>
       </section>
 

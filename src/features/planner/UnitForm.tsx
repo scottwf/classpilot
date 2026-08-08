@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { getClassMeetingDates } from "./cycle";
 import { formatClassGrade } from "./curriculum-subjects";
 import { computeUnitEndDate } from "./unit-pacing";
+import { OutcomePicker } from "./OutcomePicker";
 import type { CurriculumOutcome, ClassSection, SchoolYear, UnitPlan } from "./types";
 
 type UnitFormProps = {
@@ -199,39 +200,23 @@ export function UnitForm({
           </p>
         </div>
 
-        <div className="max-h-96 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2">
-          {classOutcomes.length === 0 ? (
-            <p className="px-2 py-1.5 text-sm text-slate-500">
-              No curriculum outcomes found for {selectedClass?.subject || "this class"}
-              {selectedClass ? `, Grade ${formatClassGrade(selectedClass)}` : ""}. Check the
-              class&apos;s subject/grade on the{" "}
-              <Link className="text-blue-700 underline" href="/settings">
-                Settings
-              </Link>{" "}
-              page.
-            </p>
-          ) : (
-            classOutcomes.map((outcome) => (
-              <label
-                className="flex gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                key={outcome.id}
-              >
-                <input
-                  className="mt-1"
-                  defaultChecked={unit?.outcomeIds.includes(outcome.id)}
-                  name="outcomeIds"
-                  type="checkbox"
-                  value={outcome.id}
-                />
-                <span>
-                  <span className="font-semibold text-slate-950">
-                    {outcome.code}
-                  </span>
-                  {outcome.description ? ` ${outcome.description}` : ""}
-                </span>
-              </label>
-            ))
-          )}
+        <div className="max-h-96 overflow-y-auto rounded-lg border border-slate-200 p-2">
+          <OutcomePicker
+            emptyMessage={
+              <>
+                No curriculum outcomes found for {selectedClass?.subject || "this class"}
+                {selectedClass ? `, Grade ${formatClassGrade(selectedClass)}` : ""}. Check the
+                class&apos;s subject/grade on the{" "}
+                <Link className="text-blue-700 underline" href="/settings">
+                  Settings
+                </Link>{" "}
+                page.
+              </>
+            }
+            name="outcomeIds"
+            outcomes={classOutcomes}
+            selectedIds={unit?.outcomeIds}
+          />
         </div>
 
         {error ? (
