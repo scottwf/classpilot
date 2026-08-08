@@ -212,7 +212,18 @@ export function CalendarGrid({
       </div>
 
       {monthGrids.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="size-3 rounded-sm bg-amber-100" />
+              Advances the cycle (e.g. a planned closure)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="size-3 rounded-sm bg-violet-100" />
+              Pauses the cycle (e.g. an unplanned snow day)
+            </span>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {monthGrids.map((grid) => (
             <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm" key={grid.label}>
               <div className="text-sm font-semibold text-slate-950">{grid.label}</div>
@@ -241,14 +252,20 @@ export function CalendarGrid({
                             !clickable
                               ? "text-slate-300"
                               : blocked
-                                ? "bg-amber-100 font-medium text-amber-900"
+                                ? blocked.advancesCycle
+                                  ? "bg-amber-100 font-medium text-amber-900"
+                                  : "bg-violet-100 font-medium text-violet-900"
                                 : "text-slate-700 hover:bg-slate-100",
                             clickable && isSelected ? "ring-2 ring-blue-400" : "",
                           ].join(" ")}
                           disabled={!clickable}
                           key={cell.date}
                           onClick={(event) => handleDayClick(cell.date, event.shiftKey)}
-                          title={blocked?.label}
+                          title={
+                            blocked
+                              ? `${blocked.label || "Off"} — ${blocked.advancesCycle ? "advances the cycle" : "pauses the cycle"}`
+                              : undefined
+                          }
                           type="button"
                         >
                           <span className="text-xs">{Number(cell.date.slice(-2))}</span>
@@ -270,7 +287,8 @@ export function CalendarGrid({
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        </>
       ) : null}
     </>
   );
