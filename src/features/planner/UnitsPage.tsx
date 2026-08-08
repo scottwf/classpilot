@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buildInstructionalDays } from "./timeline";
+import { computeUnitPacing, findOverlappingUnitIds } from "./unit-pacing";
 import { UnitTimeline } from "./UnitTimeline";
 import type { PlannerData } from "./types";
 
@@ -9,6 +10,17 @@ type UnitsPageProps = {
 
 export function UnitsPage({ data }: UnitsPageProps) {
   const instructionalDays = buildInstructionalDays(data.schoolYear);
+  const overlappingUnitIds = findOverlappingUnitIds(data.units);
+  const overloadedUnitIds = new Set(
+    data.units
+      .filter((unit) => {
+        const classSection = data.classes.find((section) => section.id === unit.classId);
+        return (
+          classSection && computeUnitPacing(unit, classSection, data.schoolYear).isOverloaded
+        );
+      })
+      .map((unit) => unit.id),
+  );
 
   return (
     <>
@@ -34,6 +46,8 @@ export function UnitsPage({ data }: UnitsPageProps) {
       <UnitTimeline
         classes={data.classes}
         instructionalDays={instructionalDays}
+        overlappingUnitIds={overlappingUnitIds}
+        overloadedUnitIds={overloadedUnitIds}
         units={data.units}
       />
     </>

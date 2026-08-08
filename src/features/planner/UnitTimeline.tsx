@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import { createLessonAction } from "@/app/lessons/new/actions";
 import { moveUnitAction } from "@/app/units/actions";
@@ -20,6 +20,11 @@ type UnitTimelineProps = {
   classes: ClassSection[];
   units: UnitPlan[];
   instructionalDays: InstructionalDay[];
+  /** Unit IDs flagged by unit-pacing.ts — shown as a small warning badge on
+   * the timeline so pacing/overlap problems are visible without opening
+   * each unit. */
+  overlappingUnitIds?: Set<string>;
+  overloadedUnitIds?: Set<string>;
 };
 
 type DragMode = "move" | "resize-start" | "resize-end";
@@ -44,6 +49,8 @@ export function UnitTimeline({
   classes,
   units,
   instructionalDays,
+  overlappingUnitIds = new Set(),
+  overloadedUnitIds = new Set(),
 }: UnitTimelineProps) {
   const [modalUnit, setModalUnit] = useState<UnitPlan | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -202,6 +209,14 @@ export function UnitTimeline({
                   ))}
 
                   {classUnits.map((unit) => {
+                    const isOverloaded = overloadedUnitIds.has(unit.id);
+                    const isOverlapping = overlappingUnitIds.has(unit.id);
+                    const warningLabel = [
+                      isOverloaded ? "more lessons planned than meeting days" : null,
+                      isOverlapping ? "overlaps another unit on this class" : null,
+                    ]
+                      .filter(Boolean)
+                      .join("; ");
                     const isDragging = drag !== null && drag.unit.id === unit.id;
                     const position = isDragging && drag
                       ? {
@@ -226,9 +241,21 @@ export function UnitTimeline({
                         <Link
                           className={`block size-full rounded-md border px-3 py-2 text-sm font-semibold shadow-sm ${colorClass[unit.color]}`}
                           href={`/units/${unit.id}`}
-                          title={`${unit.title}: ${position.instructionalDays} instructional days`}
+                          title={
+                            warningLabel
+                              ? `${unit.title}: ${position.instructionalDays} instructional days — ${warningLabel}`
+                              : `${unit.title}: ${position.instructionalDays} instructional days`
+                          }
                         >
-                          <div className="truncate px-1.5 pr-5">{unit.title}</div>
+                          <div className="truncate px-1.5 pr-5">
+                            {warningLabel ? (
+                              <AlertTriangle
+                                aria-label={`Pacing warning: ${warningLabel}`}
+                                className="mr-1 inline size-3.5 shrink-0 align-text-bottom text-amber-800"
+                              />
+                            ) : null}
+                            {unit.title}
+                          </div>
                           <div className="mt-1 flex gap-1 px-1.5">
                             {unit.lessons.map((lesson) => (
                               <span

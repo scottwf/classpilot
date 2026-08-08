@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CalendarDays, Clock3, Pencil, Upload } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock3, Pencil, Upload } from "lucide-react";
+import { computeUnitPacing, findOverlappingUnitIds } from "./unit-pacing";
 import type { CurriculumOutcome, PlannerData, UnitPlan } from "./types";
 
 type UnitDetailPageProps = {
@@ -29,6 +30,10 @@ export function UnitDetailPage({
     (total, lesson) => total + lesson.durationMinutes,
     0,
   );
+  const pacing = classSection
+    ? computeUnitPacing(unit, classSection, data.schoolYear)
+    : undefined;
+  const isOverlapping = findOverlappingUnitIds(data.units).has(unit.id);
 
   return (
     <>
@@ -80,6 +85,30 @@ export function UnitDetailPage({
           Enter a non-zero whole number of instructional days to shift by.
         </div>
       )}
+
+      {pacing?.isOverloaded ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <span>
+            {pacing.scheduledLessons} lessons are planned but{" "}
+            {classSection?.name ?? "this class"} only meets{" "}
+            {pacing.availableMeetingDays} time
+            {pacing.availableMeetingDays === 1 ? "" : "s"} between{" "}
+            {unit.startDate} and {unit.endDate}. Extend the unit, trim
+            lessons, or double up on a day.
+          </span>
+        </div>
+      ) : null}
+
+      {isOverlapping ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <span>
+            This unit&apos;s dates overlap another unit on{" "}
+            {classSection?.name ?? "this class"}.
+          </span>
+        </div>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
         <Metric label="Lessons" value={`${unit.lessons.length} lessons`} />
