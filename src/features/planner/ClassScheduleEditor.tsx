@@ -1,5 +1,6 @@
 "use client";
 
+import { Copy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getDayLabel } from "./cycle";
 import type { ClassColor, DayLabelScheme, ScheduleSlot } from "./types";
@@ -85,6 +86,21 @@ export function ClassScheduleEditor({
     });
   }
 
+  function copyTimeToOtherCheckedDays(fromCycleDay: number) {
+    setDays((previous) => {
+      const time = previous.get(fromCycleDay);
+      if (!time) return previous;
+
+      const next = new Map(previous);
+      for (const cycleDay of next.keys()) {
+        if (cycleDay !== fromCycleDay) {
+          next.set(cycleDay, { ...time });
+        }
+      }
+      return next;
+    });
+  }
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <input name={hiddenInputName} type="hidden" value={slotsJson} />
@@ -134,6 +150,17 @@ export function ClassScheduleEditor({
                     type="time"
                     value={time.endTime}
                   />
+                  {days.size > 1 && time.startTime && time.endTime ? (
+                    <button
+                      className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                      onClick={() => copyTimeToOtherCheckedDays(cycleDay)}
+                      title="Copy this time to the other checked days"
+                      type="button"
+                    >
+                      <Copy aria-hidden="true" className="size-3.5" />
+                      Copy to other days
+                    </button>
+                  ) : null}
                 </>
               ) : null}
             </div>
