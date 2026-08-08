@@ -206,7 +206,7 @@ describe("create_lesson", () => {
   });
 });
 
-describe("draft_unit_outline and draft_lesson_sections", () => {
+describe("draft_unit_outline, draft_lesson_sections, and draft_lesson_resource", () => {
   it("fail with a not-configured error when no AI provider is set", async () => {
     const db = seededDb();
 
@@ -221,17 +221,44 @@ describe("draft_unit_outline and draft_lesson_sections", () => {
       lessonTitle: "What is biodiversity?",
     });
     expect(lessonResult.ok).toBe(false);
+
+    const resourceResult = await tool("draft_lesson_resource").execute(db, {
+      classId: "grade-6-science",
+      lessonTitle: "What is biodiversity?",
+      resourceType: "exit_card",
+    });
+    expect(resourceResult.ok).toBe(false);
+  });
+
+  it("draft_lesson_resource fails without a valid resourceType", async () => {
+    const db = seededDb();
+    const result = await tool("draft_lesson_resource").execute(db, {
+      classId: "grade-6-science",
+      lessonTitle: "What is biodiversity?",
+      resourceType: "poster",
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("draft_lesson_resource fails for an unknown class", async () => {
+    const db = seededDb();
+    const result = await tool("draft_lesson_resource").execute(db, {
+      classId: "class-does-not-exist",
+      lessonTitle: "X",
+      resourceType: "handout",
+    });
+
+    expect(result.ok).toBe(false);
   });
 
   it("are flagged as content generation, not student data", () => {
-    expect(tool("draft_unit_outline")).toMatchObject({
-      contentGeneration: true,
-      touchesStudentData: false,
-    });
-    expect(tool("draft_lesson_sections")).toMatchObject({
-      contentGeneration: true,
-      touchesStudentData: false,
-    });
+    for (const name of ["draft_unit_outline", "draft_lesson_sections", "draft_lesson_resource"]) {
+      expect(tool(name)).toMatchObject({
+        contentGeneration: true,
+        touchesStudentData: false,
+      });
+    }
   });
 });
 

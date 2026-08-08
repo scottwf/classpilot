@@ -59,6 +59,26 @@ export type LessonDraftRequest = {
   }>;
 };
 
+export type LessonResourceType = "handout" | "exit_card" | "slide_outline";
+
+// Minimized context for drafting a printable/copyable lesson resource — same
+// data minimization guarantee as LessonDraftRequest above. Output is plain
+// Markdown text (no student data ever appears in it), not a generated file —
+// see docs discussion on assistant chat scope (v1: text/Markdown, not
+// pptx/pdf generation).
+export type LessonResourceRequest = {
+  resourceType: LessonResourceType;
+  subject: string;
+  grade: string;
+  lessonTitle: string;
+  lessonFocus: string;
+  teachingNotes: string;
+  outcomes: Array<{
+    code: string;
+    description: string;
+  }>;
+};
+
 export class AiError extends Error {
   readonly code: "not_configured" | "request_failed" | "parse_failed";
 

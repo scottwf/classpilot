@@ -23,6 +23,10 @@ const toolLabels: Record<string, (record: ToolCallRecord) => string> = {
   draft_unit_outline: () => "Drafted a unit outline",
   save_unit_from_outline: () => "Saved the unit from the drafted outline",
   draft_lesson_sections: () => "Drafted lesson sections",
+  draft_lesson_resource: (record) => {
+    const type = String(record.arguments.resourceType ?? "resource").replace(/_/g, " ");
+    return `Drafted a ${type}`;
+  },
   list_classes: () => "Looked up classes",
   list_units: () => "Looked up units",
   list_outcomes: () => "Looked up curriculum outcomes",
@@ -117,9 +121,10 @@ export function AssistantChatPage({ aiConfigured, aiLocalConfigured }: Assistant
           {turns.length === 0 ? (
             <p className="text-sm text-slate-500">
               Try: &quot;Create a Grade 6 ELA class and schedule it 9:00–10:05
-              on days 1 through 6&quot; or &quot;Create a Diversity of Life
+              on days 1 through 6&quot;, &quot;Create a Diversity of Life
               unit in Science with all the outcomes, starting Monday, for 12
-              lesson periods.&quot;
+              lesson periods&quot;, or &quot;Draft an exit card for the
+              simple circuits lesson.&quot;
             </p>
           ) : null}
 

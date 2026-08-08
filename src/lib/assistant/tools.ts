@@ -18,6 +18,7 @@ import { computeUnitEndDate } from "@/src/features/planner/unit-pacing";
 import type { ClassColor } from "@/src/features/planner/types";
 import { generateUnitOutline } from "@/src/lib/ai/unit-outline";
 import { generateLessonSections } from "@/src/lib/ai/lesson-draft";
+import { generateLessonResource } from "@/src/lib/ai/lesson-resource";
 import { saveUnitOutlineDraft } from "@/src/lib/ai/save-unit-outline";
 import { AiError, type UnitOutlineDraft } from "@/src/lib/ai/types";
 
@@ -599,6 +600,76 @@ const draftLessonSectionsTool: AssistantTool = {
   touchesStudentData: false,
 };
 
+const resourceTypes = ["handout", "exit_card", "slide_outline"] as const;
+
+const draftLessonResourceTool: AssistantTool = {
+  contentGeneration: true,
+  description:
+    "Drafts a printable/copyable lesson resource — a student handout, an exit card, or a slide-by-slide outline — as plain Markdown via the hosted AI provider. Does NOT save anything (there's nowhere to save a resource yet); return the Markdown to the teacher so they can copy it into the lesson or print it. Only curriculum/timing context is sent, never student data.",
+  execute: async (db, args) => {
+    const classId = str(args, "classId");
+    const lessonTitle = str(args, "lessonTitle");
+    const resourceTypeArg = str(args, "resourceType");
+    const resourceType = (resourceTypes as readonly string[]).includes(resourceTypeArg)
+      ? (resourceTypeArg as (typeof resourceTypes)[number])
+      : undefined;
+
+    if (!classId || !lessonTitle || !resourceType) {
+      return fail("classId, lessonTitle, and a valid resourceType are required.");
+    }
+
+    const planner = getPlannerData(db);
+    const classSection = planner.classes.find((section) => section.id === classId);
+
+    if (!classSection) {
+      return fail(`No class found with id ${classId}.`);
+    }
+
+    const classGrades = [classSection.grade, ...(classSection.combinedGrades ?? [])];
+    const explicitOutcomeIds = new Set(strArray(args, "outcomeIds"));
+    const relevantOutcomes = planner.outcomes.filter(
+      (outcome) =>
+        explicitOutcomeIds.has(outcome.id) ||
+        (explicitOutcomeIds.size === 0 &&
+          outcome.subject === classSection.subject &&
+          classGrades.includes(outcome.grade)),
+    );
+
+    try {
+      const markdown = await generateLessonResource({
+        grade: classSection.grade,
+        lessonFocus: str(args, "lessonFocus"),
+        lessonTitle,
+        outcomes: relevantOutcomes.map((outcome) => ({
+          code: outcome.code,
+          description: outcome.description,
+        })),
+        resourceType,
+        subject: classSection.subject,
+        teachingNotes: str(args, "teachingNotes"),
+      });
+
+      return ok({ markdown, resourceType });
+    } catch (error) {
+      return fail(error instanceof AiError ? error.message : "Could not draft the resource.");
+    }
+  },
+  name: "draft_lesson_resource",
+  parameters: {
+    properties: {
+      classId: { type: "string" },
+      lessonTitle: { type: "string" },
+      resourceType: { type: "string", enum: resourceTypes as unknown as string[] },
+      lessonFocus: { type: "string" },
+      teachingNotes: { type: "string" },
+      outcomeIds: { type: "array", items: { type: "string" } },
+    },
+    required: ["classId", "lessonTitle", "resourceType"],
+    type: "object",
+  },
+  touchesStudentData: false,
+};
+
 const listStudentsTool: AssistantTool = {
   contentGeneration: false,
   description: "Lists the student roster — id, name, status, and open reminder/follow-up counts.",
@@ -752,6 +823,7 @@ export const assistantTools: AssistantTool[] = [
   draftUnitOutlineTool,
   saveUnitFromOutlineTool,
   draftLessonSectionsTool,
+  draftLessonResourceTool,
   listStudentsTool,
   getStudentProfileTool,
   createStudentTool,
