@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HostedProviderFields } from "./HostedProviderFields";
 import { LocalProviderFields } from "./LocalProviderFields";
+import { ResetPlannerDataButton } from "./ResetPlannerDataButton";
 import type { SchoolYear } from "./types";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
@@ -14,6 +15,7 @@ type SettingsPageProps = {
   aiLocalBaseUrl: string;
   aiLocalModel: string;
   clearApiKeyAction: ServerAction;
+  resetPlannerDataAction: () => void | Promise<void>;
   saved?: string;
   updateAction: ServerAction;
   activeSchoolYearId: string;
@@ -38,6 +40,7 @@ export function SettingsPage({
   aiLocalBaseUrl,
   aiLocalModel,
   clearApiKeyAction,
+  resetPlannerDataAction,
   saved,
   updateAction,
   activeSchoolYearId,
@@ -65,7 +68,9 @@ export function SettingsPage({
 
       {saved !== undefined ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Settings saved.
+          {saved === "reset"
+            ? "Planner data reset. Curriculum outcomes and AI settings were kept."
+            : "Settings saved."}
         </div>
       ) : null}
 
@@ -220,6 +225,19 @@ export function SettingsPage({
             </button>
           </form>
         ) : null}
+      </section>
+
+      <section className="max-w-2xl rounded-lg border border-rose-200 bg-rose-50/40 p-4 shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-950">Danger zone</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          For testing a fresh install during development. Deletes every
+          school year, class, schedule, unit, lesson, and student.
+          Curriculum outcomes and AI provider settings are kept, so you
+          don&apos;t need to re-import or reconfigure those after.
+        </p>
+        <div className="mt-3">
+          <ResetPlannerDataButton action={resetPlannerDataAction} />
+        </div>
       </section>
     </>
   );

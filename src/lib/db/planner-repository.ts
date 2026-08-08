@@ -137,6 +137,61 @@ export function isPlannerSeeded(db: ClassPilotDatabase): boolean {
   return row !== undefined;
 }
 
+/**
+ * Whether any curriculum outcomes exist yet — used alongside
+ * isPlannerSeeded() to tell a genuinely fresh install (neither exists yet,
+ * seed the full demo fixture) apart from a post-resetPlannerData() state
+ * (outcomes deliberately preserved, everything else deliberately cleared —
+ * don't bring the demo fixture back).
+ */
+export function hasCurriculumOutcomes(db: ClassPilotDatabase): boolean {
+  const row = db.prepare("SELECT 1 FROM curriculum_outcomes LIMIT 1").get() as
+    | { 1: number }
+    | undefined;
+
+  return row !== undefined;
+}
+
+/**
+ * Clears every school-year-scoped table (school years, classes, schedules,
+ * units, lessons, students and their contacts/notes/support
+ * plans/reminders) while leaving curriculum_outcomes and app_settings
+ * untouched — "wipe the planner data but keep the curriculum and AI
+ * config" for testing a fresh install without losing outcomes that may
+ * have taken real effort to import. Deleting school_years cascades
+ * through class_sections/students to everything scoped under them; the
+ * app_state row is deleted first since it references school_years without
+ * a cascade.
+ *
+ * Immediately creates and activates a blank placeholder year rather than
+ * leaving zero school years — every page (including Settings/onboarding
+ * themselves) currently assumes an active school year always exists, so
+ * leaving that state empty would make the app unusable until a new one
+ * were created through some other path. Use "Start a new school year" on
+ * the Settings page afterward to replace the placeholder with real dates.
+ */
+export function resetPlannerData(db: ClassPilotDatabase): void {
+  db.exec("BEGIN;");
+  try {
+    db.exec("DELETE FROM app_state;");
+    db.exec("DELETE FROM school_years;");
+
+    const placeholderYearId = `year-${crypto.randomUUID()}`;
+    db.prepare(
+      `INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json, cycle_length_days, day_label_scheme)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(placeholderYearId, "New School Year", "2026-09-01", "2027-06-30", "[]", 1, "numeric");
+    db.prepare(
+      `INSERT INTO app_state (id, active_school_year_id) VALUES (?, ?)`,
+    ).run(appStateId, placeholderYearId);
+
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  }
+}
+
 export function seedPlannerData(db: ClassPilotDatabase, plannerData: PlannerData) {
   const insertSchoolYear = db.prepare(`
     INSERT INTO school_years (id, title, start_date, end_date, blocked_dates_json, cycle_length_days, day_label_scheme)

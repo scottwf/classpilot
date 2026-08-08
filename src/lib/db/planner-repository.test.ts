@@ -25,7 +25,9 @@ import {
   getSchoolYear,
   getSchoolYearById,
   getUnitById,
+  hasCurriculumOutcomes,
   listSchoolYears,
+  resetPlannerData,
   seedPlannerData,
   setActiveSchoolYear,
   updateClass,
@@ -842,5 +844,43 @@ describe("planner repository", () => {
 
     expect(() => getSchoolYearById(db, nextYearId)).toThrow("School year not found");
     expect(getClassById(db, classId)).toBeUndefined();
+  });
+
+  it("resetPlannerData clears school-year-scoped data but keeps curriculum outcomes", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    expect(getPlannerData(db).classes.length).toBeGreaterThan(0);
+    expect(getPlannerData(db).units.length).toBeGreaterThan(0);
+    expect(getPlannerData(db).outcomes.length).toBeGreaterThan(0);
+
+    resetPlannerData(db);
+    const after = getPlannerData(db);
+
+    expect(after.classes).toEqual([]);
+    expect(after.units).toEqual([]);
+    expect(after.outcomes.length).toBeGreaterThan(0);
+    expect(after.outcomes).toEqual(getPlannerData(db).outcomes);
+  });
+
+  it("resetPlannerData leaves the app usable by activating a blank placeholder year", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    resetPlannerData(db);
+
+    expect(() => getActiveSchoolYearId(db)).not.toThrow();
+    const activeId = getActiveSchoolYearId(db);
+    expect(() => getSchoolYearById(db, activeId)).not.toThrow();
+  });
+
+  it("hasCurriculumOutcomes reflects whether any outcomes exist", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+
+    expect(hasCurriculumOutcomes(db)).toBe(false);
+
+    seedPlannerData(db, plannerData);
+
+    expect(hasCurriculumOutcomes(db)).toBe(true);
   });
 });

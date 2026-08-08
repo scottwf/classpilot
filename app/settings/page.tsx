@@ -10,6 +10,7 @@ import { deleteClassAction } from "../classes/actions";
 import {
   clearAiApiKeyAction,
   deleteSchoolYearAction,
+  resetPlannerDataAction,
   switchSchoolYearAction,
   updateSettingsAction,
 } from "./actions";
@@ -52,6 +53,7 @@ export default async function SettingsRoute({ searchParams }: SettingsRouteProps
         clearApiKeyAction={clearAiApiKeyAction}
         deleteYearAction={deleteSchoolYearAction}
         error={query.error}
+        resetPlannerDataAction={resetPlannerDataAction}
         saved={query.saved}
         schoolYears={schoolYears}
         switchYearAction={switchSchoolYearAction}

@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
-import { deleteSchoolYear, setActiveSchoolYear } from "@/src/lib/db/planner-repository";
+import {
+  deleteSchoolYear,
+  resetPlannerData,
+  setActiveSchoolYear,
+} from "@/src/lib/db/planner-repository";
 import { getAppSettings, updateAppSettings } from "@/src/lib/db/settings-repository";
 import { listProviderModels } from "@/src/lib/ai/provider";
 import { AiError } from "@/src/lib/ai/types";
@@ -137,4 +141,21 @@ export async function deleteSchoolYearAction(formData: FormData) {
   }
 
   redirect("/settings");
+}
+
+/**
+ * Wipes every school year and everything scoped under one (classes,
+ * schedules, units, lessons, students) — for testing a fresh install
+ * during development. Curriculum outcomes and AI provider settings are
+ * deliberately untouched; see resetPlannerData()'s doc comment. The
+ * confirming UI lives in ResetPlannerDataButton — this action itself has
+ * no further confirmation step, so it should never be wired to anything
+ * but that button.
+ */
+export async function resetPlannerDataAction() {
+  await requireAuth();
+
+  resetPlannerData(getClassPilotDatabase());
+
+  redirect("/settings?saved=reset");
 }
