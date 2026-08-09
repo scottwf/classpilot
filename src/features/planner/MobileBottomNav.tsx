@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, X } from "lucide-react";
+import { LayoutGrid, X, type LucideIcon } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 
-type NavItem = { href: string; label: string; page: string };
+type NavItem = { href: string; icon: LucideIcon; label: string; page: string };
 
 type MobileBottomNavProps = {
   activePage: string;
@@ -38,7 +38,7 @@ export function MobileBottomNav({ activePage, primaryItems, moreItems }: MobileB
           {moreItems.map((item) => (
             <Link
               className={[
-                "block rounded-md px-3 py-2 text-sm font-medium",
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium",
                 activePage === item.page
                   ? "bg-blue-600 text-white"
                   : "text-slate-600 hover:bg-slate-100",
@@ -47,6 +47,7 @@ export function MobileBottomNav({ activePage, primaryItems, moreItems }: MobileB
               key={item.href}
               onClick={() => setMoreOpen(false)}
             >
+              <item.icon aria-hidden="true" className="size-4" />
               {item.label}
             </Link>
           ))}
@@ -72,6 +73,7 @@ export function MobileBottomNav({ activePage, primaryItems, moreItems }: MobileB
             key={item.href}
             onClick={() => setMoreOpen(false)}
           >
+            <item.icon aria-hidden="true" className="size-4" />
             {item.label}
           </Link>
         ))}

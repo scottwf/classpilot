@@ -1,4 +1,15 @@
 import Link from "next/link";
+import {
+  BookOpen,
+  Bot,
+  Calendar,
+  Clock,
+  GanttChart,
+  LayoutDashboard,
+  Settings,
+  Target,
+  Users,
+} from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 import type { PlannerData } from "./types";
 import { MobileBottomNav } from "./MobileBottomNav";
@@ -23,15 +34,15 @@ type AppShellProps = {
 };
 
 const navItems = [
-  { href: "/", label: "Dashboard", page: "planbook" },
-  { href: "/lessons", label: "Lessons", page: "lessons" },
-  { href: "/outcomes", label: "Outcomes", page: "outcomes" },
-  { href: "/units", label: "Unit Timeline", page: "units" },
-  { href: "/schedule", label: "Schedule", page: "schedule" },
-  { href: "/students", label: "Students", page: "students" },
-  { href: "/calendar", label: "Calendar", page: "calendar" },
-  { href: "/assistant", label: "Assistant", page: "assistant" },
-  { href: "/settings", label: "Settings", page: "settings" },
+  { href: "/", icon: LayoutDashboard, label: "Dashboard", page: "planbook" },
+  { href: "/lessons", icon: BookOpen, label: "Lessons", page: "lessons" },
+  { href: "/outcomes", icon: Target, label: "Outcomes", page: "outcomes" },
+  { href: "/units", icon: GanttChart, label: "Unit Timeline", page: "units" },
+  { href: "/schedule", icon: Clock, label: "Schedule", page: "schedule" },
+  { href: "/students", icon: Users, label: "Students", page: "students" },
+  { href: "/calendar", icon: Calendar, label: "Calendar", page: "calendar" },
+  { href: "/assistant", icon: Bot, label: "Assistant", page: "assistant" },
+  { href: "/settings", icon: Settings, label: "Settings", page: "settings" },
 ] as const;
 
 // Mobile bottom tab bar shows these four always; everything else (including
@@ -58,7 +69,7 @@ export function AppShell({ activePage, children, data }: AppShellProps) {
               {navItems.map((item) => (
                 <Link
                   className={[
-                    "whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium",
+                    "flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium",
                     activePage === item.page
                       ? "bg-blue-600 text-white"
                       : "text-slate-600 hover:bg-slate-100",
@@ -66,6 +77,7 @@ export function AppShell({ activePage, children, data }: AppShellProps) {
                   href={item.href}
                   key={item.href}
                 >
+                  <item.icon aria-hidden="true" className="size-4" />
                   {item.label}
                 </Link>
               ))}
