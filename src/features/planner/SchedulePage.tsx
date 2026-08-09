@@ -11,16 +11,20 @@ type ServerAction = (formData: FormData) => void | Promise<void>;
 
 type SchedulePageProps = {
   action: ServerAction;
+  addTemporaryAction: ServerAction;
   classes: ClassSection[];
   conflictClassId?: string;
   conflictClassName?: string;
   cycleLength: number;
   dayLabelScheme: DayLabelScheme;
+  deleteTemporaryAction: ServerAction;
   error?: string;
   /** Scheduled-vs-target instructional minutes per class, for the whole
    * school year — see instructional-time.ts. */
   instructionalTime: ClassInstructionalTime[];
   scheduleSlots: ScheduleSlot[];
+  swapNotice?: string;
+  temporaryAdded?: boolean;
   /** True when arriving from the school-year onboarding wizard — shows a
    * banner and a "Continue to review" link. See app/onboarding/. */
   wizardMode?: boolean;
@@ -50,14 +54,18 @@ const classDotColorClass: Record<ClassColor, string> = {
 
 export function SchedulePage({
   action,
+  addTemporaryAction,
   classes,
   conflictClassId,
   conflictClassName,
   cycleLength,
   dayLabelScheme,
+  deleteTemporaryAction,
   error,
   instructionalTime,
   scheduleSlots,
+  swapNotice,
+  temporaryAdded,
   wizardMode,
 }: SchedulePageProps) {
   const [selectedClassId, setSelectedClassId] = useState<string | undefined>(conflictClassId);
@@ -65,9 +73,13 @@ export function SchedulePage({
   const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
   const classById = new Map(classes.map((classSection) => [classSection.id, classSection]));
   const timeByClassId = new Map(instructionalTime.map((entry) => [entry.classId, entry]));
+  const temporarySlots = scheduleSlots.filter((slot) => slot.startDate);
   const selectedClass = selectedClassId ? classById.get(selectedClassId) : undefined;
+  // Only the class's regular (non-dated) slots — temporary/burst slots are
+  // managed separately below and would otherwise get pulled into this
+  // editor's map and accidentally persisted as regular slots on save.
   const selectedClassSlots = selectedClassId
-    ? scheduleSlots.filter((slot) => slot.classId === selectedClassId)
+    ? scheduleSlots.filter((slot) => slot.classId === selectedClassId && !slot.startDate)
     : [];
   const selectedClassTime = selectedClassId ? timeByClassId.get(selectedClassId) : undefined;
 
@@ -109,7 +121,21 @@ export function SchedulePage({
 
       {error ? (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          Please check the form and try again.
+          {error === "temporary"
+            ? "Please check the temporary schedule form — a class, cycle day, valid times, and a valid date range are all required."
+            : "Please check the form and try again."}
+        </div>
+      ) : null}
+
+      {swapNotice ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {swapNotice}
+        </div>
+      ) : null}
+
+      {temporaryAdded ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Temporary schedule added.
         </div>
       ) : null}
 
@@ -153,6 +179,11 @@ export function SchedulePage({
                             <div className="opacity-80">
                               {slot.startTime}–{slot.endTime}
                             </div>
+                            {slot.startDate ? (
+                              <div className="mt-0.5 opacity-70">
+                                Temporary: {slot.startDate} – {slot.endDate}
+                              </div>
+                            ) : null}
                           </button>
                         );
                       })}
@@ -263,6 +294,146 @@ export function SchedulePage({
           </aside>
         </div>
       ) : null}
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-950">
+          Temporary schedule (burst-taught classes)
+        </h3>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+          For a class taught in a burst instead of at a steady cycle
+          interval — e.g. Career Ed daily for two weeks instead of once
+          every {cycleLength} days. This adds a slot alongside the class&apos;s
+          regular schedule, only active between the dates you set. If it
+          overlaps another class&apos;s regular slot, that&apos;s treated as an
+          intentional swap: any lessons that class already had planned in
+          the window get pushed forward automatically, extending its unit
+          as needed — you&apos;ll see a summary after saving.
+        </p>
+
+        {temporarySlots.length > 0 ? (
+          <ul className="mt-3 space-y-1.5">
+            {temporarySlots.map((slot) => {
+              const classSection = classById.get(slot.classId);
+
+              return (
+                <li
+                  className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm"
+                  key={slot.id}
+                >
+                  <div className="flex items-center gap-2">
+                    {classSection ? (
+                      <span
+                        aria-hidden="true"
+                        className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[classSection.color]}`}
+                      />
+                    ) : null}
+                    <span className="font-medium text-slate-950">
+                      {classSection?.name ?? "Unknown class"}
+                    </span>
+                    <span className="text-slate-500">
+                      {getDayLabel(dayLabelScheme, slot.cycleDay)}, {slot.startTime}–{slot.endTime}
+                    </span>
+                    <span className="text-slate-400">
+                      {slot.startDate} – {slot.endDate}
+                    </span>
+                  </div>
+                  <form action={deleteTemporaryAction}>
+                    <input name="slotId" type="hidden" value={slot.id} />
+                    <button
+                      className="text-xs font-medium text-slate-400 hover:text-rose-600"
+                      type="submit"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        <form action={addTemporaryAction} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="block text-sm">
+            <span className="font-medium text-slate-700">Class</span>
+            <select
+              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm"
+              name="classId"
+              required
+            >
+              {classes.map((classSection) => (
+                <option key={classSection.id} value={classSection.id}>
+                  {classSection.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-sm">
+            <span className="font-medium text-slate-700">Cycle day</span>
+            <select
+              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm"
+              name="cycleDay"
+              required
+            >
+              {cycleDayNumbers.map((day) => (
+                <option key={day} value={day}>
+                  {getDayLabel(dayLabelScheme, day)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex gap-2">
+            <label className="block flex-1 text-sm">
+              <span className="font-medium text-slate-700">Start time</span>
+              <input
+                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                name="startTime"
+                required
+                type="time"
+              />
+            </label>
+            <label className="block flex-1 text-sm">
+              <span className="font-medium text-slate-700">End time</span>
+              <input
+                className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                name="endTime"
+                required
+                type="time"
+              />
+            </label>
+          </div>
+
+          <label className="block text-sm">
+            <span className="font-medium text-slate-700">From date</span>
+            <input
+              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm"
+              name="startDate"
+              required
+              type="date"
+            />
+          </label>
+
+          <label className="block text-sm">
+            <span className="font-medium text-slate-700">To date</span>
+            <input
+              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm"
+              name="endDate"
+              required
+              type="date"
+            />
+          </label>
+
+          <div className="flex items-end">
+            <button
+              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+              type="submit"
+            >
+              Add temporary schedule
+            </button>
+          </div>
+        </form>
+      </section>
     </>
   );
 }

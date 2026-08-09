@@ -5,10 +5,21 @@ import { SettingsTabs } from "@/src/features/planner/SettingsTabs";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { getScheduleSlots } from "@/src/lib/db/schedule-repository";
-import { setClassScheduleAction } from "./actions";
+import {
+  addTemporaryScheduleSlotAction,
+  deleteTemporaryScheduleSlotAction,
+  setClassScheduleAction,
+} from "./actions";
 
 type ScheduleSettingsRouteProps = {
-  searchParams: Promise<{ conflictClassId?: string; conflictClassName?: string; error?: string; wizard?: string; }>;
+  searchParams: Promise<{
+    conflictClassId?: string;
+    conflictClassName?: string;
+    error?: string;
+    swapNotice?: string;
+    temporaryAdded?: string;
+    wizard?: string;
+  }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -31,14 +42,18 @@ export default async function ScheduleSettingsRoute({ searchParams }: ScheduleSe
       <SettingsTabs active="schedule" />
       <SchedulePage
         action={setClassScheduleAction}
+        addTemporaryAction={addTemporaryScheduleSlotAction}
         classes={plannerData.classes}
         conflictClassId={query.conflictClassId}
         conflictClassName={query.conflictClassName}
         cycleLength={plannerData.schoolYear.cycleLength}
         dayLabelScheme={plannerData.schoolYear.dayLabelScheme}
+        deleteTemporaryAction={deleteTemporaryScheduleSlotAction}
         error={query.error}
         instructionalTime={instructionalTime}
         scheduleSlots={scheduleSlots}
+        swapNotice={query.swapNotice}
+        temporaryAdded={query.temporaryAdded === "1"}
         wizardMode={query.wizard === "1"}
       />
     </AppShell>

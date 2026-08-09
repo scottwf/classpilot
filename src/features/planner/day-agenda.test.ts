@@ -88,4 +88,40 @@ describe("buildDayAgenda", () => {
 
     expect(agenda.map((entry) => entry.classSection.id)).toEqual(["class-math"]);
   });
+
+  it("only includes a temporary/burst slot on dates within its own range", () => {
+    const artClass = { id: "class-art", color: "amber" } as ClassSection;
+    const slotsWithBurst: ScheduleSlot[] = [
+      ...scheduleSlots,
+      {
+        id: "slot-burst",
+        classId: "class-art",
+        cycleDay: 1,
+        startTime: "13:00",
+        endTime: "13:50",
+        startDate: "2026-09-15",
+        endDate: "2026-09-21",
+      },
+    ];
+
+    // 2026-09-01 is cycle day 1 but before the burst's window.
+    const beforeWindow = buildDayAgenda(
+      "2026-09-01",
+      schoolYear,
+      slotsWithBurst,
+      [mathClass, scienceClass, artClass],
+      [],
+    );
+    expect(beforeWindow.some((entry) => entry.classSection.id === "class-art")).toBe(false);
+
+    // 2026-09-15 is cycle day 1 and inside the burst's window.
+    const insideWindow = buildDayAgenda(
+      "2026-09-15",
+      schoolYear,
+      slotsWithBurst,
+      [mathClass, scienceClass, artClass],
+      [],
+    );
+    expect(insideWindow.some((entry) => entry.classSection.id === "class-art")).toBe(true);
+  });
 });

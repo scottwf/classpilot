@@ -275,6 +275,13 @@ export function migrate(db: ClassPilotDatabase) {
     "TEXT NOT NULL DEFAULT 'numeric'",
   );
 
+  // Temporary/burst schedule slots (see ScheduleSlot in types.ts) — both
+  // null means a regular, year-long recurring slot (unchanged behavior);
+  // both set means a class temporarily claims this cycleDay/time only
+  // between these dates.
+  addColumnIfMissing(db, "schedule_slots", "start_date", "TEXT");
+  addColumnIfMissing(db, "schedule_slots", "end_date", "TEXT");
+
   // Multi-year scoping. These columns can't carry a NOT NULL DEFAULT in the
   // same ALTER as a REFERENCES clause (SQLite restriction, verified against
   // node:sqlite), so they land nullable and get backfilled below instead.

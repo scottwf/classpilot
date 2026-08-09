@@ -1,4 +1,6 @@
+import { buildCycleDayMap } from "@/src/features/planner/cycle";
 import type { ScheduleSlot } from "@/src/features/planner/types";
+import { cascadeRescheduleUnitLessons, getSchoolYearById } from "./planner-repository";
 import type { ClassPilotDatabase } from "./sqlite";
 
 type ScheduleSlotRow = {
@@ -7,12 +9,16 @@ type ScheduleSlotRow = {
   cycle_day: number;
   start_time: string;
   end_time: string;
+  start_date: string | null;
+  end_date: string | null;
 };
 
 export function getScheduleSlots(db: ClassPilotDatabase, schoolYearId: string): ScheduleSlot[] {
   const rows = db
     .prepare(
-      `SELECT schedule_slots.id, schedule_slots.class_id, schedule_slots.cycle_day, schedule_slots.start_time, schedule_slots.end_time
+      `SELECT schedule_slots.id, schedule_slots.class_id, schedule_slots.cycle_day,
+              schedule_slots.start_time, schedule_slots.end_time,
+              schedule_slots.start_date, schedule_slots.end_date
        FROM schedule_slots
        JOIN class_sections ON class_sections.id = schedule_slots.class_id
        WHERE class_sections.school_year_id = ?
@@ -26,7 +32,8 @@ export function getScheduleSlots(db: ClassPilotDatabase, schoolYearId: string): 
 export function getScheduleSlotsForClass(db: ClassPilotDatabase, classId: string): ScheduleSlot[] {
   const rows = db
     .prepare(
-      "SELECT id, class_id, cycle_day, start_time, end_time FROM schedule_slots WHERE class_id = ? ORDER BY cycle_day",
+      `SELECT id, class_id, cycle_day, start_time, end_time, start_date, end_date
+       FROM schedule_slots WHERE class_id = ? ORDER BY cycle_day`,
     )
     .all(classId) as ScheduleSlotRow[];
 
@@ -72,7 +79,12 @@ export function setClassSchedule(
 
   db.exec("BEGIN;");
   try {
-    db.prepare("DELETE FROM schedule_slots WHERE class_id = ?").run(classId);
+    // Only the class's regular (non-dated) slots — temporary/burst slots
+    // added via addTemporaryScheduleSlot are untouched by editing the
+    // regular schedule.
+    db.prepare("DELETE FROM schedule_slots WHERE class_id = ? AND start_date IS NULL").run(
+      classId,
+    );
 
     for (const slot of slots) {
       const id = `slot-${crypto.randomUUID()}`;
@@ -130,5 +142,144 @@ function mapScheduleSlot(row: ScheduleSlotRow): ScheduleSlot {
     cycleDay: row.cycle_day,
     startTime: row.start_time,
     endTime: row.end_time,
+    startDate: row.start_date ?? undefined,
+    endDate: row.end_date ?? undefined,
   };
+}
+
+export type TemporaryScheduleSlotInput = {
+  cycleDay: number;
+  startTime: string;
+  endTime: string;
+  startDate: string;
+  endDate: string;
+};
+
+export type ScheduleSwapNotice = {
+  displacedClassId: string;
+  displacedClassName: string;
+  /** How many of the displaced class's own meeting-day occurrences of this
+   * cycleDay/time fall inside the new slot's date range. */
+  displacedOccurrences: number;
+  /** Lessons that were pushed forward to make room, one entry per unit
+   * touched (a class can have more than one unit active in the window). */
+  shiftedUnits: Array<{ unitId: string; unitTitle: string; shiftedLessonCount: number }>;
+};
+
+/**
+ * Adds a one-off, date-ranged slot alongside a class's regular schedule
+ * (unlike setClassSchedule, this never deletes existing slots — it's purely
+ * additive) — for a class taught in a burst rather than at a steady cycle
+ * interval (e.g. daily for two weeks instead of every 6th day all year).
+ *
+ * If the slot overlaps another class's regular (non-dated) slot on the same
+ * cycleDay/time, that's treated as an intentional swap, not a blocking
+ * conflict: every lesson the displaced class already had planned on a date
+ * inside the new slot's range is cascade-shifted forward by the number of
+ * occurrences taken — reusing the same "push everything after this point
+ * forward" logic as a snow day, which naturally extends the affected
+ * unit's timeline instead of leaving orphaned/overlapping lessons. Returns
+ * one notice per displaced class so the caller can surface what happened.
+ */
+export function addTemporaryScheduleSlot(
+  db: ClassPilotDatabase,
+  classId: string,
+  input: TemporaryScheduleSlotInput,
+): ScheduleSwapNotice[] {
+  const classSection = db
+    .prepare("SELECT school_year_id FROM class_sections WHERE id = ?")
+    .get(classId) as { school_year_id: string } | undefined;
+
+  if (!classSection) {
+    throw new Error(`Class not found: ${classId}`);
+  }
+
+  const schoolYear = getSchoolYearById(db, classSection.school_year_id);
+  const cycleDayMap = buildCycleDayMap(schoolYear);
+  const displacedOccurrences = Array.from(cycleDayMap.entries()).filter(
+    ([date, cycleDay]) =>
+      cycleDay === input.cycleDay && date >= input.startDate && date <= input.endDate,
+  ).length;
+
+  const sameCycleDaySlots = db
+    .prepare(
+      `SELECT DISTINCT class_sections.id AS class_id, class_sections.name,
+              schedule_slots.start_time, schedule_slots.end_time
+       FROM schedule_slots
+       JOIN class_sections ON class_sections.id = schedule_slots.class_id
+       WHERE schedule_slots.class_id != ?
+         AND schedule_slots.cycle_day = ?
+         AND schedule_slots.start_date IS NULL`,
+    )
+    .all(classId, input.cycleDay) as Array<{
+    class_id: string;
+    name: string;
+    start_time: string;
+    end_time: string;
+  }>;
+
+  const displacedClasses = new Map(
+    sameCycleDaySlots
+      .filter((slot) => timeRangesOverlap(input.startTime, input.endTime, slot.start_time, slot.end_time))
+      .map((slot) => [slot.class_id, slot.name]),
+  );
+  const otherRegularSlots = Array.from(displacedClasses.entries()).map(([classId, name]) => ({
+    class_id: classId,
+    name,
+  }));
+
+  const notices: ScheduleSwapNotice[] = [];
+
+  // Single-statement insert is already atomic; the cascade calls below
+  // each manage their own transaction internally (cascadeRescheduleUnitLessons),
+  // and node:sqlite doesn't support nested transactions, so this can't be
+  // wrapped in one outer BEGIN/COMMIT the way setClassSchedule is.
+  const id = `slot-${crypto.randomUUID()}`;
+  db.prepare(
+    `INSERT INTO schedule_slots (id, class_id, cycle_day, start_time, end_time, start_date, end_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, classId, input.cycleDay, input.startTime, input.endTime, input.startDate, input.endDate);
+
+  if (displacedOccurrences > 0) {
+    for (const other of otherRegularSlots) {
+      const affectedUnits = db
+        .prepare(
+          `SELECT DISTINCT unit_plans.id, unit_plans.title
+           FROM lesson_plans
+           JOIN unit_plans ON unit_plans.id = lesson_plans.unit_id
+           WHERE unit_plans.class_id = ?
+             AND lesson_plans.date >= ? AND lesson_plans.date <= ?`,
+        )
+        .all(other.class_id, input.startDate, input.endDate) as Array<{
+        id: string;
+        title: string;
+      }>;
+
+      const shiftedUnits = affectedUnits.map((unit) => {
+        const result = cascadeRescheduleUnitLessons(db, {
+          unitId: unit.id,
+          fromDate: input.startDate,
+          shiftByDays: displacedOccurrences,
+        });
+        return {
+          unitId: unit.id,
+          unitTitle: unit.title,
+          shiftedLessonCount: result.shiftedLessonIds.length,
+        };
+      });
+
+      notices.push({
+        displacedClassId: other.class_id,
+        displacedClassName: other.name,
+        displacedOccurrences,
+        shiftedUnits,
+      });
+    }
+  }
+
+  return notices;
+}
+
+export function deleteScheduleSlot(db: ClassPilotDatabase, slotId: string): void {
+  db.prepare("DELETE FROM schedule_slots WHERE id = ?").run(slotId);
 }

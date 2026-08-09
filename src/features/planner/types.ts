@@ -156,6 +156,13 @@ export type ScheduleSlot = {
   startTime: string;
   /** 24-hour "HH:MM". */
   endTime: string;
+  /** Both unset = a regular, year-long recurring slot (the default — set
+   * via setClassSchedule). Both set = a temporary slot that only claims
+   * this cycleDay/time between these dates (inclusive), for classes taught
+   * in a burst rather than at a steady interval — see
+   * addTemporaryScheduleSlot in schedule-repository.ts. */
+  startDate?: string;
+  endDate?: string;
 };
 
 export type InstructionalDay = {

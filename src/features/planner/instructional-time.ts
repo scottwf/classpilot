@@ -22,17 +22,26 @@ function slotDurationMinutes(slot: Pick<ScheduleSlot, "startTime" | "endTime">):
   return endHour * 60 + endMinute - (startHour * 60 + startMinute);
 }
 
-/** How many instructional-day occurrences each cycle day number has between
- * the school year's start and end date (e.g. cycle day 1 might land on 15
- * actual calendar dates across a semester). */
-function countCycleDayOccurrences(schoolYear: TimeSchoolYear): Map<number, number> {
-  const counts = new Map<number, number>();
+/** How many dates within [rangeStart, rangeEnd] land on the given cycle
+ * day — a regular (year-long) slot passes the school year's own start/end
+ * as the range; a temporary/burst slot (see ScheduleSlot.startDate/endDate)
+ * passes its own narrower window, so it only counts the occurrences it
+ * actually claims. */
+function countCycleDayOccurrencesInRange(
+  cycleDayMap: Map<string, number>,
+  cycleDay: number,
+  rangeStart: string,
+  rangeEnd: string,
+): number {
+  let count = 0;
 
-  for (const cycleDay of buildCycleDayMap(schoolYear).values()) {
-    counts.set(cycleDay, (counts.get(cycleDay) ?? 0) + 1);
+  for (const [date, day] of cycleDayMap) {
+    if (day === cycleDay && date >= rangeStart && date <= rangeEnd) {
+      count += 1;
+    }
   }
 
-  return counts;
+  return count;
 }
 
 /**
@@ -40,19 +49,28 @@ function countCycleDayOccurrences(schoolYear: TimeSchoolYear): Map<number, numbe
  * year, based on its actual schedule_slots (not just cycleDays membership,
  * which only says which days a class meets, not for how long) — each
  * slot's own duration times how many times that cycle day actually occurs
- * between the school year's start and end date.
+ * within the slot's own window (the whole school year for a regular slot,
+ * or just its date range for a temporary/burst slot).
  */
 export function computeScheduledMinutesForClass(
   schoolYear: TimeSchoolYear,
   classId: string,
-  scheduleSlots: Pick<ScheduleSlot, "classId" | "cycleDay" | "startTime" | "endTime">[],
+  scheduleSlots: Pick<
+    ScheduleSlot,
+    "classId" | "cycleDay" | "startTime" | "endTime" | "startDate" | "endDate"
+  >[],
 ): number {
-  const occurrences = countCycleDayOccurrences(schoolYear);
+  const cycleDayMap = buildCycleDayMap(schoolYear);
 
   return scheduleSlots
     .filter((slot) => slot.classId === classId)
     .reduce((total, slot) => {
-      const occurrenceCount = occurrences.get(slot.cycleDay) ?? 0;
+      const occurrenceCount = countCycleDayOccurrencesInRange(
+        cycleDayMap,
+        slot.cycleDay,
+        slot.startDate ?? schoolYear.startDate,
+        slot.endDate ?? schoolYear.endDate,
+      );
       return total + slotDurationMinutes(slot) * occurrenceCount;
     }, 0);
 }

@@ -3,7 +3,12 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
-import { setClassSchedule, type ClassScheduleSlotInput } from "@/src/lib/db/schedule-repository";
+import {
+  addTemporaryScheduleSlot,
+  deleteScheduleSlot,
+  setClassSchedule,
+  type ClassScheduleSlotInput,
+} from "@/src/lib/db/schedule-repository";
 
 const timePattern = /^\d{2}:\d{2}$/;
 
@@ -58,4 +63,71 @@ export async function setClassScheduleAction(formData: FormData) {
   }
 
   redirect(suffix ? "/settings/schedule?wizard=1" : "/settings/schedule");
+}
+
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function addTemporaryScheduleSlotAction(formData: FormData) {
+  await requireAuth();
+
+  const classId = String(formData.get("classId") ?? "").trim();
+  const cycleDay = Number(formData.get("cycleDay"));
+  const startTime = String(formData.get("startTime") ?? "").trim();
+  const endTime = String(formData.get("endTime") ?? "").trim();
+  const startDate = String(formData.get("startDate") ?? "").trim();
+  const endDate = String(formData.get("endDate") ?? "").trim();
+
+  if (
+    !classId ||
+    !Number.isInteger(cycleDay) ||
+    cycleDay < 1 ||
+    !timePattern.test(startTime) ||
+    !timePattern.test(endTime) ||
+    endTime <= startTime ||
+    !datePattern.test(startDate) ||
+    !datePattern.test(endDate) ||
+    endDate < startDate
+  ) {
+    redirect("/settings/schedule?error=temporary");
+  }
+
+  const notices = addTemporaryScheduleSlot(getClassPilotDatabase(), classId, {
+    cycleDay,
+    startTime,
+    endTime,
+    startDate,
+    endDate,
+  });
+
+  if (notices.length === 0) {
+    redirect("/settings/schedule?temporaryAdded=1");
+  }
+
+  const summary = notices
+    .map((notice) => {
+      const shiftedTotal = notice.shiftedUnits.reduce(
+        (total, unit) => total + unit.shiftedLessonCount,
+        0,
+      );
+      const unitNames = notice.shiftedUnits.map((unit) => unit.unitTitle).join(", ");
+
+      return shiftedTotal > 0
+        ? `${notice.displacedClassName}: ${notice.displacedOccurrences} session(s) reclaimed, ${shiftedTotal} lesson(s) pushed forward in ${unitNames}.`
+        : `${notice.displacedClassName}: ${notice.displacedOccurrences} session(s) reclaimed (no lessons were planned there yet).`;
+    })
+    .join(" ");
+
+  redirect(`/settings/schedule?swapNotice=${encodeURIComponent(summary)}`);
+}
+
+export async function deleteTemporaryScheduleSlotAction(formData: FormData) {
+  await requireAuth();
+
+  const slotId = String(formData.get("slotId") ?? "").trim();
+
+  if (slotId) {
+    deleteScheduleSlot(getClassPilotDatabase(), slotId);
+  }
+
+  redirect("/settings/schedule");
 }

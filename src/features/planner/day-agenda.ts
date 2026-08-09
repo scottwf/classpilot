@@ -34,7 +34,12 @@ export function buildDayAgenda(
   const lessonByClassId = new Map(lessonsForDate.map((lesson) => [lesson.classId, lesson]));
 
   return scheduleSlots
-    .filter((slot) => slot.cycleDay === cycleDay)
+    .filter(
+      (slot) =>
+        slot.cycleDay === cycleDay &&
+        (!slot.startDate || date >= slot.startDate) &&
+        (!slot.endDate || date <= slot.endDate),
+    )
     .flatMap((slot) => {
       const classSection = classById.get(slot.classId);
       return classSection ? [{ slot, classSection, lesson: lessonByClassId.get(slot.classId) }] : [];

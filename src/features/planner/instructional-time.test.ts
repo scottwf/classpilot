@@ -48,6 +48,40 @@ describe("computeScheduledMinutesForClass", () => {
   it("returns 0 for a class with no scheduled slots", () => {
     expect(computeScheduledMinutesForClass(schoolYear, "class-1", [])).toBe(0);
   });
+
+  it("counts a temporary/burst slot's occurrences within its own date range, not the whole year", () => {
+    // Cycle day 1 occurs on 09-01, 09-03, 09-07, 09-10, 09-14 — narrowing to
+    // 09-01..09-07 (inclusive) should only count 09-01, 09-03, and 09-07
+    // (3 occurrences), not all 5 across the full school year.
+    const scheduleSlots = [
+      {
+        classId: "class-1",
+        cycleDay: 1,
+        startTime: "09:00",
+        endTime: "09:50",
+        startDate: "2026-09-01",
+        endDate: "2026-09-07",
+      },
+    ];
+
+    expect(computeScheduledMinutesForClass(schoolYear, "class-1", scheduleSlots)).toBe(150);
+  });
+
+  it("sums a regular slot and a temporary slot for the same class independently", () => {
+    const scheduleSlots = [
+      { classId: "class-1", cycleDay: 2, startTime: "10:00", endTime: "10:40" }, // 40 x 3 = 120
+      {
+        classId: "class-1",
+        cycleDay: 1,
+        startTime: "09:00",
+        endTime: "09:50",
+        startDate: "2026-09-01",
+        endDate: "2026-09-07",
+      }, // 50 x 3 = 150
+    ];
+
+    expect(computeScheduledMinutesForClass(schoolYear, "class-1", scheduleSlots)).toBe(270);
+  });
 });
 
 describe("computeInstructionalTimeSummary", () => {
