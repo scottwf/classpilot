@@ -287,24 +287,12 @@ tooling, lesson bank filters) is done — see section 2.
 
 ---
 
-## 6. Environment variables (quick reference)
+## 6. Environment variables
 
-Full template with comments is in [`.env.example`](../.env.example).
-
-| Variable | Purpose | Notes |
-| --- | --- | --- |
-| `CLASSPILOT_APP_PASSWORD` | Login password | Required in production |
-| `CLASSPILOT_AUTH_SECRET` | Session HMAC secret | Long random; required in prod |
-| `CLASSPILOT_COOKIE_SECURE` | Secure cookies | `true` for HTTPS/remote |
-| `CLASSPILOT_DATA_KEY` | Encrypts student fields at rest | `openssl rand -base64 32`; store in a password manager, **never** beside backups |
-| `CLASSPILOT_DATABASE_PATH` | SQLite path | Defaults to `data/classpilot.sqlite` |
-| `CLASSPILOT_PORT` / `NEXT_PUBLIC_APP_URL` | Port / app URL | For Docker |
-| `CLASSPILOT_AI_API_KEY` | Hosted AI provider key | Optional; enables `/assistant` |
-| `CLASSPILOT_AI_BASE_URL` | Local/alt AI endpoint | Optional; enables `/assistant` without a key |
-| `CLASSPILOT_AI_MODEL` | Model name | Defaults to `gpt-4o-mini` |
-| `CLASSPILOT_MCP_TOKEN` | MCP server auth | Header `x-classpilot-mcp-key`; `openssl rand -base64 32` |
-| `CLASSPILOT_MCP_PORT` | MCP server port | Defaults to `3900` |
-| `CLASSPILOT_CALENDAR_TOKEN` | ICS feed auth | Query string `?token=`; `openssl rand -hex 32` (base64's `+`/`/`/`=` break in a URL) |
+Full reference (every variable, default, prod-required status, and which
+container reads it) is in
+[docs/CONFIG-REFERENCE.md](CONFIG-REFERENCE.md). Template with inline
+comments is in [`.env.example`](../.env.example).
 
 ---
 

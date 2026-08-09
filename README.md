@@ -161,6 +161,11 @@ docker compose logs -f classpilot
 docker compose down
 ```
 
+## Configuration Reference
+
+Every environment variable, its default, and which container reads it is
+documented in [docs/CONFIG-REFERENCE.md](docs/CONFIG-REFERENCE.md).
+
 ## MCP Server (AI Tool Access)
 
 ClassPilot also runs a separate MCP server (`classpilot-mcp`, started
