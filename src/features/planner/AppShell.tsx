@@ -45,8 +45,14 @@ const navItems = [
 // Sign out) lives under its "More" tab. Assistant is the leading candidate
 // to be promoted here once it becomes a real chat interface.
 const primaryMobilePages = new Set(["planbook", "lessons", "students", "units"]);
-const primaryMobileItems = navItems.filter((item) => primaryMobilePages.has(item.page));
-const moreMobileItems = navItems.filter((item) => !primaryMobilePages.has(item.page));
+// MobileBottomNav is a client component — strip the `icon` component
+// reference before crossing that boundary (React serializes the whole
+// object, not just the fields the client-side type declares, so leaving it
+// in still throws "Functions cannot be passed directly to Client
+// Components" even though MobileBottomNav's own type never reads it).
+const mobileNavItems = navItems.map(({ href, label, page }) => ({ href, label, page }));
+const primaryMobileItems = mobileNavItems.filter((item) => primaryMobilePages.has(item.page));
+const moreMobileItems = mobileNavItems.filter((item) => !primaryMobilePages.has(item.page));
 
 export function AppShell({ activePage, children, data }: AppShellProps) {
   const instructionalDays = buildInstructionalDays(data.schoolYear);
