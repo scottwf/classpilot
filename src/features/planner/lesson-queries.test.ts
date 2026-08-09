@@ -8,6 +8,8 @@ import {
   getAllLessons,
   getLessonsForDate,
   getLessonsForWeek,
+  resolvePlanBookDefaultDate,
+  shiftDateKey,
   sortLessonBank,
 } from "./lesson-queries";
 
@@ -91,5 +93,46 @@ describe("lesson queries", () => {
       outcomeIdFor("Mathematics", "N6.5"),
     );
     expect(math?.uncovered.length).toBeGreaterThan(0);
+  });
+});
+
+describe("shiftDateKey", () => {
+  it("shifts a date forward and backward by whole calendar days", () => {
+    expect(shiftDateKey("2026-09-11", 1)).toBe("2026-09-12");
+    expect(shiftDateKey("2026-09-11", -1)).toBe("2026-09-10");
+    expect(shiftDateKey("2026-09-11", 7)).toBe("2026-09-18");
+  });
+
+  it("rolls over month and year boundaries", () => {
+    expect(shiftDateKey("2026-09-30", 1)).toBe("2026-10-01");
+    expect(shiftDateKey("2026-12-31", 1)).toBe("2027-01-01");
+  });
+});
+
+describe("resolvePlanBookDefaultDate", () => {
+  const schoolYear = { startDate: "2026-09-02", endDate: "2026-12-18" };
+
+  it("defaults to today when today falls within the school year", () => {
+    expect(resolvePlanBookDefaultDate(schoolYear, [], "2026-10-15")).toBe("2026-10-15");
+  });
+
+  it("defaults to the first day with a lesson when today is before the school year starts", () => {
+    const lessonDates = ["2026-09-05", "2026-09-08", "2026-09-03"];
+
+    expect(resolvePlanBookDefaultDate(schoolYear, lessonDates, "2026-08-09")).toBe("2026-09-03");
+  });
+
+  it("falls back to the school year's start date when today is before the year and there are no lessons yet", () => {
+    expect(resolvePlanBookDefaultDate(schoolYear, [], "2026-08-09")).toBe("2026-09-02");
+  });
+
+  it("ignores lessons dated before the school year starts", () => {
+    const lessonDates = ["2026-06-01", "2026-09-10"];
+
+    expect(resolvePlanBookDefaultDate(schoolYear, lessonDates, "2026-08-09")).toBe("2026-09-10");
+  });
+
+  it("defaults to the school year's end date when today is after the school year ends", () => {
+    expect(resolvePlanBookDefaultDate(schoolYear, [], "2027-01-15")).toBe("2026-12-18");
   });
 });

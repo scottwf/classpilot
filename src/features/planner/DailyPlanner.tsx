@@ -39,7 +39,7 @@ export function DailyPlanner({ date, view, days, otherLessons }: DailyPlannerPro
             {view === "day" ? "Today's schedule" : "This week's schedule"}
           </p>
           <h2 className="mt-1 text-2xl font-semibold text-slate-950">
-            {formatDate(date)}
+            {view === "day" ? formatDate(date) : `Week of ${formatWeekOf(days[0]?.date ?? date)}`}
           </h2>
         </div>
         <Link
@@ -172,6 +172,15 @@ function DayColumnView({ column, compact }: { column?: DayColumn; compact?: bool
 function formatDate(dateKey: string) {
   return new Intl.DateTimeFormat("en-CA", {
     dateStyle: "full",
+    timeZone: "UTC",
+  }).format(new Date(`${dateKey}T00:00:00.000Z`));
+}
+
+function formatWeekOf(dateKey: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${dateKey}T00:00:00.000Z`));
 }

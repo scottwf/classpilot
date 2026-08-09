@@ -198,6 +198,36 @@ export function getWeekdayDates(dateKey: string): string[] {
   return Array.from({ length: 5 }, (_, index) => toDateKey(addDays(monday, index)));
 }
 
+/** Plain calendar-day shift (not instructional-day aware) — for the Plan
+ * Book's prev/next day and prev/next week navigation. */
+export function shiftDateKey(dateKey: string, days: number): string {
+  return toDateKey(addDays(parseDate(dateKey), days));
+}
+
+/**
+ * The date the Plan Book should open to when the URL has no explicit
+ * `?date=`. Today, if today falls within the school year; the school
+ * year's first day with an actual lesson planned if today is still
+ * before the year starts (so the dashboard isn't just an empty day);
+ * the school year's last day if today is after it ends.
+ */
+export function resolvePlanBookDefaultDate(
+  schoolYear: { startDate: string; endDate: string },
+  lessonDates: string[],
+  todayKey: string,
+): string {
+  if (todayKey >= schoolYear.startDate && todayKey <= schoolYear.endDate) {
+    return todayKey;
+  }
+
+  if (todayKey > schoolYear.endDate) {
+    return schoolYear.endDate;
+  }
+
+  const firstLessonDate = lessonDates.filter((date) => date >= schoolYear.startDate).sort()[0];
+  return firstLessonDate ?? schoolYear.startDate;
+}
+
 function enrichLesson(
   lesson: LessonPlan,
   unit: UnitPlan,

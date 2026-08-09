@@ -10,7 +10,10 @@ import { UnitsPage } from "./UnitsPage";
 
 describe("ClassPilotPlanner", () => {
   it("renders the planner shell with classes, units, and today panel", () => {
-    render(<ClassPilotPlanner data={plannerData} />);
+    // Explicit date: a known day with a Math lesson in the seed data — this
+    // test isn't exercising the default-date resolution logic (see
+    // lesson-queries.test.ts for that), just needs a day with content.
+    render(<ClassPilotPlanner data={plannerData} selectedDate="2026-09-11" />);
 
     expect(
       screen.getByRole("heading", { name: "ClassPilot" }),

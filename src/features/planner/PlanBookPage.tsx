@@ -5,6 +5,7 @@ import {
   getLessonsForWeek,
   getWeekdayDates,
 } from "./lesson-queries";
+import { PlanBookNav } from "./PlanBookNav";
 import type { PlannerData, ScheduleSlot } from "./types";
 import { UpcomingBirthdaysCard } from "./UpcomingBirthdaysCard";
 import { ViewSwitcher } from "./ViewSwitcher";
@@ -14,6 +15,7 @@ type PlanBookPageProps = {
   data: PlannerData;
   scheduleSlots: ScheduleSlot[];
   selectedDate: string;
+  todayDate: string;
   upcomingBirthdays?: UpcomingBirthday[];
   view: "day" | "week";
 };
@@ -22,6 +24,7 @@ export function PlanBookPage({
   data,
   scheduleSlots,
   selectedDate,
+  todayDate,
   upcomingBirthdays = [],
   view,
 }: PlanBookPageProps) {
@@ -59,7 +62,10 @@ export function PlanBookPage({
             outcomes each have their own pages so this screen stays focused.
           </p>
         </section>
-        <ViewSwitcher date={selectedDate} view={view} />
+        <div className="flex flex-col items-start gap-2 lg:items-end">
+          <ViewSwitcher date={selectedDate} view={view} />
+          <PlanBookNav date={selectedDate} todayDate={todayDate} view={view} />
+        </div>
       </div>
 
       <UpcomingBirthdaysCard birthdays={upcomingBirthdays} />
