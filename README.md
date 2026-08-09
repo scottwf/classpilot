@@ -161,6 +161,15 @@ docker compose logs -f classpilot
 docker compose down
 ```
 
+## MCP Server (AI Tool Access)
+
+ClassPilot also runs a separate MCP server (`classpilot-mcp`, started
+alongside the main app by the same `docker compose up`) so an MCP client
+like Claude Code or Claude Desktop can read and write your units, lessons,
+classes, and schedule directly — no Student CMS access. See
+[docs/MCP-SETUP.md](docs/MCP-SETUP.md) for the token setup, host allow-list,
+and how to connect a client.
+
 ## Privacy Notes
 
 ClassPilot is being built for private classroom planning and eventual student information storage. Before entering real student data:
@@ -193,6 +202,8 @@ The current import supports one lesson per Markdown file and maps sections into 
 The working product plan is tracked in [ClassPilot-summary-plan.md](ClassPilot-summary-plan.md).
 
 A technical code summary, plan-vs-implementation gap analysis, and clean/secure code findings are tracked in [docs/CODEBASE-OVERVIEW.md](docs/CODEBASE-OVERVIEW.md).
+
+Setting up the MCP server so an AI assistant can read/write your plan directly is covered in [docs/MCP-SETUP.md](docs/MCP-SETUP.md).
 
 The schema and privacy design for the upcoming Student Information CMS is in [docs/student-cms-plan.md](docs/student-cms-plan.md).
 
