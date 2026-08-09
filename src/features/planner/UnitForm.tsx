@@ -219,6 +219,16 @@ export function UnitForm({
           />
         </div>
 
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">Notes</span>
+          <textarea
+            className="mt-2 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            defaultValue={unit?.notes}
+            name="notes"
+            placeholder="How did this unit go? Anything to change next time?"
+          />
+        </label>
+
         {error ? (
           <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
             Please check the unit details and try again.

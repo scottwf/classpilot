@@ -61,6 +61,7 @@ type UnitPlanRow = {
   end_date: string;
   color: UnitPlan["color"];
   outcome_ids_json: string;
+  notes: string;
 };
 
 type LessonPlanRow = {
@@ -103,6 +104,7 @@ export type CreateUnitInput = {
   outcomeIds: string[];
   startDate: string;
   title: string;
+  notes?: string;
 };
 
 export type EditableUnit = UnitPlan;
@@ -563,8 +565,8 @@ export function createUnit(
   const id = `unit-${crypto.randomUUID()}`;
 
   db.prepare(`
-    INSERT INTO unit_plans (id, class_id, title, start_date, end_date, color, outcome_ids_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO unit_plans (id, class_id, title, start_date, end_date, color, outcome_ids_json, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     input.classId,
@@ -573,6 +575,7 @@ export function createUnit(
     input.endDate,
     input.color,
     JSON.stringify(input.outcomeIds),
+    input.notes ?? "",
   );
 
   return id;
@@ -595,8 +598,8 @@ export function createUnitWithLessons(
   const unitId = `unit-${crypto.randomUUID()}`;
 
   const insertUnit = db.prepare(`
-    INSERT INTO unit_plans (id, class_id, title, start_date, end_date, color, outcome_ids_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO unit_plans (id, class_id, title, start_date, end_date, color, outcome_ids_json, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertLesson = db.prepare(`
@@ -614,6 +617,7 @@ export function createUnitWithLessons(
       input.unit.endDate,
       input.unit.color,
       JSON.stringify(input.unit.outcomeIds),
+      input.unit.notes ?? "",
     );
 
     for (const lesson of input.lessons) {
@@ -646,7 +650,7 @@ export function getUnitById(
 ): EditableUnit | undefined {
   const row = db
     .prepare(
-      "SELECT id, class_id, title, start_date, end_date, color, outcome_ids_json FROM unit_plans WHERE id = ?",
+      "SELECT id, class_id, title, start_date, end_date, color, outcome_ids_json, notes FROM unit_plans WHERE id = ?",
     )
     .get(id) as UnitPlanRow | undefined;
 
@@ -675,7 +679,8 @@ export function updateUnit(
       start_date = ?,
       end_date = ?,
       color = ?,
-      outcome_ids_json = ?
+      outcome_ids_json = ?,
+      notes = ?
     WHERE id = ?
   `).run(
     input.classId,
@@ -684,6 +689,7 @@ export function updateUnit(
     input.endDate,
     input.color,
     JSON.stringify(input.outcomeIds),
+    input.notes ?? "",
     input.id,
   );
 
@@ -956,7 +962,7 @@ export function getPlannerData(db: ClassPilotDatabase): PlannerData {
 
   const units = db
     .prepare(
-      `SELECT id, class_id, title, start_date, end_date, color, outcome_ids_json
+      `SELECT id, class_id, title, start_date, end_date, color, outcome_ids_json, notes
        FROM unit_plans
        WHERE class_id IN (SELECT id FROM class_sections WHERE school_year_id = ?)
        ORDER BY start_date, rowid`,
@@ -1052,6 +1058,7 @@ function mapUnitPlan(row: UnitPlanRow, lessonRows: LessonPlanRow[]): UnitPlan {
     color: row.color,
     outcomeIds: JSON.parse(row.outcome_ids_json) as string[],
     lessons: lessonRows.map(mapLessonPlan),
+    notes: row.notes,
   };
 }
 

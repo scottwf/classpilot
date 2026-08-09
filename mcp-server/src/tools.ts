@@ -82,6 +82,12 @@ const unitInputShape = {
     .array(z.string())
     .default([])
     .describe("Curriculum outcome IDs from get_planner_data's outcomes list."),
+  notes: z
+    .string()
+    .default("")
+    .describe(
+      "Free-text notes for things that don't belong in outcomes or lesson sections — reflections on how the unit went, ideas for next year, etc.",
+    ),
 };
 
 const classColorEnum = z

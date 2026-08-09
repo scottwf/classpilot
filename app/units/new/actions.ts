@@ -17,6 +17,7 @@ export async function createUnitAction(formData: FormData) {
   const endDate = requiredString(formData, "endDate");
   const color = requiredString(formData, "color");
   const outcomeIds = formData.getAll("outcomeIds").map(String);
+  const notes = String(formData.get("notes") ?? "").trim();
 
   if (endDate < startDate || !colors.has(color)) {
     redirect("/units/new?error=dates");
@@ -29,6 +30,7 @@ export async function createUnitAction(formData: FormData) {
     outcomeIds,
     startDate,
     title,
+    notes,
   });
 
   redirect("/units?created=1");

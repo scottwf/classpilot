@@ -281,6 +281,7 @@ export function migrate(db: ClassPilotDatabase) {
   // between these dates.
   addColumnIfMissing(db, "schedule_slots", "start_date", "TEXT");
   addColumnIfMissing(db, "schedule_slots", "end_date", "TEXT");
+  addColumnIfMissing(db, "unit_plans", "notes", "TEXT NOT NULL DEFAULT ''");
 
   // Multi-year scoping. These columns can't carry a NOT NULL DEFAULT in the
   // same ALTER as a REFERENCES clause (SQLite restriction, verified against

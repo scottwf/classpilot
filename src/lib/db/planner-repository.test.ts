@@ -507,6 +507,37 @@ describe("planner repository", () => {
     ]);
   });
 
+  it("defaults a new unit's notes to empty and persists notes through updates", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+
+    seedPlannerData(db, plannerData);
+    const unitId = createUnit(db, {
+      classId: "grade-6-math",
+      color: "blue",
+      endDate: "2026-12-04",
+      outcomeIds: [],
+      startDate: "2026-11-16",
+      title: "Patterns and Graphs",
+    });
+
+    expect(getUnitById(db, unitId)?.notes).toBe("");
+
+    updateUnit(db, {
+      classId: "grade-6-math",
+      color: "blue",
+      endDate: "2026-12-04",
+      id: unitId,
+      outcomeIds: [],
+      startDate: "2026-11-16",
+      title: "Patterns and Graphs",
+      notes: "Ran long — split the graphing lesson into two next year.",
+    });
+
+    expect(getUnitById(db, unitId)?.notes).toBe(
+      "Ran long — split the graphing lesson into two next year.",
+    );
+  });
+
   it("patches only a unit's dates, leaving other fields untouched", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
 

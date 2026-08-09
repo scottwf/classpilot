@@ -42,6 +42,7 @@ describe("planner timeline", () => {
           color: "emerald",
           outcomeIds: [],
           lessons: [],
+          notes: "",
         },
         days,
       ),

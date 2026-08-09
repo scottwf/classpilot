@@ -227,6 +227,28 @@ export function UnitDetailPage({
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-950">Notes</h3>
+              <Link
+                className="text-xs font-medium text-blue-700 hover:text-blue-900"
+                href={`/units/${unit.id}/edit`}
+              >
+                Edit
+              </Link>
+            </div>
+            {unit.notes ? (
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                {unit.notes}
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">
+                No notes yet — reflections on how this unit went, or ideas
+                for next time, go here.
+              </p>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-950">
               Shift lessons
             </h3>

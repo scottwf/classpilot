@@ -43,6 +43,11 @@ export type UnitPlan = {
   color: "blue" | "emerald" | "amber" | "rose" | "violet";
   outcomeIds: string[];
   lessons: LessonPlan[];
+  /** Free-text notes for things that don't belong in outcomes or lesson
+   * sections — reflections on how the unit went overall, ideas for next
+   * year, etc. Mirrors the per-lesson `reflection` field, at the unit
+   * level. */
+  notes: string;
 };
 
 /** Palette for ClassSection.color — a class's identity color across the

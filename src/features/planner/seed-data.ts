@@ -107,6 +107,7 @@ export const plannerData: PlannerData = {
       endDate: "2026-10-02",
       color: "emerald",
       outcomeIds: [outcomeIdFor("English Language Arts", "CR6.1")],
+      notes: "",
       lessons: [
         {
           id: "lesson-reading-inventory",
@@ -141,6 +142,7 @@ export const plannerData: PlannerData = {
         outcomeIdFor("Mathematics", "N6.5"),
         outcomeIdFor("Mathematics", "N6.8"),
       ],
+      notes: "",
       lessons: [
         {
           id: "lesson-ratio-language",
@@ -172,6 +174,7 @@ export const plannerData: PlannerData = {
       endDate: "2026-09-25",
       color: "blue",
       outcomeIds: [outcomeIdFor("Science", "DL6.2")],
+      notes: "",
       lessons: [
         {
           id: "lesson-classification-systems",
@@ -193,6 +196,7 @@ export const plannerData: PlannerData = {
       endDate: "2026-10-23",
       color: "violet",
       outcomeIds: [outcomeIdFor("Social Studies", "IN6.1")],
+      notes: "",
       lessons: [
         {
           id: "lesson-identity-map",
@@ -214,6 +218,7 @@ export const plannerData: PlannerData = {
       endDate: "2026-09-18",
       color: "rose",
       outcomeIds: ["homeroom-community"],
+      notes: "",
       lessons: [],
     },
   ],

@@ -18,6 +18,7 @@ export async function updateUnitAction(formData: FormData) {
   const endDate = requiredString(formData, "endDate");
   const color = requiredString(formData, "color");
   const outcomeIds = formData.getAll("outcomeIds").map(String);
+  const notes = String(formData.get("notes") ?? "").trim();
 
   if (endDate < startDate || !colors.has(color)) {
     redirect(`/units/${id}/edit?error=dates`);
@@ -31,6 +32,7 @@ export async function updateUnitAction(formData: FormData) {
     outcomeIds,
     startDate,
     title,
+    notes,
   });
 
   redirect("/units?updated=1");
