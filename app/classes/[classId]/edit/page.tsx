@@ -45,8 +45,6 @@ export default async function EditClassPage({
       <ClassForm
         action={updateClassAction}
         classSection={classSection}
-        cycleLength={plannerData.schoolYear.cycleLength}
-        dayLabelScheme={plannerData.schoolYear.dayLabelScheme}
         error={query.error}
         existingClasses={plannerData.classes}
         gradeSubjects={groupSubjectsByGrade(plannerData.outcomes)}

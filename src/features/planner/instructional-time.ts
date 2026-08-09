@@ -3,6 +3,19 @@ import { buildCycleDayMap } from "./cycle";
 
 type TimeSchoolYear = Pick<SchoolYear, "startDate" | "endDate" | "blockedDates" | "cycleLength">;
 
+export function formatMinutes(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    return `${minutes} min`;
+  }
+  if (minutes === 0) {
+    return `${hours} h`;
+  }
+  return `${hours} h ${minutes} min`;
+}
+
 function slotDurationMinutes(slot: Pick<ScheduleSlot, "startTime" | "endTime">): number {
   const [startHour, startMinute] = slot.startTime.split(":").map(Number);
   const [endHour, endMinute] = slot.endTime.split(":").map(Number);

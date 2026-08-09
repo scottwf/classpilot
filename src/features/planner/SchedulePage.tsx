@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ClassScheduleEditor } from "./ClassScheduleEditor";
 import { getDayLabel } from "./cycle";
+import { formatMinutes, type ClassInstructionalTime } from "./instructional-time";
 import type { ClassColor, ClassSection, DayLabelScheme, ScheduleSlot } from "./types";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
@@ -16,6 +17,9 @@ type SchedulePageProps = {
   cycleLength: number;
   dayLabelScheme: DayLabelScheme;
   error?: string;
+  /** Scheduled-vs-target instructional minutes per class, for the whole
+   * school year — see instructional-time.ts. */
+  instructionalTime: ClassInstructionalTime[];
   scheduleSlots: ScheduleSlot[];
   /** True when arriving from the school-year onboarding wizard — shows a
    * banner and a "Continue to review" link. See app/onboarding/. */
@@ -52,6 +56,7 @@ export function SchedulePage({
   cycleLength,
   dayLabelScheme,
   error,
+  instructionalTime,
   scheduleSlots,
   wizardMode,
 }: SchedulePageProps) {
@@ -59,10 +64,12 @@ export function SchedulePage({
 
   const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
   const classById = new Map(classes.map((classSection) => [classSection.id, classSection]));
+  const timeByClassId = new Map(instructionalTime.map((entry) => [entry.classId, entry]));
   const selectedClass = selectedClassId ? classById.get(selectedClassId) : undefined;
   const selectedClassSlots = selectedClassId
     ? scheduleSlots.filter((slot) => slot.classId === selectedClassId)
     : [];
+  const selectedClassTime = selectedClassId ? timeByClassId.get(selectedClassId) : undefined;
 
   return (
     <>
@@ -169,44 +176,92 @@ export function SchedulePage({
               Click a class to set its schedule.
             </p>
             <ul className="mt-3 space-y-1">
-              {classes.map((classSection) => (
-                <li key={classSection.id}>
-                  <button
-                    className={[
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
-                      selectedClassId === classSection.id
-                        ? "bg-blue-50 text-blue-900"
-                        : "text-slate-700 hover:bg-slate-100",
-                    ].join(" ")}
-                    onClick={() => setSelectedClassId(classSection.id)}
-                    type="button"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[classSection.color]}`}
-                    />
-                    {classSection.name}
-                  </button>
-                </li>
-              ))}
+              {classes.map((classSection) => {
+                const time = timeByClassId.get(classSection.id);
+
+                return (
+                  <li key={classSection.id}>
+                    <button
+                      className={[
+                        "flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm",
+                        selectedClassId === classSection.id
+                          ? "bg-blue-50 text-blue-900"
+                          : "text-slate-700 hover:bg-slate-100",
+                      ].join(" ")}
+                      onClick={() => setSelectedClassId(classSection.id)}
+                      type="button"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[classSection.color]}`}
+                        />
+                        {classSection.name}
+                      </span>
+                      {time && time.scheduledMinutes > 0 ? (
+                        <span
+                          className={[
+                            "shrink-0 text-xs font-medium",
+                            time.meetsTarget ? "text-emerald-700" : "text-amber-700",
+                          ].join(" ")}
+                        >
+                          {formatMinutes(time.scheduledMinutes)}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         </aside>
       </div>
 
       {selectedClass ? (
-        <form action={action}>
-          {wizardMode ? <input name="wizard" type="hidden" value="1" /> : null}
-          <ClassScheduleEditor
-            classId={selectedClass.id}
-            className={selectedClass.name}
-            color={selectedClass.color}
-            cycleLength={cycleLength}
-            dayLabelScheme={dayLabelScheme}
-            hiddenInputName="slotsJson"
-            initialSlots={selectedClassSlots}
-          />
-        </form>
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <form action={action} key={selectedClass.id}>
+            {wizardMode ? <input name="wizard" type="hidden" value="1" /> : null}
+            <ClassScheduleEditor
+              classId={selectedClass.id}
+              className={selectedClass.name}
+              color={selectedClass.color}
+              cycleLength={cycleLength}
+              dayLabelScheme={dayLabelScheme}
+              hiddenInputName="slotsJson"
+              initialSlots={selectedClassSlots}
+            />
+          </form>
+
+          <aside className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-950">Instructional time</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Computed from the days/times saved below, times how often each
+              day actually occurs across the school year.
+            </p>
+            <div className="mt-3 text-2xl font-semibold text-slate-950">
+              {formatMinutes(selectedClassTime?.scheduledMinutes ?? 0)}
+            </div>
+            {selectedClass.targetMinutesPerYear ? (
+              <div
+                className={[
+                  "mt-1 text-xs font-medium",
+                  selectedClassTime?.meetsTarget ? "text-emerald-700" : "text-amber-700",
+                ].join(" ")}
+              >
+                {selectedClassTime?.meetsTarget ? "Meets" : "Under"} target (
+                {formatMinutes(selectedClass.targetMinutesPerYear)})
+              </div>
+            ) : (
+              <div className="mt-1 text-xs text-slate-400">
+                No target set —{" "}
+                <Link className="underline" href={`/classes/${selectedClass.id}/edit`}>
+                  add one
+                </Link>
+                .
+              </div>
+            )}
+          </aside>
+        </div>
       ) : null}
     </>
   );

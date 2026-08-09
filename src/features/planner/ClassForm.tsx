@@ -3,15 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import { classColorPalette, pickUnusedClassColor } from "./class-color";
-import { getDayLabel } from "./cycle";
 import type { GradeSubjects } from "./curriculum-subjects";
-import type { ClassColor, ClassSection, DayLabelScheme } from "./types";
+import type { ClassColor, ClassSection } from "./types";
 
 type ClassFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   classSection?: ClassSection;
-  cycleLength: number;
-  dayLabelScheme: DayLabelScheme;
   error?: string;
   /** Other classes already in the active year — used to default a new
    * class's color to one not already in use. */
@@ -38,14 +35,11 @@ const classColorSwatchClass: Record<ClassColor, string> = {
 export function ClassForm({
   action,
   classSection,
-  cycleLength,
-  dayLabelScheme,
   error,
   existingClasses,
   gradeSubjects,
   mode,
 }: ClassFormProps) {
-  const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
   const selectedColor = classSection?.color ?? pickUnusedClassColor(existingClasses);
   const isInstructional = classSection?.isInstructional ?? true;
   const initialCurriculumChoice =
@@ -195,38 +189,13 @@ export function ClassForm({
       </div>
 
       <aside className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-950">
-            Day cycle membership
-          </h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Which of the school&apos;s {cycleLength} cycle days this class
-            meets on. Leave all unchecked to meet every instructional day
-            (the default — most classes on a regular weekly schedule want
-            this). Edit the cycle length on the{" "}
-            <Link className="text-blue-700 underline" href="/settings/calendar">
-              Calendar
-            </Link>{" "}
-            page.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {cycleDayNumbers.map((day) => (
-            <label
-              className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 has-checked:border-blue-600 has-checked:bg-blue-50 has-checked:text-blue-700"
-              key={day}
-            >
-              <input
-                defaultChecked={classSection?.cycleDays.includes(day)}
-                name="cycleDays"
-                type="checkbox"
-                value={day}
-              />
-              {getDayLabel(dayLabelScheme, day)}
-            </label>
-          ))}
-        </div>
+        <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+          Which days this class meets and at what times is set on the{" "}
+          <Link className="text-blue-700 underline" href="/settings/schedule">
+            Schedule
+          </Link>{" "}
+          page{mode === "create" ? ", after you save this class" : ""}.
+        </p>
 
         <div>
           <span className="text-sm font-medium text-slate-700">Color</span>

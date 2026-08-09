@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/src/features/planner/AppShell";
-import { computeInstructionalTimeSummary } from "@/src/features/planner/instructional-time";
+import { computeInstructionalTimeSummary, formatMinutes } from "@/src/features/planner/instructional-time";
 import { OnboardingSteps } from "@/src/features/planner/OnboardingSteps";
 import type { ClassColor } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
@@ -17,19 +17,6 @@ const classDotColorClass: Record<ClassColor, string> = {
   teal: "bg-teal-500",
   violet: "bg-violet-500",
 };
-
-function formatMinutes(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours === 0) {
-    return `${minutes} min`;
-  }
-  if (minutes === 0) {
-    return `${hours} h`;
-  }
-  return `${hours} h ${minutes} min`;
-}
 
 export const dynamic = "force-dynamic";
 
