@@ -123,6 +123,24 @@ export type PlannerData = {
   units: UnitPlan[];
 };
 
+export type AttachmentKind = "link" | "file";
+
+/** A link or uploaded file attached to a unit or a lesson. `url` is set for
+ * `kind: "link"`; `fileName`/`mimeType`/`sizeBytes` are set for `kind:
+ * "file"` (the actual bytes live on disk — see
+ * src/lib/storage/attachment-storage.ts — this is just the display/download
+ * metadata, deliberately without the on-disk stored filename). */
+export type Attachment = {
+  id: string;
+  kind: AttachmentKind;
+  label: string;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
 /** One class's meeting time on one cycle day — a class has at most one slot
  * per cycle day (setting a new one for that day replaces the old one via
  * setClassSchedule, which replaces a class's whole schedule at once). Two

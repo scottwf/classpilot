@@ -176,6 +176,26 @@ export function migrate(db: ClassPilotDatabase) {
       end_time TEXT NOT NULL
     );
 
+    -- Links and uploaded files attached to a unit or a lesson. Exactly one
+    -- of unit_id/lesson_id is set. Uploaded files are stored on disk (see
+    -- src/lib/storage/attachment-storage.ts) under stored_name, which is a
+    -- generated name (never the original file_name) to avoid path
+    -- traversal / collisions; file_name is only for display and download.
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      unit_id TEXT REFERENCES unit_plans(id) ON DELETE CASCADE,
+      lesson_id TEXT REFERENCES lesson_plans(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      label TEXT NOT NULL,
+      url TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL DEFAULT '',
+      stored_name TEXT NOT NULL DEFAULT '',
+      mime_type TEXT NOT NULL DEFAULT '',
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      CHECK ((unit_id IS NOT NULL) != (lesson_id IS NOT NULL))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_students_year ON students(school_year_id, last_name);
     CREATE INDEX IF NOT EXISTS idx_contacts_student ON student_contacts(student_id);
     CREATE INDEX IF NOT EXISTS idx_comm_student ON communication_log(student_id, date);
@@ -184,6 +204,8 @@ export function migrate(db: ClassPilotDatabase) {
     CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(status, due_date);
     CREATE INDEX IF NOT EXISTS idx_schedule_slots_class ON schedule_slots(class_id);
     CREATE INDEX IF NOT EXISTS idx_schedule_slots_day ON schedule_slots(cycle_day);
+    CREATE INDEX IF NOT EXISTS idx_attachments_unit ON attachments(unit_id);
+    CREATE INDEX IF NOT EXISTS idx_attachments_lesson ON attachments(lesson_id);
   `);
 
   addColumnIfMissing(

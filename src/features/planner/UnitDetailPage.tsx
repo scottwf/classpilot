@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { AlertTriangle, CalendarDays, Clock3, Pencil, Upload } from "lucide-react";
+import { AttachmentList } from "./AttachmentList";
 import { computeUnitPacing, findOverlappingUnitIds } from "./unit-pacing";
-import type { CurriculumOutcome, PlannerData, UnitPlan } from "./types";
+import type { Attachment, CurriculumOutcome, PlannerData, UnitPlan } from "./types";
 
 type UnitDetailPageProps = {
+  attachmentError?: string;
+  attachments: Attachment[];
+  createFileAttachmentAction: (formData: FormData) => void | Promise<void>;
+  createLinkAttachmentAction: (formData: FormData) => void | Promise<void>;
   data: PlannerData;
+  deleteAttachmentAction: (formData: FormData) => void | Promise<void>;
   error?: string;
   rescheduleAction: (formData: FormData) => void | Promise<void>;
   rescheduled?: string;
@@ -12,7 +18,12 @@ type UnitDetailPageProps = {
 };
 
 export function UnitDetailPage({
+  attachmentError,
+  attachments,
+  createFileAttachmentAction,
+  createLinkAttachmentAction,
   data,
+  deleteAttachmentAction,
   error,
   rescheduleAction,
   rescheduled,
@@ -254,6 +265,16 @@ export function UnitDetailPage({
               </button>
             </form>
           </section>
+
+          <AttachmentList
+            attachments={attachments}
+            createFileAction={createFileAttachmentAction}
+            createLinkAction={createLinkAttachmentAction}
+            deleteAction={deleteAttachmentAction}
+            error={attachmentError}
+            ownerId={unit.id}
+            ownerType="unit"
+          />
         </aside>
       </div>
     </>
