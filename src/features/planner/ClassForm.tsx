@@ -204,7 +204,7 @@ export function ClassForm({
             meets on. Leave all unchecked to meet every instructional day
             (the default — most classes on a regular weekly schedule want
             this). Edit the cycle length on the{" "}
-            <Link className="text-blue-700 underline" href="/calendar">
+            <Link className="text-blue-700 underline" href="/settings/calendar">
               Calendar
             </Link>{" "}
             page.
@@ -286,7 +286,7 @@ export function ClassForm({
           </button>
           <Link
             className="rounded-md px-4 py-2 text-center text-sm font-medium text-slate-600 hover:bg-slate-100"
-            href="/settings"
+            href="/settings/classes"
           >
             Cancel
           </Link>

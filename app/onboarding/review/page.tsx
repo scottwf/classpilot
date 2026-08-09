@@ -128,7 +128,7 @@ export default async function OnboardingReviewRoute() {
       <div className="flex items-center justify-between">
         <Link
           className="text-sm font-medium text-slate-600 hover:text-slate-900"
-          href="/schedule?wizard=1"
+          href="/settings/schedule?wizard=1"
         >
           ← Back to bell schedule
         </Link>

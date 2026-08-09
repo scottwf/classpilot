@@ -34,7 +34,7 @@ export async function createClassAction(formData: FormData) {
 
   createClass(db, { ...input, schoolYearId: getActiveSchoolYearId(db) });
 
-  redirect("/settings?created=1");
+  redirect("/settings/classes?created=1");
 }
 
 export async function updateClassAction(formData: FormData) {
@@ -47,12 +47,12 @@ export async function updateClassAction(formData: FormData) {
   const input = readClassInput(formData);
 
   if (!id || !schoolYearId || !input) {
-    redirect(id ? `/classes/${id}/edit?error=missing` : "/settings?error=missing");
+    redirect(id ? `/classes/${id}/edit?error=missing` : "/settings/classes?error=missing");
   }
 
   updateClass(getClassPilotDatabase(), { ...input, id, schoolYearId });
 
-  redirect("/settings?updated=1");
+  redirect("/settings/classes?updated=1");
 }
 
 export async function deleteClassAction(formData: FormData) {
@@ -64,7 +64,7 @@ export async function deleteClassAction(formData: FormData) {
     deleteClass(getClassPilotDatabase(), id);
   }
 
-  redirect("/settings?deleted=1");
+  redirect("/settings/classes?deleted=1");
 }
 
 function readClassInput(formData: FormData) {

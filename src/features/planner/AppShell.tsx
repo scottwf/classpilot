@@ -2,8 +2,6 @@ import Link from "next/link";
 import {
   BookOpen,
   Bot,
-  Calendar,
-  Clock,
   GanttChart,
   LayoutDashboard,
   Settings,
@@ -23,9 +21,7 @@ type AppShellProps = {
     | "outcomes"
     | "units"
     | "classes"
-    | "schedule"
     | "students"
-    | "calendar"
     | "assistant"
     | "settings"
     | "onboarding";
@@ -33,14 +29,14 @@ type AppShellProps = {
   data: PlannerData;
 };
 
+// Calendar and Schedule moved under Settings (see SettingsTabs.tsx) — not
+// top-level nav items anymore.
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard", page: "planbook" },
   { href: "/lessons", icon: BookOpen, label: "Lessons", page: "lessons" },
   { href: "/outcomes", icon: Target, label: "Outcomes", page: "outcomes" },
   { href: "/units", icon: GanttChart, label: "Unit Timeline", page: "units" },
-  { href: "/schedule", icon: Clock, label: "Schedule", page: "schedule" },
   { href: "/students", icon: Users, label: "Students", page: "students" },
-  { href: "/calendar", icon: Calendar, label: "Calendar", page: "calendar" },
   { href: "/assistant", icon: Bot, label: "Assistant", page: "assistant" },
   { href: "/settings", icon: Settings, label: "Settings", page: "settings" },
 ] as const;
@@ -48,7 +44,7 @@ const navItems = [
 // Mobile bottom tab bar shows these four always; everything else (including
 // Sign out) lives under its "More" tab. Assistant is the leading candidate
 // to be promoted here once it becomes a real chat interface.
-const primaryMobilePages = new Set(["planbook", "lessons", "students", "schedule"]);
+const primaryMobilePages = new Set(["planbook", "lessons", "students", "units"]);
 const primaryMobileItems = navItems.filter((item) => primaryMobilePages.has(item.page));
 const moreMobileItems = navItems.filter((item) => !primaryMobilePages.has(item.page));
 

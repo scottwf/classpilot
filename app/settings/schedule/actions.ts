@@ -45,7 +45,7 @@ export async function setClassScheduleAction(formData: FormData) {
   const suffix = formData.get("wizard") === "1" ? "&wizard=1" : "";
 
   if (!classId) {
-    redirect(`/schedule?error=missing${suffix}`);
+    redirect(`/settings/schedule?error=missing${suffix}`);
   }
 
   const slots = parseSlotsJson(String(formData.get("slotsJson") ?? "[]"));
@@ -53,9 +53,9 @@ export async function setClassScheduleAction(formData: FormData) {
 
   if (conflicts.length > 0) {
     redirect(
-      `/schedule?conflictClassId=${encodeURIComponent(classId)}&conflictClassName=${encodeURIComponent(conflicts[0].className)}${suffix}`,
+      `/settings/schedule?conflictClassId=${encodeURIComponent(classId)}&conflictClassName=${encodeURIComponent(conflicts[0].className)}${suffix}`,
     );
   }
 
-  redirect(suffix ? "/schedule?wizard=1" : "/schedule");
+  redirect(suffix ? "/settings/schedule?wizard=1" : "/settings/schedule");
 }

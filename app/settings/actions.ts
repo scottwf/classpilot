@@ -35,7 +35,7 @@ export async function updateSettingsAction(formData: FormData) {
     aiLocalModel,
   });
 
-  redirect("/settings?saved=1");
+  redirect("/settings/ai?saved=1");
 }
 
 export type TestAiProviderResult = { ok: true; message: string } | { ok: false; error: string };
@@ -108,7 +108,7 @@ export async function clearAiApiKeyAction() {
 
   updateAppSettings(db, { ...current, aiApiKey: "" });
 
-  redirect("/settings?saved=1");
+  redirect("/settings/ai?saved=1");
 }
 
 export async function switchSchoolYearAction(formData: FormData) {

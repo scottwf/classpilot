@@ -30,7 +30,7 @@ export async function updateSchoolYearDetailsAction(formData: FormData) {
     !Number.isInteger(cycleLength) ||
     cycleLength < 1
   ) {
-    redirect("/calendar?error=details");
+    redirect("/settings/calendar?error=details");
   }
 
   const current = getSchoolYear(getClassPilotDatabase());
@@ -45,7 +45,7 @@ export async function updateSchoolYearDetailsAction(formData: FormData) {
     dayLabelScheme,
   });
 
-  redirect("/calendar");
+  redirect("/settings/calendar");
 }
 
 // Bulk-replaces the year's non-instructional days with whatever the
@@ -67,7 +67,7 @@ export async function updateBlockedDatesAction(formData: FormData) {
     dayLabelScheme: current.dayLabelScheme,
   });
 
-  redirect("/calendar");
+  redirect("/settings/calendar");
 }
 
 // Quick single-day cancellation (snow day, emergency closure). Deliberately
@@ -81,7 +81,7 @@ export async function cancelInstructionalDayAction(formData: FormData) {
   const label = String(formData.get("label") ?? "").trim() || "Snow day";
 
   if (!dateKeyPattern.test(date)) {
-    redirect("/calendar?error=date");
+    redirect("/settings/calendar?error=date");
   }
 
   const current = getSchoolYear(getClassPilotDatabase());
@@ -101,5 +101,5 @@ export async function cancelInstructionalDayAction(formData: FormData) {
     dayLabelScheme: current.dayLabelScheme,
   });
 
-  redirect("/calendar");
+  redirect("/settings/calendar");
 }
