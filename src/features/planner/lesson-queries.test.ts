@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { outcomeIdFor } from "@/src/lib/curriculum/sk-outcomes";
 import { plannerData } from "./seed-data";
 import {
+  buildLessonBankFilterOptions,
   buildOutcomeCoverage,
+  filterLessonBank,
+  getAllLessons,
   getLessonsForDate,
   getLessonsForWeek,
   sortLessonBank,
@@ -40,6 +43,38 @@ describe("lesson queries", () => {
     expect(sortLessonBank(plannerData, "outcome")[0]?.outcomeCodes[0]).toBe(
       "CR6.1",
     );
+  });
+
+  it("filters the lesson bank by subject, unit, grade, and outcome", () => {
+    const lessons = getAllLessons(plannerData);
+    const mathLessons = filterLessonBank(lessons, { subject: "Mathematics" });
+
+    expect(mathLessons.length).toBeGreaterThan(0);
+    expect(mathLessons.every((lesson) => lesson.subject === "Mathematics")).toBe(true);
+
+    const oneUnit = mathLessons[0]!.unitId;
+    expect(
+      filterLessonBank(lessons, { unitId: oneUnit }).every((lesson) => lesson.unitId === oneUnit),
+    ).toBe(true);
+
+    const oneOutcome = mathLessons.flatMap((lesson) => lesson.outcomeCodes)[0]!;
+    expect(
+      filterLessonBank(lessons, { outcomeCode: oneOutcome }).every((lesson) =>
+        lesson.outcomeCodes.includes(oneOutcome),
+      ),
+    ).toBe(true);
+
+    expect(filterLessonBank(lessons, { subject: "Nonexistent Subject" })).toHaveLength(0);
+    expect(filterLessonBank(lessons, {})).toHaveLength(lessons.length);
+  });
+
+  it("builds distinct, sorted filter options from the lesson bank", () => {
+    const options = buildLessonBankFilterOptions(getAllLessons(plannerData));
+
+    expect(options.subjects).toEqual([...options.subjects].sort());
+    expect(new Set(options.subjects).size).toBe(options.subjects.length);
+    expect(options.units.length).toBeGreaterThan(0);
+    expect(new Set(options.units.map((unit) => unit.id)).size).toBe(options.units.length);
   });
 
   it("maps planned, covered, and uncovered outcomes for a subject", () => {

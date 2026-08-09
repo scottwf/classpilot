@@ -13,8 +13,23 @@ export type EnrichedLesson = LessonPlan & {
   classId: string;
   className: string;
   subject: string;
+  grade: string;
   unitId: string;
   unitTitle: string;
+  outcomeCodes: string[];
+};
+
+export type LessonBankFilters = {
+  subject?: string;
+  unitId?: string;
+  grade?: string;
+  outcomeCode?: string;
+};
+
+export type LessonBankFilterOptions = {
+  subjects: string[];
+  units: Array<{ id: string; title: string }>;
+  grades: string[];
   outcomeCodes: string[];
 };
 
@@ -84,6 +99,42 @@ export function sortLessonBank(
 
     return compareStrings(left.date, right.date);
   });
+}
+
+/** Empty string in any filter field means "no filter" for that field. */
+export function filterLessonBank(
+  lessons: EnrichedLesson[],
+  filters: LessonBankFilters,
+): EnrichedLesson[] {
+  return lessons.filter((lesson) => {
+    if (filters.subject && lesson.subject !== filters.subject) return false;
+    if (filters.unitId && lesson.unitId !== filters.unitId) return false;
+    if (filters.grade && lesson.grade !== filters.grade) return false;
+    if (filters.outcomeCode && !lesson.outcomeCodes.includes(filters.outcomeCode)) return false;
+    return true;
+  });
+}
+
+/** Distinct filter values actually present in the lesson bank, sorted for
+ * stable dropdown ordering — rebuilt from `lessons` so a filter never
+ * offers an option that would produce zero results. */
+export function buildLessonBankFilterOptions(
+  lessons: EnrichedLesson[],
+): LessonBankFilterOptions {
+  const unitsById = new Map(lessons.map((lesson) => [lesson.unitId, lesson.unitTitle]));
+
+  return {
+    subjects: uniqueSorted(lessons.map((lesson) => lesson.subject)),
+    units: Array.from(unitsById.entries())
+      .map(([id, title]) => ({ id, title }))
+      .sort((left, right) => compareStrings(left.title, right.title)),
+    grades: uniqueSorted(lessons.map((lesson) => lesson.grade).filter(Boolean)),
+    outcomeCodes: uniqueSorted(lessons.flatMap((lesson) => lesson.outcomeCodes)),
+  };
+}
+
+function uniqueSorted(values: string[]): string[] {
+  return Array.from(new Set(values)).sort(compareStrings);
 }
 
 export function buildOutcomeCoverage(data: PlannerData): SubjectOutcomeCoverage[] {
@@ -158,6 +209,7 @@ function enrichLesson(
     classId: unit.classId,
     className: classSection?.name ?? "Unknown class",
     subject: classSection?.subject ?? "Unknown subject",
+    grade: classSection?.grade ?? "",
     unitId: unit.id,
     unitTitle: unit.title,
     outcomeCodes: lesson.outcomeIds.map(
