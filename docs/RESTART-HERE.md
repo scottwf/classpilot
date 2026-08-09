@@ -5,26 +5,30 @@
 state at hand-off, how to get running cold, and the prioritized plan for the
 next work session.
 
-- **Hand-off date:** 2026-08-06
-- **State at hand-off:** all gates green (20 files, 128 tests / lint / build),
-  deployed and verified against production data on echo — but **not yet
-  committed**. `git status` on echo shows the changes below uncommitted on
-  top of `555dc57` (which itself IS pushed to `origin/main`). Commit + push
-  when ready; nothing is half-finished, this is a safe stopping point either
-  way.
-- **Status:** active. This session added the MCP server, cascade
-  rescheduling, the ICS calendar feed, a full day-cycle scheduling system
-  (cycle length, per-class cycle-day membership, class management UI,
-  cycle-aware cascade, and lesson extend/duplicate), the `/settings` admin
-  page for AI provider config, a real installable PWA (icons, service
-  worker, offline page) plus a mobile nav fix, and a bell-schedule/period
-  system (`/schedule` — periods with fixed daily times, per-class
-  day+period assignment with warn-not-block conflict detection; see section
-  2). Full lesson drafting (Priority B) is partway done — pure prompt/parse
-  layer only, no orchestrator/actions/UI yet. Pacing checks and the
-  interactive timeline haven't been started. Reordered the plan in section 5
-  after a competitive pass
-  against other teacher plan books. **All of Priority A is now done.**
+- **Hand-off date:** 2026-08-09
+- **State at hand-off:** all gates green (37 files, 279 tests / lint / build /
+  `mcp-server` typecheck), committed and deployed to production on echo
+  (`feature/multi-year-onboarding`, never merged to `main` — see below).
+- **Status:** active, in active testing use ahead of the school year starting.
+  Feature-complete on the original MVP plan (day-cycle scheduling, multi-year
+  data model, onboarding wizard, full lesson drafting, pacing/overload checks,
+  interactive unit timeline, assistant chat with tool-calling, curriculum
+  outcome picker/browser, birthday reminders, and a tabbed `/settings` area
+  covering AI providers, classes, calendar, and schedule). Recent work: fixed
+  a schedule-editor state bug (switching classes left stale day/time
+  selections, causing false "conflict" warnings), removed the redundant
+  day-cycle picker from the Class form (Schedule is now the single source of
+  truth for which days a class meets — `set_class_schedule` overwrites
+  `cycleDays` on save), added scheduled-vs-target instructional-minutes
+  summaries to the Schedule page, and added subject/unit/grade/outcome
+  filters to the lesson bank. **Branch is not on `main`** — confirm before
+  assuming `main` reflects current production.
+- **Deferred, tracked as GitHub issues for a later dedicated pass:**
+  temporary/burst schedule swaps for irregularly-taught classes (#19),
+  attachments — links/videos/files on lessons and units (#20), and
+  multi-user auth + per-user data isolation + per-user MCP tokens + a
+  security review (#21, required before any other teacher's real data goes
+  near this app).
 
 ---
 
@@ -41,9 +45,10 @@ npm run dev        # http://localhost:3000 (or CLASSPILOT_PORT)
 Then confirm everything is healthy before writing any new code:
 
 ```bash
-npm test           # expect: 20 files, 128 tests passing
+npm test           # expect: 37 files, 279 tests passing
 npm run lint       # expect: clean
-npm run build      # expect: success, 25 routes incl. /assistant, /calendar/feed.ics, /classes, /settings, /schedule
+npm run build      # expect: success, incl. /assistant, /calendar/feed.ics, /settings, /settings/ai,
+                    # /settings/classes, /settings/calendar, /settings/schedule
 ```
 
 If you also touch `mcp-server/`, run `cd mcp-server && npm install && npx tsc --noEmit`
@@ -63,7 +68,8 @@ run when the DB is empty.
 
 ## 2. What works today (built + verified)
 
-All of this is shipped on `main`:
+All of this is shipped and deployed on echo, on the `feature/multi-year-onboarding`
+branch (not merged to `main` — check before assuming `main` is current):
 
 - **Auth** — password-gated single-user access (HMAC-signed httpOnly cookie,
   14-day TTL), constant-time password check, fail-closed secrets in production,
@@ -89,17 +95,20 @@ All of this is shipped on `main`:
   on (`cycleDays: number[]`; empty means every instructional day — the
   backward-compatible default). Previously classes only existed via seed
   data with no UI at all.
-- **Schedule / bell schedule** — `/schedule` (Planboard-style): a school-wide
-  list of periods with fixed clock times, the same every cycle day (`periods`
-  table, `src/lib/db/schedule-repository.ts`), and a day-by-day grid to
-  assign a class to a period on a cycle day (`schedule_slots`). A class has
-  at most one slot per cycle day (assigning a new period replaces the old
-  one); two different classes CAN share a (day, period) — flagged as a
-  warning, not blocked, since there may be a legitimate reason (co-taught
-  blocks, etc.). Assigning a slot auto-adds that day to the class's
-  `cycleDays` so cascade rescheduling/extend-lesson pick it up. `room` and
-  `meetingPattern` on `ClassSection` predate this and are still just free
-  text/labels — periods are the real, structured schedule now.
+- **Schedule** — `/settings/schedule` (moved from the old top-level `/schedule`
+  in the 2026-08-08 Settings-tabs reorg): click a class, check off which
+  cycle days it meets on and set a start/end time per day
+  (`ClassScheduleEditor.tsx`, `schedule_slots` table — no separate `periods`
+  table; each class's slots carry their own times directly). Saving a
+  class's schedule replaces its whole slot list and overwrites its
+  `cycleDays` to match — **this is now the single source of truth for which
+  days a class meets** (the Class form's old day-cycle checkbox was removed
+  2026-08-09 since it duplicated this and could drift out of sync). Two
+  classes sharing a (day, time) is flagged as a warning, not blocked. The
+  page also shows scheduled-vs-target instructional minutes per class,
+  reusing `computeInstructionalTimeSummary` from `instructional-time.ts`
+  (same logic the onboarding review step uses). `room` and `meetingPattern`
+  on `ClassSection` are still just free text/labels, unrelated to this.
 - **Cascade lesson rescheduling** — a form on the unit detail page
   (`/units/[unitId]`) and the `shift_lessons` MCP tool push every lesson in a
   unit on/after a date forward or backward by N of the unit's *class's
@@ -124,16 +133,21 @@ All of this is shipped on `main`:
   and can **save it as a real unit + scheduled lessons**. Provider-agnostic
   (`src/lib/ai/`), opt-in, local-model friendly, data-minimized (no student
   data is ever sent). See section 4.
-- **Settings page** — `/settings` configures the AI provider (API key, base
-  URL, model) in-app instead of editing `.env` and restarting. Single-row
-  `app_settings` table (`src/lib/db/settings-repository.ts`), API key
-  encrypted at rest via the same field-cipher used for student data. DB
-  settings take priority over `CLASSPILOT_AI_*` env vars when set;
-  `getAiConfig()`/`isAiConfigured()` in `src/lib/ai/config.ts` gained an
-  `overrides` param for this (fully backward compatible — no-args calls
-  behave exactly as before). The API key is never re-displayed once saved;
-  leaving the field blank on a later save keeps the existing key, and a
-  separate "Clear API key" action removes it explicitly.
+- **Settings** — tabbed as of 2026-08-08 (`SettingsTabs.tsx`, real routes not
+  client-side tabs): `/settings` (school years + danger-zone reset),
+  `/settings/ai` (hosted + local AI provider config — API key, base URL,
+  model for each; a "Test connection" action validates the model ID against
+  the provider's `/models` endpoint before saving), `/settings/classes`
+  (class CRUD), `/settings/calendar` (term dates, cycle length,
+  non-instructional days — moved from the old top-level `/calendar`, which
+  now only has `/calendar/feed.ics`, the ICS endpoint, left at its original
+  URL since external calendar apps subscribe to a fixed URL), and
+  `/settings/schedule` (see above). AI settings: single-row `app_settings`
+  table (`src/lib/db/settings-repository.ts`), API key encrypted at rest via
+  the same field-cipher used for student data, DB settings take priority
+  over `CLASSPILOT_AI_*` env vars when set. The API key is never
+  re-displayed once saved; leaving the field blank on a later save keeps the
+  existing key, and a separate "Clear API key" action removes it explicitly.
 - **Infra** — SQLite via `node:sqlite` behind a repository layer; Docker via
   `compose.yaml`.
 - **Installable PWA** — real icons (`public/icon-*.png`, generated from
@@ -159,17 +173,24 @@ All of this is shipped on `main`:
   earlier "3/19 pages" grep suggested; that number only checked thin `app/`
   route wrappers, not the actual `src/features` UI.
 - **MCP server** (`mcp-server/`) — a separate `classpilot-mcp` container
-  exposes units/lessons/classes/outcomes as MCP tools over Streamable HTTP so
-  an MCP client (Claude Code, Claude Desktop) can read and write plans
-  directly — `get_planner_data`, `create_unit`, `update_unit`, `create_class`,
-  `update_class`, `delete_class`, `shift_lessons`, `create_unit_with_lessons`,
-  `create_lesson`, `update_lesson`, `extend_lesson`, `get_unit`, `get_lesson`,
+  (echo, port 3900) exposes units/lessons/classes/schedule/outcomes as MCP
+  tools over Streamable HTTP so any MCP client (this session's own
+  `mcp__classpilot__*` tools, or a separately-configured Claude Code/Desktop
+  on another machine) can read and write plans directly —
+  `get_planner_data`, `create_unit`, `update_unit`, `create_class`,
+  `update_class`, `delete_class`, `get_schedule`, `set_class_schedule`,
+  `shift_lessons`, `create_unit_with_lessons`, `create_lesson`,
+  `update_lesson`, `extend_lesson`, `get_unit`, `get_lesson`,
   `import_lesson_markdown`. Deliberately has no access to the Student CMS
-  tables. Auth is a single shared header token (`x-classpilot-mcp-key`,
-  `CLASSPILOT_MCP_TOKEN`) — fine for one homelab user, would need real
-  per-user auth before ever leaving the LAN. Shares the same SQLite file as
-  the main app; `sqlite.ts` now sets `PRAGMA journal_mode = WAL` so the two
-  processes don't lock each other out.
+  tables. `create_class`/`update_class` no longer accept `cycleDays`
+  directly (fixed 2026-08-09 to match the Class-form change above) — use
+  `set_class_schedule` to set meeting days/times; `update_class` preserves
+  whatever `cycleDays` the class already has. Auth is a single shared
+  header token (`x-classpilot-mcp-key`, `CLASSPILOT_MCP_TOKEN`) — fine for
+  one homelab user, needs real per-user tokens before another teacher gets
+  access (tracked in issue #21, alongside the same problem for app login).
+  Shares the same SQLite file as the main app; `sqlite.ts` sets `PRAGMA
+  journal_mode = WAL` so the two processes don't lock each other out.
 
 For the architecture, data model, conventions, and file map, read
 [CODEBASE-OVERVIEW.md](CODEBASE-OVERVIEW.md). Do not duplicate that here.
@@ -244,90 +265,25 @@ shows a setup hint instead of erroring.
 
 ---
 
-## 5. Next session — prioritized plan
+## 5. Next session — check GitHub issues, not this list
 
-Pick up from the top. Each item is sized to be a focused session and follows
-the existing conventions (pure tested logic, repository for DB, server actions
-re-check auth, validation redirects with `?error=`).
+This section used to hardcode a prioritized plan; it drifted stale enough to
+be actively misleading (several "next" items below were done weeks ago, and
+one duplicated a feature already shipped). **The live backlog is GitHub
+issues on `scottwf/classpilot`** (`gh issue list --state open`) — that's
+where `ROADMAP.md` gets swept into as ideas come up, and where deferred
+architectural work gets its design notes. As of 2026-08-09, open issues
+include: docx lesson import (#9), pre-seeding common onboarding classes
+(#15), verifying alternating/mid-year-start classes end to end (#16), burst
+scheduling for irregularly-taught classes (#19), lesson/unit attachments
+(#20), and multi-user auth + data isolation (#21, gating — required before
+any other teacher's real data touches this app). `#5`/`#6` (unit notes,
+cross-year unit duplication) are smaller and still open too.
 
-Priorities were reordered on 2026-08-04 after a competitive pass against
-Planbook, Common Curriculum, Planboard, and iDoceo (see
-[../ClassPilot-summary-plan.md](../ClassPilot-summary-plan.md) for the
-product vision these support). Cascade rescheduling in particular is
-Planbook's headline feature ("bumps your plans automatically on a snow day"),
-which is why it jumped to the top instead of waiting for the full interactive
-timeline.
-
-### Priority A — quick, high-leverage wins
-1. ~~**Cascade lesson rescheduling.**~~ ✅ Done 2026-08-04, made cycle-day
-   aware later the same day. Move a lesson or insert a new one and push
-   every later lesson in the unit forward by the same number of *the unit's
-   class's actual meeting days*. Pure shift function in
-   `src/features/planner/reschedule.ts` + `cycle.ts`, atomic multi-row
-   repository update (`cascadeRescheduleUnitLessons`), a form on the unit
-   detail page, and the `shift_lessons` MCP tool. Also shipped alongside:
-   day-cycle scheduling (cycle length + per-class cycle-day membership +
-   `/classes` management UI, since none existed before — see
-   `src/features/planner/cycle.ts`) and lesson extend/duplicate
-   (`duplicateLessonAsContinuation`, `extend_lesson` MCP tool).
-2. ~~**ICS calendar subscription feed.**~~ ✅ Done 2026-08-04. Token-gated
-   `GET /calendar/feed.ics` emitting one all-day `VEVENT` per scheduled
-   lesson; subscribe URL shown on `/calendar`. Note: subscribing from Google
-   Calendar specifically requires the URL to be reachable from Google's
-   servers, not just the teacher's device — that needs public exposure via
-   CPM later, a separate decision from building the feed itself. Apple
-   Calendar/Outlook on a LAN device can subscribe today without any of that.
-3. ~~**Admin/settings page.**~~ ✅ Done 2026-08-04. `/settings` configures the
-   AI provider in-app (DB-backed, encrypted API key, overrides env vars when
-   set) — see section 2. `CLASSPILOT_MCP_TOKEN`/`CLASSPILOT_CALENDAR_TOKEN`
-   deliberately stayed env-only (they're tied to container networking/restart
-   anyway, less of a "hot-swap while running" need than the AI key).
-4. ~~**Real PWA + mobile-responsive pass.**~~ ✅ Done 2026-08-05. Real icons
-   (`icon-source.svg`/`icon-maskable-source.svg` → PNG via `sharp-cli`) and a
-   hand-written `public/sw.js` (network-first navigations → `/offline`
-   fallback, cache-first static assets — no offline *data* access attempted,
-   see section 2). Turned out the "3/19 pages" number only reflected thin
-   `app/` route wrappers; auditing the actual 26 `src/features` components
-   found the codebase was already mobile-first throughout except the nav
-   (fixed with a hamburger menu, `MobileNav.tsx`). **Priority A is now
-   fully done** — see Priority C for the next planned/bigger UI investment
-   (the interactive timeline).
-
-### Priority B — finish the AI planning value loop
-5. **Full lesson drafting.** Today saved lessons only carry a one-line focus.
-   Add an AI action that drafts complete lesson sections (learning goals, minds
-   on, lesson flow, materials, assessment, differentiation) for a single lesson
-   or a whole unit. Reuse the `src/lib/ai/` pattern: pure prompt + parser +
-   orchestrator, isolate the `fetch`.
-6. **Pacing / overload checks.** Compare planned lessons vs. available
-   instructional days per unit and warn on overload/underfill. Pure function +
-   surface on the unit detail and timeline. (Data already exists.)
-
-### Priority C — the signature interaction
-7. **Interactive timeline.** Drag/resize unit blocks with auto lesson
-   rescheduling. This is the headline design goal and the biggest UX win; it is
-   also the largest single piece of client work. Plan it before coding. Reuse
-   `cascadeRescheduleUnitLessons` (Priority A, done) for the auto-reschedule
-   part instead of rebuilding it.
-
-### Priority D — coverage, reuse, and sharing
-8. **Coverage tooling.** Outcome gap detection (outcomes not yet planned) and
-   overlap detection; a coverage report view.
-9. **Lesson library reuse.** Duplicate / version a lesson or unit; richer
-   filters in the lesson bank.
-10. **Shareable read-only plan link.** A single-link view (no account needed)
-    for an admin, colleague, or substitute — matches what every competitor
-    plan book offers and nothing in ClassPilot does today.
-11. **Print / PDF / Word export.** Teachers still print physical plans for
-    office binders; no export/print code exists yet.
-12. **In-app backup export.** A "download everything as a zip" button so
-    backups don't require the manual
-    [backup & recovery runbook](backup-and-recovery.md) every time.
-
-### Priority E — student CMS depth (only with real-data safeguards done)
-13. **Attachments (Phase 2b).** Private file storage + authenticated download,
-    following the same encryption/privacy rules as the CMS.
-14. **Exports.** Student summaries for meetings/report writing.
+Everything from the original Priority A–D plan referenced in earlier
+versions of this doc (cascade rescheduling, ICS feed, settings/AI config,
+PWA, full lesson drafting, pacing checks, the interactive timeline, coverage
+tooling, lesson bank filters) is done — see section 2.
 
 ---
 

@@ -94,12 +94,6 @@ const classInputShape = {
   grade: z.string().min(1),
   room: z.string().default(""),
   meetingPattern: z.string().default("").describe("Free-text label, e.g. 'Daily numeracy block'."),
-  cycleDays: z
-    .array(z.number().int().positive())
-    .default([])
-    .describe(
-      "Which of the school year's cycle days (1..cycleLength, from get_planner_data's schoolYear.cycleLength) this class meets on. Empty means every instructional day.",
-    ),
   color: classColorEnum.default("blue"),
   isInstructional: z
     .boolean()
@@ -199,13 +193,17 @@ export function registerClassPilotTools(server: McpServer) {
     {
       title: "Create class",
       description:
-        "Creates a new class (a row on the unit timeline). Returns the new class's ID.",
+        "Creates a new class (a row on the unit timeline). Returns the new class's ID. The new class has no meeting days/times yet — use set_class_schedule afterward to set which cycle days it meets on and at what times (that's the single source of truth for a class's schedule; it also updates cycleDays for cascade rescheduling and lesson placement).",
       inputSchema: classInputShape,
     },
     async (input) => {
       try {
         const db = getDb();
-        const id = createClass(db, { ...input, schoolYearId: getActiveSchoolYearId(db) });
+        const id = createClass(db, {
+          ...input,
+          cycleDays: [],
+          schoolYearId: getActiveSchoolYearId(db),
+        });
         return ok({ classId: id });
       } catch (error) {
         return fail(error);
@@ -218,7 +216,7 @@ export function registerClassPilotTools(server: McpServer) {
     {
       title: "Update class",
       description:
-        "Updates an existing class's fields, including its cycle-day membership. All fields are required and replace the current values — call get_planner_data first to see the current values.",
+        "Updates an existing class's fields. All fields are required and replace the current values — call get_planner_data first to see the current values. This does not touch meeting days/times — use set_class_schedule for that (it's the single source of truth for a class's schedule).",
       inputSchema: {
         id: z.string().describe("Class ID to update."),
         ...classInputShape,
@@ -231,7 +229,11 @@ export function registerClassPilotTools(server: McpServer) {
         if (!existing) {
           return fail(`Class not found: ${input.id}`);
         }
-        updateClass(db, { ...input, schoolYearId: existing.schoolYearId });
+        updateClass(db, {
+          ...input,
+          cycleDays: existing.cycleDays,
+          schoolYearId: existing.schoolYearId,
+        });
         return ok({ success: true });
       } catch (error) {
         return fail(error);
