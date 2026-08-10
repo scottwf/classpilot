@@ -2,14 +2,18 @@
 
 import { redirect } from "next/navigation";
 import { parseBlockedDatesJson } from "@/src/features/planner/blocked-dates";
+import { groupSubjectsByGrade } from "@/src/features/planner/curriculum-subjects";
+import { parseClassPresetSelections } from "@/src/features/planner/onboarding-class-presets";
 import type { ClassColor, DayLabelScheme } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { createOnboardingPresetClasses } from "@/src/lib/db/onboarding-class-presets";
 import {
   createClass,
   createSchoolYear,
   deleteClass,
   getActiveSchoolYearId,
+  getPlannerData,
   setActiveSchoolYear,
 } from "@/src/lib/db/planner-repository";
 
@@ -120,6 +124,24 @@ export async function addOnboardingClassAction(formData: FormData) {
     isInstructional,
   });
 
+  redirect("/onboarding/classes");
+}
+
+export async function addOnboardingClassPresetsAction(formData: FormData) {
+  await requireAuth();
+
+  const db = getClassPilotDatabase();
+  const plannerData = getPlannerData(db);
+  const presets = parseClassPresetSelections(
+    formData.getAll("presets").map((value) => String(value)),
+    groupSubjectsByGrade(plannerData.outcomes),
+  );
+
+  if (!presets || presets.length === 0) {
+    redirect("/onboarding/classes?error=presets");
+  }
+
+  createOnboardingPresetClasses(db, plannerData.schoolYear.id, presets);
   redirect("/onboarding/classes");
 }
 
