@@ -2,11 +2,16 @@ import Link from "next/link";
 import { AppShell } from "@/src/features/planner/AppShell";
 import { classColorPalette, pickUnusedClassColor } from "@/src/features/planner/class-color";
 import { groupSubjectsByGrade } from "@/src/features/planner/curriculum-subjects";
+import { OnboardingClassPresets } from "@/src/features/planner/OnboardingClassPresets";
 import { OnboardingSteps } from "@/src/features/planner/OnboardingSteps";
 import type { ClassColor } from "@/src/features/planner/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
-import { addOnboardingClassAction, removeOnboardingClassAction } from "../actions";
+import {
+  addOnboardingClassAction,
+  addOnboardingClassPresetsAction,
+  removeOnboardingClassAction,
+} from "../actions";
 
 type OnboardingClassesPageProps = {
   searchParams: Promise<{ error?: string }>;
@@ -58,11 +63,21 @@ export default async function OnboardingClassesRoute({
         </p>
       </section>
 
-      {params.error ? (
+      {params.error === "presets" ? (
+        <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          Select at least one available class preset and try again.
+        </p>
+      ) : params.error ? (
         <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
           Enter a name, subject, and grade.
         </p>
       ) : null}
+
+      <OnboardingClassPresets
+        action={addOnboardingClassPresetsAction}
+        existingClasses={plannerData.classes}
+        gradeSubjects={gradeSubjects}
+      />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
