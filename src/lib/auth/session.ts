@@ -6,6 +6,7 @@ type CreateSessionTokenOptions = {
   now?: number;
   secret: string;
   ttlMs?: number;
+  userId: string;
 };
 
 type VerifySessionTokenOptions = {
@@ -14,12 +15,23 @@ type VerifySessionTokenOptions = {
   token?: string;
 };
 
+export type SessionTokenPayload = {
+  userId: string;
+  expiresAt: number;
+};
+
+// Payload shape: `auth.<userId>.<expiresAt>` — identity-bound (issue #21
+// Phase 1), not just a signed boolean like the original single-shared-
+// password version. userId is always a `user-<uuid>` (see
+// users-repository.ts), which never contains a `.`, so splitting the token
+// on `.` is safe.
 export function createSessionToken({
   now = Date.now(),
   secret,
   ttlMs = defaultTtlMs,
+  userId,
 }: CreateSessionTokenOptions): string {
-  const payload = `auth.${now + ttlMs}`;
+  const payload = `auth.${userId}.${now + ttlMs}`;
   const signature = sign(payload, secret);
 
   return `${payload}.${signature}`;
@@ -29,26 +41,30 @@ export function verifySessionToken({
   now = Date.now(),
   secret,
   token,
-}: VerifySessionTokenOptions): boolean {
+}: VerifySessionTokenOptions): SessionTokenPayload | null {
   if (!token) {
-    return false;
+    return null;
   }
 
   const parts = token.split(".");
 
-  if (parts.length !== 3 || parts[0] !== "auth") {
-    return false;
+  if (parts.length !== 4 || parts[0] !== "auth") {
+    return null;
   }
 
-  const payload = `${parts[0]}.${parts[1]}`;
-  const expiresAt = Number(parts[1]);
-  const signature = parts[2];
+  const [, userId, expiresAtRaw, signature] = parts;
+  const payload = `auth.${userId}.${expiresAtRaw}`;
+  const expiresAt = Number(expiresAtRaw);
 
-  if (!Number.isFinite(expiresAt) || expiresAt <= now) {
-    return false;
+  if (!userId || !Number.isFinite(expiresAt) || expiresAt <= now) {
+    return null;
   }
 
-  return signaturesMatch(signature, sign(payload, secret));
+  if (!signaturesMatch(signature, sign(payload, secret))) {
+    return null;
+  }
+
+  return { userId, expiresAt };
 }
 
 function sign(payload: string, secret: string): string {

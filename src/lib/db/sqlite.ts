@@ -42,6 +42,17 @@ export function migrate(db: ClassPilotDatabase) {
       active_school_year_id TEXT NOT NULL REFERENCES school_years(id)
     );
 
+    -- See src/lib/db/users-repository.ts. Phase 1 of the multi-user auth
+    -- work (issue #21) — exists and is used for real login/session
+    -- identity, but nothing is scoped to a user yet (that's Phase 2), so in
+    -- practice this table has exactly one row today.
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS app_settings (
       id TEXT PRIMARY KEY,
       ai_api_key_encrypted TEXT NOT NULL DEFAULT '',

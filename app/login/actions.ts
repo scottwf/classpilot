@@ -1,17 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { authenticateByPassword } from "@/src/lib/db/users-repository";
 import { setAuthCookie } from "@/src/lib/auth/server";
-import { verifyAppPassword } from "@/src/lib/auth/secrets";
 
 export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
+  const db = getClassPilotDatabase();
+  const user = authenticateByPassword(db, password);
 
-  if (!verifyAppPassword(password)) {
+  if (!user) {
     redirect("/login?error=1");
   }
 
-  await setAuthCookie();
+  await setAuthCookie(user.id);
   redirect("/");
 }
 
