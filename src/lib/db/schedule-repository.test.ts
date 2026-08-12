@@ -214,6 +214,57 @@ describe("schedule repository", () => {
     ]);
   });
 
+  it("unions the temporary slot's cycleDay into the class's cycleDays snapshot (issue #16)", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    const classId = createClass(db, {
+      schoolYearId: plannerData.schoolYear.id,
+      name: "Career Ed",
+      subject: "Career Education",
+      grade: "6",
+      room: "",
+      meetingPattern: "",
+      cycleDays: [],
+    });
+
+    // Before any schedule, cycleDays is empty (meets "every instructional
+    // day" per getClassMeetingDates' fallback) -- a class scheduled only via
+    // a temporary slot must not stay in that state, or cascade-reschedule
+    // and "extend to next day" will treat it as meeting every day.
+    expect(getClassById(db, classId)?.cycleDays).toEqual([]);
+
+    addTemporaryScheduleSlot(db, classId, {
+      cycleDay: 1,
+      startTime: "13:00",
+      endTime: "13:50",
+      startDate: "2026-11-01",
+      endDate: "2026-12-18",
+    });
+
+    expect(getClassById(db, classId)?.cycleDays).toEqual([1]);
+  });
+
+  it("unions a new temporary slot's cycleDay with existing cycleDays instead of overwriting them", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    seedPlannerData(db, plannerData);
+
+    setClassSchedule(db, "grade-6-math", [
+      { cycleDay: 1, startTime: "09:00", endTime: "09:50" },
+    ]);
+    expect(getClassById(db, "grade-6-math")?.cycleDays).toEqual([1]);
+
+    addTemporaryScheduleSlot(db, "grade-6-math", {
+      cycleDay: 3,
+      startTime: "13:00",
+      endTime: "13:50",
+      startDate: "2026-10-01",
+      endDate: "2026-10-14",
+    });
+
+    expect(getClassById(db, "grade-6-math")?.cycleDays).toEqual([1, 3]);
+  });
+
   it("does not delete a class's temporary slots when its regular schedule is re-saved", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     seedPlannerData(db, plannerData);

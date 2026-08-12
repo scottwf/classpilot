@@ -1,7 +1,8 @@
-import type { ClassSection, DayLabelScheme, SchoolYear } from "./types";
+import type { ClassSection, DayLabelScheme, ScheduleSlot, SchoolYear } from "./types";
 
 type CycleSchoolYear = Pick<SchoolYear, "startDate" | "endDate" | "blockedDates" | "cycleLength">;
 type CycleClassSection = Pick<ClassSection, "cycleDays">;
+type CycleScheduleSlot = Pick<ScheduleSlot, "cycleDay" | "startDate" | "endDate">;
 
 function parseDate(dateKey: string): Date {
   return new Date(`${dateKey}T00:00:00.000Z`);
@@ -75,11 +76,39 @@ export function getCycleDayForDate(
  * default for a school with no rotating cycle, and for existing classes
  * created before cycle days existed.
  */
+/**
+ * When `scheduleSlots` is given and non-empty, meeting dates are derived
+ * directly from the actual slots (including a temporary/burst slot's own
+ * date window — see addTemporaryScheduleSlot in schedule-repository.ts),
+ * which is the only way to get this right for a class scheduled *only*
+ * via temporary slots (a mid-year-start class, or one that alternates by
+ * month with no permanent slot at all): its `cycleDays` snapshot alone
+ * can't express "only during these months." Falls back to the
+ * `cycleDays`-only behavior (empty means "meets every instructional day")
+ * when no slots are passed, for a class that hasn't been scheduled at all
+ * yet.
+ */
 export function getClassMeetingDates(
   schoolYear: CycleSchoolYear,
   classSection: CycleClassSection,
+  scheduleSlots: CycleScheduleSlot[] = [],
 ): string[] {
   const cycleDayMap = buildCycleDayMap(schoolYear);
+
+  if (scheduleSlots.length > 0) {
+    return Array.from(cycleDayMap.entries())
+      .filter(([date, cycleDay]) =>
+        scheduleSlots.some(
+          (slot) =>
+            slot.cycleDay === cycleDay &&
+            (!slot.startDate || date >= slot.startDate) &&
+            (!slot.endDate || date <= slot.endDate),
+        ),
+      )
+      .map(([date]) => date)
+      .sort();
+  }
+
   const meetsEveryDay = classSection.cycleDays.length === 0;
   const cycleDaySet = new Set(classSection.cycleDays);
 
@@ -128,6 +157,9 @@ export function getNextClassMeetingDate(
   schoolYear: CycleSchoolYear,
   classSection: CycleClassSection,
   afterDate: string,
+  scheduleSlots: CycleScheduleSlot[] = [],
 ): string | undefined {
-  return getClassMeetingDates(schoolYear, classSection).find((date) => date > afterDate);
+  return getClassMeetingDates(schoolYear, classSection, scheduleSlots).find(
+    (date) => date > afterDate,
+  );
 }

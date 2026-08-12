@@ -824,6 +824,25 @@ export function deleteClass(db: ClassPilotDatabase, id: string) {
   db.prepare("DELETE FROM class_sections WHERE id = ?").run(id);
 }
 
+// Local, minimal query rather than importing getScheduleSlotsForClass from
+// schedule-repository.ts — that module already imports from this one
+// (cascadeRescheduleUnitLessons, getSchoolYearById), so importing it back
+// here would be circular.
+function getScheduleSlotRowsForClass(
+  db: ClassPilotDatabase,
+  classId: string,
+): Array<{ cycleDay: number; startDate?: string; endDate?: string }> {
+  const rows = db
+    .prepare("SELECT cycle_day, start_date, end_date FROM schedule_slots WHERE class_id = ?")
+    .all(classId) as Array<{ cycle_day: number; start_date: string | null; end_date: string | null }>;
+
+  return rows.map((row) => ({
+    cycleDay: row.cycle_day,
+    startDate: row.start_date ?? undefined,
+    endDate: row.end_date ?? undefined,
+  }));
+}
+
 export type CascadeRescheduleInput = {
   unitId: string;
   fromDate: string;
@@ -860,7 +879,8 @@ export function cascadeRescheduleUnitLessons(
   }
 
   const schoolYear = getSchoolYearById(db, classSection.schoolYearId);
-  const meetingDates = getClassMeetingDates(schoolYear, classSection);
+  const scheduleSlots = getScheduleSlotRowsForClass(db, classSection.id);
+  const meetingDates = getClassMeetingDates(schoolYear, classSection, scheduleSlots);
   const shifts = computeCascadeShift(
     unit.lessons,
     input.fromDate,
@@ -922,7 +942,8 @@ export function duplicateLessonAsContinuation(
   }
 
   const schoolYear = getSchoolYearById(db, classSection.schoolYearId);
-  const nextDate = getNextClassMeetingDate(schoolYear, classSection, source.date);
+  const scheduleSlots = getScheduleSlotRowsForClass(db, classSection.id);
+  const nextDate = getNextClassMeetingDate(schoolYear, classSection, source.date, scheduleSlots);
 
   if (!nextDate) {
     throw new Error(

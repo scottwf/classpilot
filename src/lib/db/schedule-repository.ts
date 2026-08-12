@@ -240,6 +240,35 @@ export function addTemporaryScheduleSlot(
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(id, classId, input.cycleDay, input.startTime, input.endTime, input.startDate, input.endDate);
 
+  // Unlike setClassSchedule (which replaces cycleDays outright, since it
+  // owns the class's whole regular schedule), a temporary slot is additive
+  // — union its cycleDay into whatever the class already has instead of
+  // overwriting. Without this, a class scheduled *only* via temporary
+  // slots (the correct tool for a mid-year-start class, or a class that
+  // alternates by month with no permanent slot at all) keeps cycleDays
+  // empty, which getClassMeetingDates() reads as "meets every
+  // instructional day" — silently wrong for cascade reschedule and
+  // "extend to next day", which then place lessons on days the class
+  // never actually meets. Known residual limitation: this still doesn't
+  // teach getClassMeetingDates() about the slot's own date window, so a
+  // cascade/extend near a temporary slot's start/end boundary can still
+  // land outside it — cycleDays has no concept of "only during these
+  // months." Good enough to fix the empty-cycleDays case; a real fix
+  // would need getClassMeetingDates() to read schedule_slots directly
+  // instead of the cycleDays snapshot.
+  const currentCycleDays = db
+    .prepare("SELECT cycle_days_json FROM class_sections WHERE id = ?")
+    .get(classId) as { cycle_days_json: string };
+  const existingDays = JSON.parse(currentCycleDays.cycle_days_json) as number[];
+  const unionedDays =
+    existingDays.length === 0
+      ? [input.cycleDay]
+      : Array.from(new Set([...existingDays, input.cycleDay])).sort((a, b) => a - b);
+  db.prepare("UPDATE class_sections SET cycle_days_json = ? WHERE id = ?").run(
+    JSON.stringify(unionedDays),
+    classId,
+  );
+
   if (displacedOccurrences > 0) {
     for (const other of otherRegularSlots) {
       const affectedUnits = db
