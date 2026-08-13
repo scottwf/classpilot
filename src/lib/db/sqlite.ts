@@ -42,16 +42,31 @@ export function migrate(db: ClassPilotDatabase) {
       active_school_year_id TEXT NOT NULL REFERENCES school_years(id)
     );
 
-    -- See src/lib/db/users-repository.ts. Phase 1 of the multi-user auth
-    -- work (issue #21) — exists and is used for real login/session
-    -- identity, but nothing is scoped to a user yet (that's Phase 2), so in
-    -- practice this table has exactly one row today.
+    -- See src/lib/db/users-repository.ts (issue #21).
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    -- Per-user MCP auth tokens (issue #21 Phase 4), replacing the old
+    -- single shared CLASSPILOT_MCP_TOKEN env var. token_hash is a SHA-256
+    -- digest -- see src/lib/db/mcp-tokens-repository.ts; the plaintext
+    -- token is only ever available to the caller at creation time. A
+    -- revoked token is kept (revoked_at set) rather than deleted, so
+    -- "who had access and when" stays auditable.
+    CREATE TABLE IF NOT EXISTS mcp_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      label TEXT NOT NULL DEFAULT '',
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT,
+      revoked_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user ON mcp_tokens(user_id);
 
     CREATE TABLE IF NOT EXISTS app_settings (
       id TEXT PRIMARY KEY,

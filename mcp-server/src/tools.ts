@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { getDb, getSoleUserId } from "./db.ts";
+import { getDb } from "./db.ts";
 import {
   cascadeRescheduleUnitLessons,
   createClass,
@@ -138,7 +138,7 @@ function matchesReference(id: string, label: string, reference: string) {
   return normalizeRef(id) === normalized || normalizeRef(label) === normalized;
 }
 
-export function registerClassPilotTools(server: McpServer) {
+export function registerClassPilotTools(server: McpServer, userId: string) {
   server.registerTool(
     "get_planner_data",
     {
@@ -149,7 +149,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async () => {
       try {
-        return ok(getPlannerData(getDb(), getSoleUserId()));
+        return ok(getPlannerData(getDb(), userId));
       } catch (error) {
         return fail(error);
       }
@@ -165,7 +165,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async (input) => {
       try {
-        const id = createUnit(getDb(), getSoleUserId(), input);
+        const id = createUnit(getDb(), userId, input);
         return ok({ unitId: id });
       } catch (error) {
         return fail(error);
@@ -186,7 +186,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async (input) => {
       try {
-        updateUnit(getDb(), getSoleUserId(), input);
+        updateUnit(getDb(), userId, input);
         return ok({ success: true });
       } catch (error) {
         return fail(error);
@@ -205,7 +205,6 @@ export function registerClassPilotTools(server: McpServer) {
     async (input) => {
       try {
         const db = getDb();
-        const userId = getSoleUserId();
         const id = createClass(db, userId, {
           ...input,
           cycleDays: [],
@@ -232,7 +231,6 @@ export function registerClassPilotTools(server: McpServer) {
     async (input) => {
       try {
         const db = getDb();
-        const userId = getSoleUserId();
         const existing = getClassById(db, userId, input.id);
         if (!existing) {
           return fail(`Class not found: ${input.id}`);
@@ -261,7 +259,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async ({ id }) => {
       try {
-        deleteClass(getDb(), getSoleUserId(), id);
+        deleteClass(getDb(), userId, id);
         return ok({ success: true });
       } catch (error) {
         return fail(error);
@@ -280,7 +278,6 @@ export function registerClassPilotTools(server: McpServer) {
     async () => {
       try {
         const db = getDb();
-        const userId = getSoleUserId();
         const schoolYearId = getActiveSchoolYearId(db, userId);
         return ok({ scheduleSlots: getScheduleSlots(db, userId, schoolYearId) });
       } catch (error) {
@@ -314,7 +311,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async ({ classId, slots }) => {
       try {
-        const conflicts = setClassSchedule(getDb(), getSoleUserId(), classId, slots);
+        const conflicts = setClassSchedule(getDb(), userId, classId, slots);
         return ok({ success: true, conflicts });
       } catch (error) {
         return fail(error);
@@ -344,7 +341,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async (input) => {
       try {
-        const result = cascadeRescheduleUnitLessons(getDb(), getSoleUserId(), input);
+        const result = cascadeRescheduleUnitLessons(getDb(), userId, input);
         return ok(result);
       } catch (error) {
         return fail(error);
@@ -368,7 +365,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async ({ unit, lessons }) => {
       try {
-        const unitId = createUnitWithLessons(getDb(), getSoleUserId(), { unit, lessons });
+        const unitId = createUnitWithLessons(getDb(), userId, { unit, lessons });
         return ok({ unitId, lessonCount: lessons.length });
       } catch (error) {
         return fail(error);
@@ -388,7 +385,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async (input) => {
       try {
-        const id = createLesson(getDb(), getSoleUserId(), input);
+        const id = createLesson(getDb(), userId, input);
         return ok({ lessonId: id });
       } catch (error) {
         return fail(error);
@@ -410,7 +407,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async (input) => {
       try {
-        updateLesson(getDb(), getSoleUserId(), input);
+        updateLesson(getDb(), userId, input);
         return ok({ success: true });
       } catch (error) {
         return fail(error);
@@ -430,7 +427,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async ({ lessonId }) => {
       try {
-        const result = duplicateLessonAsContinuation(getDb(), getSoleUserId(), lessonId);
+        const result = duplicateLessonAsContinuation(getDb(), userId, lessonId);
         return ok(result);
       } catch (error) {
         return fail(error);
@@ -449,7 +446,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async ({ id }) => {
       try {
-        const unit = getUnitById(getDb(), getSoleUserId(), id);
+        const unit = getUnitById(getDb(), userId, id);
         if (!unit) {
           return fail(`Unit not found: ${id}`);
         }
@@ -471,7 +468,7 @@ export function registerClassPilotTools(server: McpServer) {
     },
     async ({ id }) => {
       try {
-        const lesson = getLessonById(getDb(), getSoleUserId(), id);
+        const lesson = getLessonById(getDb(), userId, id);
         if (!lesson) {
           return fail(`Lesson not found: ${id}`);
         }
@@ -495,7 +492,7 @@ export function registerClassPilotTools(server: McpServer) {
     async ({ markdown }) => {
       try {
         const parsed = parseLessonMarkdown(markdown);
-        const planner = getPlannerData(getDb(), getSoleUserId());
+        const planner = getPlannerData(getDb(), userId);
 
         const unit = planner.units.find((candidate) =>
           matchesReference(candidate.id, candidate.title, parsed.unitRef),
@@ -517,7 +514,7 @@ export function registerClassPilotTools(server: McpServer) {
           outcomeIds.push(outcome.id);
         }
 
-        const lessonId = createLesson(getDb(), getSoleUserId(), {
+        const lessonId = createLesson(getDb(), userId, {
           date: parsed.date,
           durationMinutes: parsed.durationMinutes,
           outcomeIds,

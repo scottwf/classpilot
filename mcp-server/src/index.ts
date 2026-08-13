@@ -3,20 +3,17 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { registerClassPilotTools } from "./tools.ts";
+import { getDb } from "./db.ts";
+import { resolveMcpToken } from "../../src/lib/db/mcp-tokens-repository.ts";
 
 const PORT = Number(process.env.PORT ?? 3900);
-const AUTH_TOKEN = process.env.CLASSPILOT_MCP_TOKEN;
 
-if (!AUTH_TOKEN) {
-  throw new Error("CLASSPILOT_MCP_TOKEN must be set.");
-}
-
-function buildServer() {
+function buildServer(userId: string) {
   const server = new McpServer({
     name: "classpilot",
     version: "0.1.0",
   });
-  registerClassPilotTools(server);
+  registerClassPilotTools(server, userId);
   return server;
 }
 
@@ -35,9 +32,18 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
+type AuthedRequest = Request & { userId?: string };
+
+// Per-user token auth (issue #21 Phase 4), replacing the single shared
+// CLASSPILOT_MCP_TOKEN env var everyone used to get full read/write access
+// to every teacher's data. Tokens are created/revoked from Settings > MCP
+// Tokens in the app; see src/lib/db/mcp-tokens-repository.ts for the
+// hash-at-rest storage and resolution logic.
+function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   const provided = req.header("x-classpilot-mcp-key");
-  if (provided !== AUTH_TOKEN) {
+  const resolved = provided ? resolveMcpToken(getDb(), provided) : undefined;
+
+  if (!resolved) {
     res.status(401).json({
       jsonrpc: "2.0",
       error: { code: -32001, message: "Unauthorized" },
@@ -45,12 +51,14 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
     });
     return;
   }
+
+  req.userId = resolved.userId;
   next();
 }
 
-app.post("/mcp", requireAuth, async (req, res) => {
+app.post("/mcp", requireAuth, async (req: AuthedRequest, res) => {
   try {
-    const server = buildServer();
+    const server = buildServer(req.userId!);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
