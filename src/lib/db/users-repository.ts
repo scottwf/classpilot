@@ -43,6 +43,16 @@ export function getSoleUser(db: ClassPilotDatabase): User | undefined {
   return row ? mapUser(row) : undefined;
 }
 
+/** Usernames + creation dates only, for the account-management UI (issue
+ * #21 Phase 3) — never password hashes. */
+export function listUsers(db: ClassPilotDatabase): User[] {
+  const rows = db
+    .prepare("SELECT id, username, password_hash, created_at FROM users ORDER BY created_at")
+    .all() as UserRow[];
+
+  return rows.map(mapUser);
+}
+
 export function getUserByUsername(db: ClassPilotDatabase, username: string): User | undefined {
   const row = db
     .prepare("SELECT id, username, password_hash, created_at FROM users WHERE username = ?")
@@ -66,22 +76,29 @@ export function createUser(
 }
 
 /**
- * Phase 1/2 login (issue #21): only one account can exist yet, so the
- * login form only asks for a password, no username field. Matches against
- * every user's hash (in practice exactly one row) rather than requiring a
- * username lookup — Phase 3 (account creation) adds a username field to
- * the login form once a second account can actually exist.
+ * Real per-account login (issue #21 Phase 3): looks the account up by
+ * username first, then verifies the password against that specific
+ * account's hash. Replaces the Phase 1/2 password-only
+ * authenticateByPassword (which matched against every user's hash) now
+ * that a second account can actually exist — matching by password alone
+ * was always ambiguous if two accounts ever shared a password (whichever
+ * row came first would silently win), which stops being a theoretical
+ * concern once account creation is real.
  */
-export function authenticateByPassword(
+export function authenticateUser(
   db: ClassPilotDatabase,
+  username: string,
   password: string,
 ): User | undefined {
-  const rows = db
-    .prepare("SELECT id, username, password_hash, created_at FROM users")
-    .all() as UserRow[];
-  const match = rows.find((row) => verifyPassword(password, row.password_hash));
+  const row = db
+    .prepare("SELECT id, username, password_hash, created_at FROM users WHERE username = ?")
+    .get(username) as UserRow | undefined;
 
-  return match ? mapUser(match) : undefined;
+  if (!row || !verifyPassword(password, row.password_hash)) {
+    return undefined;
+  }
+
+  return mapUser(row);
 }
 
 /**

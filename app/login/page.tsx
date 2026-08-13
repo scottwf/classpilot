@@ -37,13 +37,30 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div>
             <label
               className="text-sm font-medium text-slate-700"
+              htmlFor="username"
+            >
+              Username
+            </label>
+            <input
+              autoComplete="username"
+              autoFocus
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              id="username"
+              name="username"
+              required
+              type="text"
+            />
+          </div>
+
+          <div>
+            <label
+              className="text-sm font-medium text-slate-700"
               htmlFor="password"
             >
               Password
             </label>
             <input
               autoComplete="current-password"
-              autoFocus
               className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               id="password"
               name="password"
@@ -54,7 +71,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           {hasError ? (
             <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              That password did not match.
+              That username and password did not match.
             </p>
           ) : null}
 
@@ -68,7 +85,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         <p className="mt-4 text-xs leading-5 text-slate-500">
           Set `CLASSPILOT_APP_PASSWORD` and `CLASSPILOT_AUTH_SECRET` before
-          entering real student information.
+          entering real student information. Default username is `teacher`
+          unless `CLASSPILOT_APP_USERNAME` is set.
         </p>
       </section>
     </main>

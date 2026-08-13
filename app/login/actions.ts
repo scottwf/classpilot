@@ -2,13 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
-import { authenticateByPassword } from "@/src/lib/db/users-repository";
+import { authenticateUser } from "@/src/lib/db/users-repository";
 import { setAuthCookie } from "@/src/lib/auth/server";
 
 export async function loginAction(formData: FormData) {
+  const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const db = getClassPilotDatabase();
-  const user = authenticateByPassword(db, password);
+  const user = authenticateUser(db, username, password);
 
   if (!user) {
     redirect("/login?error=1");

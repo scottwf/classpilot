@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type SettingsTab = "years" | "ai" | "classes" | "calendar" | "schedule";
+type SettingsTab = "years" | "ai" | "classes" | "calendar" | "schedule" | "account";
 
 const tabs: { key: SettingsTab; href: string; label: string }[] = [
   { key: "years", href: "/settings", label: "School Years" },
@@ -8,6 +8,7 @@ const tabs: { key: SettingsTab; href: string; label: string }[] = [
   { key: "classes", href: "/settings/classes", label: "Classes" },
   { key: "calendar", href: "/settings/calendar", label: "Calendar" },
   { key: "schedule", href: "/settings/schedule", label: "Schedule" },
+  { key: "account", href: "/settings/account", label: "Accounts" },
 ];
 
 /**

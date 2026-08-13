@@ -4,12 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  authenticateByPassword,
+  authenticateUser,
   countUsers,
   createUser,
   ensureBackfilledUser,
   getUserById,
   getUserByUsername,
+  listUsers,
 } from "./users-repository";
 import { createClassPilotDatabase } from "./sqlite";
 
@@ -40,12 +41,36 @@ describe("users repository", () => {
     expect(getUserByUsername(db, "nobody")).toBeUndefined();
   });
 
-  it("authenticates by password against any existing user", () => {
+  it("authenticates by username and password together", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     const created = createUser(db, { username: "teacher", password: "s3cret!" });
 
-    expect(authenticateByPassword(db, "s3cret!")?.id).toBe(created.id);
-    expect(authenticateByPassword(db, "wrong-password")).toBeUndefined();
+    expect(authenticateUser(db, "teacher", "s3cret!")?.id).toBe(created.id);
+    expect(authenticateUser(db, "teacher", "wrong-password")).toBeUndefined();
+    expect(authenticateUser(db, "nobody", "s3cret!")).toBeUndefined();
+  });
+
+  it("does not authenticate one account's password against a different account's username", () => {
+    // The whole reason authenticateUser replaced the old password-only
+    // lookup: two accounts sharing a password must never let a login for
+    // one succeed as the other.
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    createUser(db, { username: "teacherA", password: "shared-password" });
+    const teacherB = createUser(db, { username: "teacherB", password: "shared-password" });
+
+    expect(authenticateUser(db, "teacherB", "shared-password")?.id).toBe(teacherB.id);
+    expect(authenticateUser(db, "teacherC", "shared-password")).toBeUndefined();
+  });
+
+  it("lists every user without exposing password hashes", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    createUser(db, { username: "teacherA", password: "x" });
+    createUser(db, { username: "teacherB", password: "y" });
+
+    const users = listUsers(db);
+    expect(users.map((user) => user.username)).toEqual(["teacherA", "teacherB"]);
+    expect(users[0]).not.toHaveProperty("passwordHash");
+    expect(users[0]).not.toHaveProperty("password_hash");
   });
 
   it("backfills exactly one user from the app password when none exist", () => {
@@ -56,7 +81,7 @@ describe("users repository", () => {
     ensureBackfilledUser(db, "the-app-password", "teacher");
 
     expect(countUsers(db)).toBe(1);
-    expect(authenticateByPassword(db, "the-app-password")?.username).toBe("teacher");
+    expect(authenticateUser(db, "teacher", "the-app-password")?.username).toBe("teacher");
   });
 
   it("does not create a second user if one already exists (idempotent)", () => {
@@ -66,7 +91,7 @@ describe("users repository", () => {
     ensureBackfilledUser(db, "the-app-password", "teacher");
 
     expect(countUsers(db)).toBe(1);
-    expect(authenticateByPassword(db, "the-app-password")).toBeUndefined();
-    expect(authenticateByPassword(db, "already-here")?.username).toBe("existing");
+    expect(authenticateUser(db, "teacher", "the-app-password")).toBeUndefined();
+    expect(authenticateUser(db, "existing", "already-here")?.username).toBe("existing");
   });
 });
