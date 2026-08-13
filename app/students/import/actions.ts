@@ -15,7 +15,7 @@ export async function importRosterCsvAction(
   _prev: ImportRosterState,
   formData: FormData,
 ): Promise<ImportRosterState> {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const csvText = await getCsvText(formData);
 
@@ -25,10 +25,10 @@ export async function importRosterCsvAction(
 
   const { rows, errors } = parseStudentCsv(csvText);
   const db = getClassPilotDatabase();
-  const schoolYearId = getActiveSchoolYearId(db);
+  const schoolYearId = getActiveSchoolYearId(db, userId);
 
   for (const row of rows) {
-    createStudent(db, { ...row.input, schoolYearId });
+    createStudent(db, userId, { ...row.input, schoolYearId });
   }
 
   return { status: "done", importedCount: rows.length, errors };

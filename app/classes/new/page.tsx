@@ -14,9 +14,9 @@ type NewClassPageProps = {
 export const dynamic = "force-dynamic";
 
 export default async function NewClassPage({ searchParams }: NewClassPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const params = await searchParams;
 
   return (

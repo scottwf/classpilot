@@ -40,9 +40,9 @@ export const dynamic = "force-dynamic";
 export default async function OnboardingClassesRoute({
   searchParams,
 }: OnboardingClassesPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const params = await searchParams;
   const gradeSubjects = groupSubjectsByGrade(plannerData.outcomes);
   const defaultColor = pickUnusedClassColor(plannerData.classes);

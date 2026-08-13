@@ -32,6 +32,17 @@ export function getUserById(db: ClassPilotDatabase, id: string): User | undefine
   return row ? mapUser(row) : undefined;
 }
 
+// Only for the boot-time backfill migration in classpilot-db.ts (attributing
+// pre-multi-user data to *a* user) -- everywhere else, the current user
+// comes from the authenticated session (getCurrentUserId()), never this.
+export function getSoleUser(db: ClassPilotDatabase): User | undefined {
+  const row = db
+    .prepare("SELECT id, username, password_hash, created_at FROM users ORDER BY rowid LIMIT 1")
+    .get() as UserRow | undefined;
+
+  return row ? mapUser(row) : undefined;
+}
+
 export function getUserByUsername(db: ClassPilotDatabase, username: string): User | undefined {
   const row = db
     .prepare("SELECT id, username, password_hash, created_at FROM users WHERE username = ?")

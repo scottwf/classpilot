@@ -33,7 +33,7 @@ const classColors: ClassColor[] = [
 const dayLabelSchemes: DayLabelScheme[] = ["numeric", "letters", "odd-even"];
 
 export async function createOnboardingYearAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const title = String(formData.get("title") ?? "").trim();
   const startDate = String(formData.get("startDate") ?? "").trim();
@@ -57,7 +57,7 @@ export async function createOnboardingYearAction(formData: FormData) {
   }
 
   const db = getClassPilotDatabase();
-  const yearId = createSchoolYear(db, {
+  const yearId = createSchoolYear(db, userId, {
     title,
     startDate,
     endDate,
@@ -69,13 +69,13 @@ export async function createOnboardingYearAction(formData: FormData) {
   // whichever year is "active" — the new year becomes it immediately so the
   // remaining wizard steps (and the existing /schedule page they hand off
   // to) work on it without any extra plumbing.
-  setActiveSchoolYear(db, yearId);
+  setActiveSchoolYear(db, userId, yearId);
 
   redirect("/onboarding/classes");
 }
 
 export async function addOnboardingClassAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const db = getClassPilotDatabase();
   const name = String(formData.get("name") ?? "").trim();
@@ -111,8 +111,8 @@ export async function addOnboardingClassAction(formData: FormData) {
     redirect("/onboarding/classes?error=missing");
   }
 
-  createClass(db, {
-    schoolYearId: getActiveSchoolYearId(db),
+  createClass(db, userId, {
+    schoolYearId: getActiveSchoolYearId(db, userId),
     name,
     subject,
     grade,
@@ -128,10 +128,10 @@ export async function addOnboardingClassAction(formData: FormData) {
 }
 
 export async function addOnboardingClassPresetsAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const db = getClassPilotDatabase();
-  const plannerData = getPlannerData(db);
+  const plannerData = getPlannerData(db, userId);
   const presets = parseClassPresetSelections(
     formData.getAll("presets").map((value) => String(value)),
     groupSubjectsByGrade(plannerData.outcomes),
@@ -141,17 +141,17 @@ export async function addOnboardingClassPresetsAction(formData: FormData) {
     redirect("/onboarding/classes?error=presets");
   }
 
-  createOnboardingPresetClasses(db, plannerData.schoolYear.id, presets);
+  createOnboardingPresetClasses(db, userId, plannerData.schoolYear.id, presets);
   redirect("/onboarding/classes");
 }
 
 export async function removeOnboardingClassAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const id = String(formData.get("id") ?? "").trim();
 
   if (id) {
-    deleteClass(getClassPilotDatabase(), id);
+    deleteClass(getClassPilotDatabase(), userId, id);
   }
 
   redirect("/onboarding/classes");

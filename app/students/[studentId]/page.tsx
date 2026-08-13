@@ -31,17 +31,17 @@ export default async function StudentProfilePage({
   params,
   searchParams,
 }: StudentProfilePageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { studentId } = await params;
   const { error } = await searchParams;
-  const profile = getStudentProfile(getClassPilotDatabase(), studentId);
+  const profile = getStudentProfile(getClassPilotDatabase(), userId, studentId);
 
   if (!profile) {
     notFound();
   }
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
 
   return (
     <AppShell activePage="students" data={plannerData}>

@@ -11,7 +11,7 @@ const dateKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
 const dayLabelSchemes: DayLabelScheme[] = ["numeric", "letters", "odd-even"];
 
 export async function updateSchoolYearDetailsAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const title = String(formData.get("title") ?? "").trim();
   const startDate = String(formData.get("startDate") ?? "").trim();
@@ -33,9 +33,9 @@ export async function updateSchoolYearDetailsAction(formData: FormData) {
     redirect("/settings/calendar?error=details");
   }
 
-  const current = getSchoolYear(getClassPilotDatabase());
+  const current = getSchoolYear(getClassPilotDatabase(), userId);
 
-  updateSchoolYear(getClassPilotDatabase(), {
+  updateSchoolYear(getClassPilotDatabase(), userId, {
     id: current.id,
     title,
     startDate,
@@ -52,12 +52,12 @@ export async function updateSchoolYearDetailsAction(formData: FormData) {
 // click-to-mark CalendarGrid built up client-side (see CalendarGrid.tsx) —
 // re-validated here rather than trusted, since it arrives as JSON.
 export async function updateBlockedDatesAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const blockedDates = parseBlockedDatesJson(String(formData.get("blockedDatesJson") ?? "[]"));
-  const current = getSchoolYear(getClassPilotDatabase());
+  const current = getSchoolYear(getClassPilotDatabase(), userId);
 
-  updateSchoolYear(getClassPilotDatabase(), {
+  updateSchoolYear(getClassPilotDatabase(), userId, {
     id: current.id,
     title: current.title,
     startDate: current.startDate,
@@ -75,7 +75,7 @@ export async function updateBlockedDatesAction(formData: FormData) {
 // requiring the advances-cycle toggle to be set correctly — whatever was
 // scheduled just moves to the next school day instead of being skipped.
 export async function cancelInstructionalDayAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const date = String(formData.get("date") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim() || "Snow day";
@@ -84,14 +84,14 @@ export async function cancelInstructionalDayAction(formData: FormData) {
     redirect("/settings/calendar?error=date");
   }
 
-  const current = getSchoolYear(getClassPilotDatabase());
+  const current = getSchoolYear(getClassPilotDatabase(), userId);
   const byDate = new Map<string, NonInstructionalDay>(
     current.blockedDates.map((day) => [day.date, day]),
   );
 
   byDate.set(date, { date, label, advancesCycle: false });
 
-  updateSchoolYear(getClassPilotDatabase(), {
+  updateSchoolYear(getClassPilotDatabase(), userId, {
     id: current.id,
     title: current.title,
     startDate: current.startDate,

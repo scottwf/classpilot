@@ -29,7 +29,7 @@ function readOwner(formData: FormData): { owner: AttachmentOwner; redirectPath: 
 }
 
 export async function createLinkAttachmentAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { owner, redirectPath } = readOwner(formData);
   const label = String(formData.get("label") ?? "").trim();
@@ -39,13 +39,13 @@ export async function createLinkAttachmentAction(formData: FormData) {
     redirect(`${redirectPath}?attachmentError=link`);
   }
 
-  createLinkAttachment(getClassPilotDatabase(), owner, { label, url });
+  createLinkAttachment(getClassPilotDatabase(), userId, owner, { label, url });
 
   redirect(redirectPath);
 }
 
 export async function createFileAttachmentAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { owner, redirectPath } = readOwner(formData);
   const label = String(formData.get("label") ?? "").trim();
@@ -67,7 +67,7 @@ export async function createFileAttachmentAction(formData: FormData) {
   const contents = Buffer.from(await file.arrayBuffer());
   await saveAttachmentFile(storedName, contents);
 
-  createFileAttachment(getClassPilotDatabase(), owner, {
+  createFileAttachment(getClassPilotDatabase(), userId, owner, {
     label,
     fileName: file.name,
     storedName,
@@ -79,11 +79,11 @@ export async function createFileAttachmentAction(formData: FormData) {
 }
 
 export async function deleteAttachmentAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { redirectPath } = readOwner(formData);
   const attachmentId = String(formData.get("attachmentId") ?? "");
-  const storedName = deleteAttachment(getClassPilotDatabase(), attachmentId);
+  const storedName = deleteAttachment(getClassPilotDatabase(), userId, attachmentId);
 
   if (storedName) {
     await deleteAttachmentFile(storedName);

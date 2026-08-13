@@ -10,13 +10,14 @@ import type { ClassPilotDatabase } from "./sqlite";
 /** Creates onboarding presets atomically, skipping matching existing classes. */
 export function createOnboardingPresetClasses(
   db: ClassPilotDatabase,
+  userId: string,
   schoolYearId: string,
   presets: OnboardingClassPreset[],
 ): string[] {
   db.exec("BEGIN IMMEDIATE;");
 
   try {
-    const classes = listClassesForSchoolYear(db, schoolYearId);
+    const classes = listClassesForSchoolYear(db, userId, schoolYearId);
     const createdIds: string[] = [];
 
     for (const preset of presets) {
@@ -25,7 +26,7 @@ export function createOnboardingPresetClasses(
       }
 
       const color = pickUnusedClassColor(classes);
-      const id = createClass(db, {
+      const id = createClass(db, userId, {
         schoolYearId,
         name: preset.name,
         subject: preset.subject,

@@ -30,6 +30,7 @@ export type SaveUnitOutlineDraftInput = {
  */
 export function saveUnitOutlineDraft(
   db: ClassPilotDatabase,
+  userId: string,
   planner: PlannerData,
   input: SaveUnitOutlineDraftInput,
 ): string {
@@ -58,7 +59,7 @@ export function saveUnitOutlineDraft(
     new Set([...input.selectedOutcomeIds, ...lessons.flatMap((lesson) => lesson.outcomeIds)]),
   );
 
-  return createUnitWithLessons(db, {
+  return createUnitWithLessons(db, userId, {
     unit: {
       classId: input.classId,
       color: input.color,

@@ -171,6 +171,7 @@ function parseToolArguments(raw: string): Record<string, unknown> {
 
 export type RunAssistantChatInput = {
   db: ClassPilotDatabase;
+  userId: string;
   driver: "local" | "hosted";
   driverConfig: AiConfig;
   /** Full history including the new user message, oldest first. System
@@ -204,8 +205,8 @@ const baseSystemPrompt = [
  * model can resolve year-less dates ("October 19") correctly instead of
  * guessing a year outside the school year (the actual cause of a unit
  * landing at the wrong date and overlapping an existing one). */
-export function buildContextPrompt(db: ClassPilotDatabase): string {
-  const planner = getPlannerData(db);
+export function buildContextPrompt(db: ClassPilotDatabase, userId: string): string {
+  const planner = getPlannerData(db, userId);
   const today = new Date().toISOString().slice(0, 10);
 
   return [
@@ -254,7 +255,7 @@ export async function runAssistantChat(input: RunAssistantChatInput): Promise<As
 
   const systemPrompt =
     (input.driver === "hosted" ? `${baseSystemPrompt}${noStudentToolsNotice}` : baseSystemPrompt) +
-    buildContextPrompt(input.db);
+    buildContextPrompt(input.db, input.userId);
 
   const conversation: OrchestratorMessage[] = [
     { content: systemPrompt, role: "system" },
@@ -292,7 +293,7 @@ export async function runAssistantChat(input: RunAssistantChatInput): Promise<As
       const tool = findTool(call.name);
       const result =
         tool && availableTools.includes(tool)
-          ? await tool.execute(input.db, args)
+          ? await tool.execute(input.db, input.userId, args)
           : { error: `Unknown or unavailable tool: ${call.name}`, ok: false as const };
 
       toolCallRecords.push({

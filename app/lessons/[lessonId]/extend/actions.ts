@@ -6,7 +6,7 @@ import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
 import { duplicateLessonAsContinuation } from "@/src/lib/db/planner-repository";
 
 export async function extendLessonAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const lessonId = String(formData.get("lessonId") ?? "").trim();
 
@@ -18,7 +18,7 @@ export async function extendLessonAction(formData: FormData) {
   // otherwise a successful redirect would get swallowed as a thrown error.
   let newLessonId: string;
   try {
-    newLessonId = duplicateLessonAsContinuation(getClassPilotDatabase(), lessonId).lessonId;
+    newLessonId = duplicateLessonAsContinuation(getClassPilotDatabase(), userId, lessonId).lessonId;
   } catch {
     redirect(`/lessons/${lessonId}?error=extend`);
   }

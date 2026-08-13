@@ -25,19 +25,19 @@ type LessonPageProps = {
 export const dynamic = "force-dynamic";
 
 export default async function LessonRoute({ params, searchParams }: LessonPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { lessonId } = await params;
   const query = await searchParams;
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const db = getClassPilotDatabase();
-  const lesson = getLessonById(db, lessonId);
+  const lesson = getLessonById(db, userId, lessonId);
 
   if (!lesson) {
     notFound();
   }
 
-  const attachments = listAttachments(db, { lessonId });
+  const attachments = listAttachments(db, userId, { lessonId });
 
   return (
     <AppShell activePage="lessons" data={plannerData}>

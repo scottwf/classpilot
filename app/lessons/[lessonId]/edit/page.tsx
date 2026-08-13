@@ -23,12 +23,12 @@ export default async function EditLessonPage({
   params,
   searchParams,
 }: EditLessonPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { lessonId } = await params;
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const db = getClassPilotDatabase();
-  const lesson = getLessonById(db, lessonId);
+  const lesson = getLessonById(db, userId, lessonId);
   const settings = getAppSettings(db);
   const query = await searchParams;
 

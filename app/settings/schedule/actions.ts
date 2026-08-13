@@ -44,7 +44,7 @@ function parseSlotsJson(raw: string): ClassScheduleSlotInput[] {
 }
 
 export async function setClassScheduleAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const classId = String(formData.get("classId") ?? "").trim();
   const suffix = formData.get("wizard") === "1" ? "&wizard=1" : "";
@@ -54,7 +54,7 @@ export async function setClassScheduleAction(formData: FormData) {
   }
 
   const slots = parseSlotsJson(String(formData.get("slotsJson") ?? "[]"));
-  const conflicts = setClassSchedule(getClassPilotDatabase(), classId, slots);
+  const conflicts = setClassSchedule(getClassPilotDatabase(), userId, classId, slots);
 
   if (conflicts.length > 0) {
     redirect(
@@ -68,7 +68,7 @@ export async function setClassScheduleAction(formData: FormData) {
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function addTemporaryScheduleSlotAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const classId = String(formData.get("classId") ?? "").trim();
   const cycleDay = Number(formData.get("cycleDay"));
@@ -91,7 +91,7 @@ export async function addTemporaryScheduleSlotAction(formData: FormData) {
     redirect("/settings/schedule?error=temporary");
   }
 
-  const notices = addTemporaryScheduleSlot(getClassPilotDatabase(), classId, {
+  const notices = addTemporaryScheduleSlot(getClassPilotDatabase(), userId, classId, {
     cycleDay,
     startTime,
     endTime,
@@ -121,12 +121,12 @@ export async function addTemporaryScheduleSlotAction(formData: FormData) {
 }
 
 export async function deleteTemporaryScheduleSlotAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const slotId = String(formData.get("slotId") ?? "").trim();
 
   if (slotId) {
-    deleteScheduleSlot(getClassPilotDatabase(), slotId);
+    deleteScheduleSlot(getClassPilotDatabase(), userId, slotId);
   }
 
   redirect("/settings/schedule");

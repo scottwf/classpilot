@@ -19,10 +19,10 @@ type SettingsRouteProps = {
 export const dynamic = "force-dynamic";
 
 export default async function SettingsRoute({ searchParams }: SettingsRouteProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
-  const schoolYears = listSchoolYears(getClassPilotDatabase());
+  const plannerData = getClassPilotPlannerData(userId);
+  const schoolYears = listSchoolYears(getClassPilotDatabase(), userId);
   const query = await searchParams;
 
   return (

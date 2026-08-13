@@ -1,16 +1,26 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
-import { getAttachmentFileInfo } from "@/src/lib/db/attachments-repository";
+import { attachmentBelongsToUser, getAttachmentFileInfo } from "@/src/lib/db/attachments-repository";
 import { readAttachmentFile } from "@/src/lib/storage/attachment-storage";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { id } = await params;
-  const info = getAttachmentFileInfo(getClassPilotDatabase(), id);
+  const db = getClassPilotDatabase();
+
+  // The one place an attachment id alone (from a URL) grants access to
+  // file content, not just JSON -- explicitly called out in issue #21's
+  // security checklist. requireAuth() only confirms someone is logged in;
+  // this confirms it's specifically the owner.
+  if (!attachmentBelongsToUser(db, id, userId)) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
+  const info = getAttachmentFileInfo(db, id);
 
   if (!info) {
     return new NextResponse("Not found", { status: 404 });

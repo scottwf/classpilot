@@ -21,12 +21,12 @@ const classDotColorClass: Record<ClassColor, string> = {
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingReviewRoute() {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const db = getClassPilotDatabase();
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const schoolYearId = plannerData.schoolYear.id;
-  const scheduleSlots = getScheduleSlots(db, schoolYearId);
+  const scheduleSlots = getScheduleSlots(db, userId, schoolYearId);
   // Non-instructional blocks (recess, supervision, assemblies) aren't real
   // curriculum time — exclude them from the review.
   const instructionalClasses = plannerData.classes.filter(

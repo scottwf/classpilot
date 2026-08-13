@@ -36,9 +36,9 @@ export type DraftLessonSectionsResult =
 export async function draftLessonSectionsAction(
   input: DraftLessonSectionsInput,
 ): Promise<DraftLessonSectionsResult> {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const planner = getClassPilotPlannerData();
+  const planner = getClassPilotPlannerData(userId);
   const classSection = planner.classes.find((section) => section.id === input.classId);
 
   if (!classSection) {
@@ -90,7 +90,7 @@ export async function draftLessonSectionsAction(
 }
 
 export async function createLessonAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const title = requiredString(formData, "title");
   const date = requiredString(formData, "date");
@@ -107,7 +107,7 @@ export async function createLessonAction(formData: FormData) {
     redirect("/lessons/new?error=duration");
   }
 
-  createLesson(getClassPilotDatabase(), {
+  createLesson(getClassPilotDatabase(), userId, {
     date,
     durationMinutes,
     outcomeIds,
@@ -127,12 +127,12 @@ export async function createLessonAction(formData: FormData) {
  * the lesson (title, sections, outcomes, unit) stays as-is.
  */
 export async function moveLessonToDateAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const lessonId = requiredString(formData, "lessonId");
   const date = requiredString(formData, "date");
 
-  updateLessonDate(getClassPilotDatabase(), { date, id: lessonId });
+  updateLessonDate(getClassPilotDatabase(), userId, { date, id: lessonId });
 
   redirect(`/?date=${date}`);
 }

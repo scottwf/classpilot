@@ -26,19 +26,19 @@ type UnitPageProps = {
 export const dynamic = "force-dynamic";
 
 export default async function UnitRoute({ params, searchParams }: UnitPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { unitId } = await params;
   const query = await searchParams;
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const db = getClassPilotDatabase();
-  const unit = getUnitById(db, unitId);
+  const unit = getUnitById(db, userId, unitId);
 
   if (!unit) {
     notFound();
   }
 
-  const attachments = listAttachments(db, { unitId });
+  const attachments = listAttachments(db, userId, { unitId });
 
   return (
     <AppShell activePage="units" data={plannerData}>

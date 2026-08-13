@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createClassPilotDatabase } from "@/src/lib/db/sqlite";
 import { seedPlannerData } from "@/src/lib/db/planner-repository";
+import { createUser } from "@/src/lib/db/users-repository";
 import { plannerData } from "@/src/features/planner/seed-data";
 import { availableToolsForDriver, buildContextPrompt } from "./chat";
 import { assistantTools } from "./tools";
@@ -40,9 +41,10 @@ describe("buildContextPrompt", () => {
   it("includes today's date and the active school year's range", () => {
     const path = join(mkdtempSync(join(tmpdir(), "classpilot-test-")), "test.sqlite");
     const db = createClassPilotDatabase(path);
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const prompt = buildContextPrompt(db);
+    const prompt = buildContextPrompt(db, userId);
     const today = new Date().toISOString().slice(0, 10);
 
     expect(prompt).toContain(`Today's date: ${today}`);

@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { plannerData } from "@/src/features/planner/seed-data";
 import { seedPlannerData } from "./planner-repository";
 import { createClassPilotDatabase } from "./sqlite";
+import { createUser } from "./users-repository";
 import {
   createContact,
   createNote,
@@ -29,30 +30,32 @@ function freshDatabase() {
   const db = createClassPilotDatabase(
     join(mkdtempSync(join(tmpdir(), "classpilot-students-")), "test.sqlite"),
   );
+  const userId = createUser(db, { username: "teacher", password: "x" }).id;
   // students reference school_years('current'); seed planner first.
-  seedPlannerData(db, plannerData);
-  return db;
+  seedPlannerData(db, userId, plannerData);
+  return { db, userId };
 }
 
 describe("students repository", () => {
   it("creates a student and reads the full profile", () => {
-    const db = freshDatabase();
+    const { db, userId } = freshDatabase();
 
-    const studentId = createStudent(db, {
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
       firstName: "Avery",
       lastName: "Nguyen",
       preferredName: "Ave",
       strengths: "Strong collaborator.",
     });
 
-    createContact(db, {
+    createContact(db, userId, {
       studentId,
       name: "Linh Nguyen",
       relationship: "Parent",
       isPrimary: true,
     });
 
-    createNote(db, {
+    createNote(db, userId, {
       studentId,
       date: "2026-09-10",
       category: "academic",
@@ -60,20 +63,20 @@ describe("students repository", () => {
       followUpStatus: "open",
     });
 
-    createSupportPlan(db, {
+    createSupportPlan(db, userId, {
       studentId,
       planType: "accommodation",
       title: "Extended time",
     });
 
-    createReminder(db, {
+    createReminder(db, userId, {
       studentId,
       dueDate: "2026-09-21",
       category: "parent_contact",
       title: "Call home",
     });
 
-    const profile = getStudentProfile(db, studentId);
+    const profile = getStudentProfile(db, userId, studentId);
 
     expect(profile?.preferredName).toBe("Ave");
     expect(profile?.contacts).toHaveLength(1);
@@ -84,13 +87,14 @@ describe("students repository", () => {
   });
 
   it("updates a student's editable fields", () => {
-    const db = freshDatabase();
-    const studentId = createStudent(db, {
+    const { db, userId } = freshDatabase();
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
       firstName: "Jordan",
       lastName: "Bear",
     });
 
-    updateStudent(db, {
+    updateStudent(db, userId, {
       id: studentId,
       firstName: "Jordan",
       lastName: "Bear",
@@ -98,84 +102,87 @@ describe("students repository", () => {
       status: "transferred",
     });
 
-    const profile = getStudentProfile(db, studentId);
+    const profile = getStudentProfile(db, userId, studentId);
     expect(profile?.pronouns).toBe("they/them");
     expect(profile?.status).toBe("transferred");
   });
 
   it("summarizes open follow-ups and reminders on the roster", () => {
-    const db = freshDatabase();
-    const studentId = createStudent(db, {
+    const { db, userId } = freshDatabase();
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
       firstName: "Sofia",
       lastName: "Romero",
     });
 
-    createNote(db, {
+    createNote(db, userId, {
       studentId,
       date: "2026-09-12",
       category: "attendance",
       body: "Missed two blocks.",
       followUpStatus: "in_progress",
     });
-    createReminder(db, {
+    createReminder(db, userId, {
       studentId,
       dueDate: "2026-09-18",
       title: "Follow up on missing work",
     });
 
-    const entry = listRoster(db).find((student) => student.id === studentId);
+    const entry = listRoster(db, userId, "current").find((student) => student.id === studentId);
     expect(entry?.openFollowUpCount).toBe(1);
     expect(entry?.openReminderCount).toBe(1);
   });
 
   it("closing a reminder and resolving a note clears the open counts", () => {
-    const db = freshDatabase();
-    const studentId = createStudent(db, {
+    const { db, userId } = freshDatabase();
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
       firstName: "Sam",
       lastName: "Lee",
     });
 
-    const noteId = createNote(db, {
+    const noteId = createNote(db, userId, {
       studentId,
       date: "2026-09-12",
       category: "behavior",
       body: "Check in tomorrow.",
       followUpStatus: "open",
     });
-    const reminderId = createReminder(db, {
+    const reminderId = createReminder(db, userId, {
       studentId,
       dueDate: "2026-09-18",
       title: "Email guardian",
     });
 
-    setNoteFollowUpStatus(db, noteId, "resolved");
-    setReminderStatus(db, reminderId, "done");
+    setNoteFollowUpStatus(db, userId, noteId, "resolved");
+    setReminderStatus(db, userId, reminderId, "done");
 
-    const entry = listRoster(db).find((student) => student.id === studentId);
+    const entry = listRoster(db, userId, "current").find((student) => student.id === studentId);
     expect(entry?.openFollowUpCount).toBe(0);
     expect(entry?.openReminderCount).toBe(0);
 
-    const profile = getStudentProfile(db, studentId);
+    const profile = getStudentProfile(db, userId, studentId);
     expect(profile?.reminders[0]?.completedAt).not.toBe("");
   });
 
   it("deletes a student and cascades child records", () => {
-    const db = freshDatabase();
-    const studentId = createStudent(db, {
+    const { db, userId } = freshDatabase();
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
       firstName: "Riley",
       lastName: "Stone",
     });
-    createContact(db, { studentId, name: "Guardian" });
-    createNote(db, {
+    createContact(db, userId, { studentId, name: "Guardian" });
+    createNote(db, userId, {
       studentId,
       date: "2026-09-12",
       category: "other",
       body: "Note body.",
     });
 
-    deleteStudent(db, studentId);
+    deleteStudent(db, userId, studentId);
 
-    expect(getStudentProfile(db, studentId)).toBeUndefined();
+    expect(getStudentProfile(db, userId, studentId)).toBeUndefined();
     const contactCount = (
       db
         .prepare(
@@ -187,14 +194,15 @@ describe("students repository", () => {
   });
 
   it("encrypts sensitive fields at rest but reads them back as plaintext", () => {
-    const db = freshDatabase();
-    const studentId = createStudent(db, {
+    const { db, userId } = freshDatabase();
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
       firstName: "Casey",
       lastName: "Vargas",
       strengths: "Resilient and curious.",
       birthdate: "2014-03-02",
     });
-    const noteId = createNote(db, {
+    const noteId = createNote(db, userId, {
       studentId,
       date: "2026-09-15",
       category: "medical",
@@ -216,7 +224,7 @@ describe("students repository", () => {
     expect(rawStrengths).not.toContain("Resilient");
     expect(rawBody).not.toContain("inhaler");
 
-    const profile = getStudentProfile(db, studentId);
+    const profile = getStudentProfile(db, userId, studentId);
     expect(profile?.strengths).toBe("Resilient and curious.");
     expect(profile?.birthdate).toBe("2014-03-02");
     expect(profile?.notes[0]?.body).toBe(
@@ -225,10 +233,11 @@ describe("students repository", () => {
   });
 
   it("reports an empty roster as not seeded", () => {
-    const db = freshDatabase();
+    const { db, userId } = freshDatabase();
     expect(isRosterSeeded(db)).toBe(false);
 
-    createStudent(db, { firstName: "First", lastName: "Student" });
+    createStudent(db, userId, {
+      schoolYearId: "current", firstName: "First", lastName: "Student" });
     expect(isRosterSeeded(db)).toBe(true);
   });
 });

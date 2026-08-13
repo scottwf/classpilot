@@ -12,9 +12,9 @@ type OnboardingPageProps = {
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingRoute({ searchParams }: OnboardingPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const params = await searchParams;
 
   return (

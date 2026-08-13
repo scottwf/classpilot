@@ -10,7 +10,7 @@ import { createStudent } from "@/src/lib/db/students-repository";
 const statuses = new Set<StudentStatus>(["active", "inactive", "transferred"]);
 
 export async function createStudentAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
@@ -22,8 +22,8 @@ export async function createStudentAction(formData: FormData) {
   const status = String(formData.get("status") ?? "active");
   const db = getClassPilotDatabase();
 
-  const id = createStudent(db, {
-    schoolYearId: getActiveSchoolYearId(db),
+  const id = createStudent(db, userId, {
+    schoolYearId: getActiveSchoolYearId(db, userId),
     firstName,
     lastName,
     preferredName: String(formData.get("preferredName") ?? "").trim(),

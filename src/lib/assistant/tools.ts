@@ -44,7 +44,11 @@ export type AssistantTool = {
    * inputs/outputs still only carry curriculum/timing context, never
    * student data, matching the existing drafting functions' guarantee. */
   contentGeneration: boolean;
-  execute: (db: ClassPilotDatabase, args: Record<string, unknown>) => Promise<ToolResult>;
+  execute: (
+    db: ClassPilotDatabase,
+    userId: string,
+    args: Record<string, unknown>,
+  ) => Promise<ToolResult>;
 };
 
 const classColors: ClassColor[] = [
@@ -83,8 +87,8 @@ const listClassesTool: AssistantTool = {
   contentGeneration: false,
   description:
     "Lists every class (subject row) in the active school year — id, name, subject, grade, combined grades, color, and which cycle days it meets on. Call this first when you need a classId.",
-  execute: async (db) => {
-    const planner = getPlannerData(db);
+  execute: async (db, userId) => {
+    const planner = getPlannerData(db, userId);
     return ok(
       planner.classes.map((section) => ({
         classId: section.id,
@@ -107,7 +111,7 @@ const createClassTool: AssistantTool = {
   contentGeneration: false,
   description:
     "Creates a new class (a row on the unit timeline). Grade and subject should match curriculum outcomes already loaded — call list_outcome_subjects if unsure what's available. Returns the new classId.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const name = str(args, "name");
     const subject = str(args, "subject");
     const grade = str(args, "grade");
@@ -117,7 +121,7 @@ const createClassTool: AssistantTool = {
     }
 
     const color = str(args, "color");
-    const classId = createClass(db, {
+    const classId = createClass(db, userId, {
       color: classColors.includes(color as ClassColor) ? (color as ClassColor) : undefined,
       combinedGrades: strArray(args, "combinedGrades"),
       cycleDays: (Array.isArray(args.cycleDays) ? (args.cycleDays as unknown[]) : [])
@@ -128,7 +132,7 @@ const createClassTool: AssistantTool = {
       meetingPattern: str(args, "meetingPattern"),
       name,
       room: str(args, "room"),
-      schoolYearId: getActiveSchoolYearId(db),
+      schoolYearId: getActiveSchoolYearId(db, userId),
       subject,
       targetMinutesPerYear: num(args, "targetMinutesPerYear"),
     });
@@ -167,7 +171,7 @@ const setClassScheduleTool: AssistantTool = {
   contentGeneration: false,
   description:
     "Sets (replaces) a class's whole weekly schedule: which cycle days it meets and the start/end time each day. Call list_classes first to get the classId and the school's cycleLength/dayLabelScheme.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const classId = str(args, "classId");
     const slotsInput = Array.isArray(args.slots) ? (args.slots as Record<string, unknown>[]) : [];
 
@@ -186,7 +190,7 @@ const setClassScheduleTool: AssistantTool = {
     }
 
     try {
-      const conflicts = setClassSchedule(db, classId, slots);
+      const conflicts = setClassSchedule(db, userId, classId, slots);
       return ok({ conflicts, success: true });
     } catch (error) {
       return fail(error instanceof Error ? error.message : "Could not set the schedule.");
@@ -219,8 +223,8 @@ const listOutcomeSubjectsTool: AssistantTool = {
   contentGeneration: false,
   description:
     "Lists curriculum outcomes, optionally filtered by subject and/or grade — use this to find real outcomeIds before creating a unit, rather than guessing outcome codes.",
-  execute: async (db, args) => {
-    const planner = getPlannerData(db);
+  execute: async (db, userId, args) => {
+    const planner = getPlannerData(db, userId);
     const subject = str(args, "subject").toLowerCase();
     const grade = str(args, "grade");
 
@@ -254,8 +258,8 @@ const listOutcomeSubjectsTool: AssistantTool = {
 const listUnitsTool: AssistantTool = {
   contentGeneration: false,
   description: "Lists units, optionally filtered to one class — id, title, dates, and lesson count.",
-  execute: async (db, args) => {
-    const planner = getPlannerData(db);
+  execute: async (db, userId, args) => {
+    const planner = getPlannerData(db, userId);
     const classId = str(args, "classId");
     const units = classId ? planner.units.filter((unit) => unit.classId === classId) : planner.units;
 
@@ -280,7 +284,7 @@ const createUnitTool: AssistantTool = {
   contentGeneration: false,
   description:
     "Creates a unit for a class with no AI-drafted content — just the title, dates, color, and outcomes. Give either endDate directly, or lessonDayCount to compute the end date from the class's real meeting days. Use includeAllClassOutcomes to attach every outcome for the class's subject/grade(s) instead of listing outcomeIds by hand.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const classId = str(args, "classId");
     const title = str(args, "title");
     const startDate = str(args, "startDate");
@@ -289,7 +293,7 @@ const createUnitTool: AssistantTool = {
       return fail("classId, title, and startDate are required.");
     }
 
-    const planner = getPlannerData(db);
+    const planner = getPlannerData(db, userId);
     const classSection = planner.classes.find((section) => section.id === classId);
 
     if (!classSection) {
@@ -330,7 +334,7 @@ const createUnitTool: AssistantTool = {
       { classId, endDate, id: "__new__", startDate },
     ]).has("__new__");
 
-    const unitId = createUnit(db, {
+    const unitId = createUnit(db, userId, {
       classId,
       color: color as (typeof unitColors)[number],
       endDate,
@@ -376,7 +380,7 @@ const createUnitTool: AssistantTool = {
 const createLessonTool: AssistantTool = {
   contentGeneration: false,
   description: "Adds one lesson to an existing unit — no AI drafting, just the fields given.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const unitId = str(args, "unitId");
     const title = str(args, "title");
     const date = str(args, "date");
@@ -386,11 +390,11 @@ const createLessonTool: AssistantTool = {
       return fail("unitId, title, and date are required.");
     }
 
-    if (!getUnitById(db, unitId)) {
+    if (!getUnitById(db, userId, unitId)) {
       return fail(`No unit found with id ${unitId}.`);
     }
 
-    const lessonId = createLesson(db, {
+    const lessonId = createLesson(db, userId, {
       date,
       durationMinutes,
       outcomeIds: strArray(args, "outcomeIds"),
@@ -422,7 +426,7 @@ const draftUnitOutlineTool: AssistantTool = {
   contentGeneration: true,
   description:
     "Drafts a full unit outline (title, big ideas, essential questions, a sequenced lesson list, assessment ideas, differentiation notes) via the hosted AI provider — does NOT save anything. Only curriculum/timing context is sent, never student data. Follow up with save_unit_from_outline to actually create it, after confirming the draft with the teacher.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const classId = str(args, "classId");
     const unitFocus = str(args, "unitFocus");
 
@@ -430,7 +434,7 @@ const draftUnitOutlineTool: AssistantTool = {
       return fail("classId and unitFocus are required.");
     }
 
-    const planner = getPlannerData(db);
+    const planner = getPlannerData(db, userId);
     const classSection = planner.classes.find((section) => section.id === classId);
 
     if (!classSection) {
@@ -492,7 +496,7 @@ const saveUnitFromOutlineTool: AssistantTool = {
   contentGeneration: false,
   description:
     "Saves a unit outline (from draft_unit_outline's output — pass its draft and selectedOutcomeIds back exactly) as a real unit with lessons scheduled across the class's instructional days starting on startDate.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const classId = str(args, "classId");
     const startDate = str(args, "startDate");
     const draft = args.draft as UnitOutlineDraft | undefined;
@@ -505,7 +509,7 @@ const saveUnitFromOutlineTool: AssistantTool = {
       return fail("This draft has no lessons to save.");
     }
 
-    const planner = getPlannerData(db);
+    const planner = getPlannerData(db, userId);
 
     if (!planner.classes.some((section) => section.id === classId)) {
       return fail(`No class found with id ${classId}.`);
@@ -515,7 +519,7 @@ const saveUnitFromOutlineTool: AssistantTool = {
     const color = (unitColors as readonly string[]).includes(colorArg) ? colorArg : "blue";
 
     try {
-      const unitId = saveUnitOutlineDraft(db, planner, {
+      const unitId = saveUnitOutlineDraft(db, userId, planner, {
         classId,
         color: color as (typeof unitColors)[number],
         draft,
@@ -554,7 +558,7 @@ const draftLessonSectionsTool: AssistantTool = {
   contentGeneration: true,
   description:
     "Drafts one lesson's structured sections (learning goals, materials, minds-on, lesson flow, assessment, differentiation, resources) via the hosted AI provider — does NOT save anything. Only curriculum/timing context is sent, never student data. Follow up with create_lesson to save it (sections aren't stored by create_lesson yet — mention them back to the teacher, or use the lessons UI to paste them in).",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const classId = str(args, "classId");
     const lessonTitle = str(args, "lessonTitle");
 
@@ -562,7 +566,7 @@ const draftLessonSectionsTool: AssistantTool = {
       return fail("classId and lessonTitle are required.");
     }
 
-    const planner = getPlannerData(db);
+    const planner = getPlannerData(db, userId);
     const classSection = planner.classes.find((section) => section.id === classId);
 
     if (!classSection) {
@@ -622,7 +626,7 @@ const draftLessonResourceTool: AssistantTool = {
   contentGeneration: true,
   description:
     "Drafts a printable/copyable lesson resource — a student handout, an exit card, or a slide-by-slide outline — as plain Markdown via the hosted AI provider. Does NOT save anything (there's nowhere to save a resource yet); return the Markdown to the teacher so they can copy it into the lesson or print it. Only curriculum/timing context is sent, never student data.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const classId = str(args, "classId");
     const lessonTitle = str(args, "lessonTitle");
     const resourceTypeArg = str(args, "resourceType");
@@ -634,7 +638,7 @@ const draftLessonResourceTool: AssistantTool = {
       return fail("classId, lessonTitle, and a valid resourceType are required.");
     }
 
-    const planner = getPlannerData(db);
+    const planner = getPlannerData(db, userId);
     const classSection = planner.classes.find((section) => section.id === classId);
 
     if (!classSection) {
@@ -689,8 +693,8 @@ const draftLessonResourceTool: AssistantTool = {
 const listStudentsTool: AssistantTool = {
   contentGeneration: false,
   description: "Lists the student roster — id, name, status, and open reminder/follow-up counts.",
-  execute: async (db) => {
-    const roster = listRoster(db);
+  execute: async (db, userId) => {
+    const roster = listRoster(db, userId, getActiveSchoolYearId(db, userId));
     return ok(
       roster.map((student) => ({
         studentId: student.id,
@@ -712,14 +716,14 @@ const getStudentProfileTool: AssistantTool = {
   contentGeneration: false,
   description:
     "Gets one student's full profile: contacts, notes, support plans, and reminders. Call list_students first to find the studentId.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const studentId = str(args, "studentId");
 
     if (!studentId) {
       return fail("studentId is required.");
     }
 
-    const profile = getStudentProfile(db, studentId);
+    const profile = getStudentProfile(db, userId, studentId);
 
     if (!profile) {
       return fail(`No student found with id ${studentId}.`);
@@ -735,7 +739,7 @@ const getStudentProfileTool: AssistantTool = {
 const createStudentTool: AssistantTool = {
   contentGeneration: false,
   description: "Adds a new student to the active school year's roster.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const firstName = str(args, "firstName");
     const lastName = str(args, "lastName");
 
@@ -743,7 +747,8 @@ const createStudentTool: AssistantTool = {
       return fail("firstName and lastName are required.");
     }
 
-    const studentId = createStudent(db, {
+    const studentId = createStudent(db, userId, {
+      schoolYearId: getActiveSchoolYearId(db, userId),
       birthdate: str(args, "birthdate") || undefined,
       firstName,
       interests: str(args, "interests") || undefined,
@@ -786,7 +791,7 @@ const createStudentNoteTool: AssistantTool = {
   contentGeneration: false,
   description:
     "Adds a dated note to a student's record — academic progress, behavior, attendance, social-emotional, family, medical, or other. Call list_students first to find the studentId.",
-  execute: async (db, args) => {
+  execute: async (db, userId, args) => {
     const studentId = str(args, "studentId");
     const date = str(args, "date");
     const body = str(args, "body");
@@ -799,11 +804,11 @@ const createStudentNoteTool: AssistantTool = {
       return fail("studentId, date, and body are required.");
     }
 
-    if (!getStudentProfile(db, studentId)) {
+    if (!getStudentProfile(db, userId, studentId)) {
       return fail(`No student found with id ${studentId}.`);
     }
 
-    const noteId = createNote(db, {
+    const noteId = createNote(db, userId, {
       body,
       category: category as (typeof noteCategories)[number],
       date,

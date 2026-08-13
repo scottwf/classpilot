@@ -6,13 +6,13 @@ import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
 import { updateUnitDates } from "@/src/lib/db/planner-repository";
 
 export async function moveUnitAction(id: string, startDate: string, endDate: string) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   if (!id || !startDate || !endDate || endDate < startDate) {
     return;
   }
 
-  updateUnitDates(getClassPilotDatabase(), { endDate, id, startDate });
+  updateUnitDates(getClassPilotDatabase(), userId, { endDate, id, startDate });
 
   redirect("/units");
 }

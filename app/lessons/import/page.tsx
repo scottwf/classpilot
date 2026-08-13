@@ -18,9 +18,9 @@ export const dynamic = "force-dynamic";
 export default async function ImportLessonPage({
   searchParams,
 }: ImportLessonPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const params = await searchParams;
   const selectedUnit = plannerData.units.find((unit) => unit.id === params.unitId);
   const template = readFileSync(

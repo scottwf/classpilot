@@ -8,9 +8,9 @@ import { deleteClassAction } from "../../classes/actions";
 export const dynamic = "force-dynamic";
 
 export default async function ClassesSettingsRoute() {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
 
   return (
     <AppShell activePage="settings" data={plannerData}>

@@ -24,7 +24,7 @@ export async function sendChatMessageAction(
   history: OrchestratorMessage[],
   userMessage: string,
 ): Promise<SendChatMessageResult> {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const trimmed = userMessage.trim();
   if (!trimmed) {
@@ -56,6 +56,7 @@ export async function sendChatMessageAction(
   try {
     return await runAssistantChat({
       db,
+      userId,
       driver,
       driverConfig,
       messages: [...history, { content: trimmed, role: "user" }],

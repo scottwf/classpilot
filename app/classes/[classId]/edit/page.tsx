@@ -22,12 +22,12 @@ export default async function EditClassPage({
   params,
   searchParams,
 }: EditClassPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { classId } = await params;
   const query = await searchParams;
-  const plannerData = getClassPilotPlannerData();
-  const classSection = getClassById(getClassPilotDatabase(), classId);
+  const plannerData = getClassPilotPlannerData(userId);
+  const classSection = getClassById(getClassPilotDatabase(), userId, classId);
 
   if (!classSection) {
     notFound();

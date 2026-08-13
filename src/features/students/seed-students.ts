@@ -9,8 +9,9 @@ import type { ClassPilotDatabase } from "@/src/lib/db/sqlite";
 
 // Fictional demo roster so the Student CMS UI is explorable before real data is
 // entered. Seeded only when the students table is empty.
-export function seedDemoRoster(db: ClassPilotDatabase) {
-  const avery = createStudent(db, {
+export function seedDemoRoster(db: ClassPilotDatabase, userId: string, schoolYearId: string) {
+  const avery = createStudent(db, userId, {
+    schoolYearId,
     firstName: "Avery",
     lastName: "Nguyen",
     preferredName: "Ave",
@@ -19,7 +20,7 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     strengths: "Strong collaborative leader; clear written explanations.",
   });
 
-  createContact(db, {
+  createContact(db, userId, {
     studentId: avery,
     name: "Linh Nguyen",
     relationship: "Parent",
@@ -29,7 +30,7 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     isEmergency: true,
   });
 
-  createNote(db, {
+  createNote(db, userId, {
     studentId: avery,
     date: "2026-09-10",
     category: "academic",
@@ -38,7 +39,8 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     followUpStatus: "none",
   });
 
-  const jordan = createStudent(db, {
+  const jordan = createStudent(db, userId, {
+    schoolYearId,
     firstName: "Jordan",
     lastName: "Bear",
     pronouns: "they/them",
@@ -46,7 +48,7 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     strengths: "Excellent hands-on problem solver; helps peers.",
   });
 
-  createContact(db, {
+  createContact(db, userId, {
     studentId: jordan,
     name: "Pat Bear",
     relationship: "Guardian",
@@ -55,7 +57,7 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     isEmergency: true,
   });
 
-  createSupportPlan(db, {
+  createSupportPlan(db, userId, {
     studentId: jordan,
     planType: "accommodation",
     title: "Extended time and chunked instructions",
@@ -65,7 +67,7 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     reviewDate: "2026-11-30",
   });
 
-  createNote(db, {
+  createNote(db, userId, {
     studentId: jordan,
     date: "2026-09-14",
     category: "social_emotional",
@@ -73,14 +75,15 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     followUpStatus: "open",
   });
 
-  createReminder(db, {
+  createReminder(db, userId, {
     studentId: jordan,
     dueDate: "2026-09-21",
     category: "parent_contact",
     title: "Call home with a positive update",
   });
 
-  const sofia = createStudent(db, {
+  const sofia = createStudent(db, userId, {
+    schoolYearId,
     firstName: "Sofia",
     lastName: "Romero",
     pronouns: "she/her",
@@ -88,7 +91,7 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     strengths: "Creative writer; thoughtful contributor in discussion.",
   });
 
-  createNote(db, {
+  createNote(db, userId, {
     studentId: sofia,
     date: "2026-09-12",
     category: "attendance",
@@ -96,7 +99,7 @@ export function seedDemoRoster(db: ClassPilotDatabase) {
     followUpStatus: "in_progress",
   });
 
-  createReminder(db, {
+  createReminder(db, userId, {
     studentId: sofia,
     dueDate: "2026-09-18",
     category: "missing_work",

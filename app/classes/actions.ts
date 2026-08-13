@@ -23,7 +23,7 @@ const classColors: ClassColor[] = [
 ];
 
 export async function createClassAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const db = getClassPilotDatabase();
   const input = readClassInput(formData);
@@ -32,13 +32,13 @@ export async function createClassAction(formData: FormData) {
     redirect("/classes/new?error=missing");
   }
 
-  createClass(db, { ...input, schoolYearId: getActiveSchoolYearId(db) });
+  createClass(db, userId, { ...input, schoolYearId: getActiveSchoolYearId(db, userId) });
 
   redirect("/settings/classes?created=1");
 }
 
 export async function updateClassAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const id = String(formData.get("id") ?? "").trim();
   // Preserves the class's existing year — the edit form carries this as a
@@ -50,18 +50,18 @@ export async function updateClassAction(formData: FormData) {
     redirect(id ? `/classes/${id}/edit?error=missing` : "/settings/classes?error=missing");
   }
 
-  updateClass(getClassPilotDatabase(), { ...input, id, schoolYearId });
+  updateClass(getClassPilotDatabase(), userId, { ...input, id, schoolYearId });
 
   redirect("/settings/classes?updated=1");
 }
 
 export async function deleteClassAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const id = String(formData.get("id") ?? "").trim();
 
   if (id) {
-    deleteClass(getClassPilotDatabase(), id);
+    deleteClass(getClassPilotDatabase(), userId, id);
   }
 
   redirect("/settings/classes?deleted=1");

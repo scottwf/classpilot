@@ -286,6 +286,28 @@ export function migrate(db: ClassPilotDatabase) {
     "TEXT NOT NULL DEFAULT 'numeric'",
   );
 
+  // Multi-user data isolation (issue #21 Phase 2). Nullable for the same
+  // reason school_year_id on class_sections is (SQLite can't add a NOT
+  // NULL column with a REFERENCES clause in one ALTER) — backfilled to the
+  // sole existing user by classpilot-db.ts on boot, not here, since which
+  // user to backfill to is app-level bootstrapping (needs the app
+  // password), not pure schema. active_school_year_id replaces the old
+  // app_state singleton — "which year is active" is naturally a property
+  // of a user. app_state itself is left in place (unused) rather than
+  // dropped, to avoid extra migration risk for no benefit.
+  addColumnIfMissing(
+    db,
+    "school_years",
+    "user_id",
+    "TEXT REFERENCES users(id) ON DELETE CASCADE",
+  );
+  addColumnIfMissing(
+    db,
+    "users",
+    "active_school_year_id",
+    "TEXT REFERENCES school_years(id)",
+  );
+
   // Temporary/burst schedule slots (see ScheduleSlot in types.ts) — both
   // null means a regular, year-long recurring slot (unchanged behavior);
   // both set means a class temporarily claims this cycleDay/time only

@@ -112,7 +112,7 @@ export async function clearAiApiKeyAction() {
 }
 
 export async function switchSchoolYearAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const id = String(formData.get("id") ?? "").trim();
 
@@ -120,13 +120,13 @@ export async function switchSchoolYearAction(formData: FormData) {
     redirect("/settings?error=year");
   }
 
-  setActiveSchoolYear(getClassPilotDatabase(), id);
+  setActiveSchoolYear(getClassPilotDatabase(), userId, id);
 
   redirect("/settings");
 }
 
 export async function deleteSchoolYearAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const id = String(formData.get("id") ?? "").trim();
 
@@ -135,7 +135,7 @@ export async function deleteSchoolYearAction(formData: FormData) {
   }
 
   try {
-    deleteSchoolYear(getClassPilotDatabase(), id);
+    deleteSchoolYear(getClassPilotDatabase(), userId, id);
   } catch {
     redirect("/settings?error=delete-active-year");
   }
@@ -153,9 +153,9 @@ export async function deleteSchoolYearAction(formData: FormData) {
  * but that button.
  */
 export async function resetPlannerDataAction() {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  resetPlannerData(getClassPilotDatabase());
+  resetPlannerData(getClassPilotDatabase(), userId);
 
   redirect("/settings?saved=reset");
 }

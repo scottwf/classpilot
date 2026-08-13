@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createClassPilotDatabase } from "./sqlite";
+import { createUser } from "./users-repository";
 import {
   cascadeRescheduleUnitLessons,
   createClass,
@@ -46,9 +47,10 @@ function temporaryDatabasePath() {
 describe("planner repository", () => {
   it("seeds and reads Grade 6 homeroom planner data from SQLite", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    const persistedPlanner = getPlannerData(db);
+    seedPlannerData(db, userId, plannerData);
+    const persistedPlanner = getPlannerData(db, userId);
 
     expect(persistedPlanner.schoolYear.title).toBe(
       "2026-2027 Grade 6 Homeroom",
@@ -68,10 +70,11 @@ describe("planner repository", () => {
 
   it("can seed the same planner more than once without duplicating rows", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    seedPlannerData(db, plannerData);
-    const persistedPlanner = getPlannerData(db);
+    seedPlannerData(db, userId, plannerData);
+    seedPlannerData(db, userId, plannerData);
+    const persistedPlanner = getPlannerData(db, userId);
 
     expect(persistedPlanner.classes).toHaveLength(plannerData.classes.length);
     expect(persistedPlanner.units).toHaveLength(plannerData.units.length);
@@ -80,9 +83,10 @@ describe("planner repository", () => {
 
   it("creates a lesson and reads it through the planner model", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    createLesson(db, {
+    seedPlannerData(db, userId, plannerData);
+    createLesson(db, userId, {
       date: "2026-09-24",
       durationMinutes: 45,
       outcomeIds: [],
@@ -92,7 +96,7 @@ describe("planner repository", () => {
       unitId: "unit-ratios",
     });
 
-    const persistedPlanner = getPlannerData(db);
+    const persistedPlanner = getPlannerData(db, userId);
     const mathUnit = persistedPlanner.units.find(
       (unit) => unit.id === "unit-ratios",
     );
@@ -104,11 +108,12 @@ describe("planner repository", () => {
 
   it("creates a unit with its lessons atomically", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    const classId = getPlannerData(db).classes[0].id;
+    seedPlannerData(db, userId, plannerData);
+    const classId = getPlannerData(db, userId).classes[0].id;
 
-    const unitId = createUnitWithLessons(db, {
+    const unitId = createUnitWithLessons(db, userId, {
       unit: {
         classId,
         color: "violet",
@@ -137,7 +142,7 @@ describe("planner repository", () => {
       ],
     });
 
-    const unit = getUnitById(db, unitId);
+    const unit = getUnitById(db, userId, unitId);
 
     expect(unit?.title).toBe("Electricity (AI draft)");
     expect(unit?.outcomeIds).toEqual(["sk-grade-6-mathematics-n6-5"]);
@@ -149,13 +154,14 @@ describe("planner repository", () => {
 
   it("rolls back the unit when a lesson insert fails", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    const classId = getPlannerData(db).classes[0].id;
-    const unitCountBefore = getPlannerData(db).units.length;
+    seedPlannerData(db, userId, plannerData);
+    const classId = getPlannerData(db, userId).classes[0].id;
+    const unitCountBefore = getPlannerData(db, userId).units.length;
 
     expect(() =>
-      createUnitWithLessons(db, {
+      createUnitWithLessons(db, userId, {
         unit: {
           classId,
           color: "blue",
@@ -179,14 +185,15 @@ describe("planner repository", () => {
       }),
     ).toThrow();
 
-    expect(getPlannerData(db).units).toHaveLength(unitCountBefore);
+    expect(getPlannerData(db, userId).units).toHaveLength(unitCountBefore);
   });
 
   it("creates and updates structured lesson sections", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    const lessonId = createLesson(db, {
+    seedPlannerData(db, userId, plannerData);
+    const lessonId = createLesson(db, userId, {
       date: "2026-09-24",
       durationMinutes: 45,
       outcomeIds: [],
@@ -206,7 +213,7 @@ describe("planner repository", () => {
       unitId: "unit-ratios",
     });
 
-    updateLesson(db, {
+    updateLesson(db, userId, {
       date: "2026-09-24",
       durationMinutes: 50,
       id: lessonId,
@@ -227,7 +234,7 @@ describe("planner repository", () => {
       unitId: "unit-ratios",
     });
 
-    const lesson = getLessonById(db, lessonId);
+    const lesson = getLessonById(db, userId, lessonId);
 
     expect(lesson?.sections).toMatchObject({
       learningGoals: "I can justify which flyer deal is better.",
@@ -239,9 +246,10 @@ describe("planner repository", () => {
 
   it("updates an existing lesson and returns the edited values", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    updateLesson(db, {
+    seedPlannerData(db, userId, plannerData);
+    updateLesson(db, userId, {
       date: "2026-09-25",
       durationMinutes: 60,
       id: "lesson-ratio-language",
@@ -252,7 +260,7 @@ describe("planner repository", () => {
       unitId: "unit-ratios",
     });
 
-    const lesson = getLessonById(db, "lesson-ratio-language");
+    const lesson = getLessonById(db, userId, "lesson-ratio-language");
 
     expect(lesson).toMatchObject({
       date: "2026-09-25",
@@ -267,11 +275,12 @@ describe("planner repository", () => {
 
   it("moves a lesson's date, leaving everything else untouched", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const before = getLessonById(db, "lesson-ratio-language");
-    updateLessonDate(db, { date: "2026-10-02", id: "lesson-ratio-language" });
-    const after = getLessonById(db, "lesson-ratio-language");
+    const before = getLessonById(db, userId, "lesson-ratio-language");
+    updateLessonDate(db, userId, { date: "2026-10-02", id: "lesson-ratio-language" });
+    const after = getLessonById(db, userId, "lesson-ratio-language");
 
     expect(after?.date).toBe("2026-10-02");
     expect(after).toMatchObject({
@@ -282,25 +291,27 @@ describe("planner repository", () => {
 
   it("throws when moving a nonexistent lesson", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
     expect(() =>
-      updateLessonDate(db, { date: "2026-10-02", id: "lesson-does-not-exist" }),
+      updateLessonDate(db, userId, { date: "2026-10-02", id: "lesson-does-not-exist" }),
     ).toThrow("Lesson not found");
   });
 
   it("reads and updates the school year calendar", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const seeded = getSchoolYear(db);
+    const seeded = getSchoolYear(db, userId);
     expect(seeded.blockedDates).toContainEqual({
       date: "2026-10-12",
       label: "Thanksgiving",
       advancesCycle: true,
     });
 
-    updateSchoolYear(db, {
+    updateSchoolYear(db, userId, {
       id: seeded.id,
       title: "2027-2028 Grade 6 Homeroom",
       startDate: "2027-09-01",
@@ -312,7 +323,7 @@ describe("planner repository", () => {
       ],
     });
 
-    const updated = getSchoolYear(db);
+    const updated = getSchoolYear(db, userId);
     expect(updated.title).toBe("2027-2028 Grade 6 Homeroom");
     expect(updated.startDate).toBe("2027-09-01");
     expect(updated.cycleLength).toBe(6);
@@ -329,14 +340,15 @@ describe("planner repository", () => {
 
   it("normalizes a legacy string-array of blocked dates on read", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
     db.prepare("UPDATE school_years SET blocked_dates_json = ? WHERE id = ?").run(
       JSON.stringify(["2026-09-07", "2026-10-12"]),
       "current",
     );
 
-    const schoolYear = getSchoolYear(db);
+    const schoolYear = getSchoolYear(db, userId);
     expect(schoolYear.blockedDates).toEqual([
       { date: "2026-09-07", label: "", advancesCycle: true },
       { date: "2026-10-12", label: "", advancesCycle: true },
@@ -345,14 +357,15 @@ describe("planner repository", () => {
 
   it("defaults advancesCycle to true for pre-cycle-system object entries", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
     db.prepare("UPDATE school_years SET blocked_dates_json = ? WHERE id = ?").run(
       JSON.stringify([{ date: "2026-09-07", label: "Labour Day" }]),
       "current",
     );
 
-    const schoolYear = getSchoolYear(db);
+    const schoolYear = getSchoolYear(db, userId);
     expect(schoolYear.blockedDates).toEqual([
       { date: "2026-09-07", label: "Labour Day", advancesCycle: true },
     ]);
@@ -360,9 +373,10 @@ describe("planner repository", () => {
 
   it("creates, updates, and deletes a class", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const classId = createClass(db, {
+    const classId = createClass(db, userId, {
       schoolYearId: "current",
       name: "Grade 6 French",
       subject: "French",
@@ -372,13 +386,13 @@ describe("planner repository", () => {
       cycleDays: [1, 3],
     });
 
-    expect(getClassById(db, classId)).toMatchObject({
+    expect(getClassById(db, userId, classId)).toMatchObject({
       name: "Grade 6 French",
       subject: "French",
       cycleDays: [1, 3],
     });
 
-    updateClass(db, {
+    updateClass(db, userId, {
       id: classId,
       schoolYearId: "current",
       name: "Grade 6 Français",
@@ -389,21 +403,22 @@ describe("planner repository", () => {
       cycleDays: [2, 4],
     });
 
-    expect(getClassById(db, classId)).toMatchObject({
+    expect(getClassById(db, userId, classId)).toMatchObject({
       name: "Grade 6 Français",
       room: "Room 12",
       cycleDays: [2, 4],
     });
 
-    deleteClass(db, classId);
-    expect(getClassById(db, classId)).toBeUndefined();
+    deleteClass(db, userId, classId);
+    expect(getClassById(db, userId, classId)).toBeUndefined();
   });
 
   it("stores and updates a class's combined grades", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const classId = createClass(db, {
+    const classId = createClass(db, userId, {
       schoolYearId: "current",
       name: "Grade 5/6 Split",
       subject: "Mathematics",
@@ -414,12 +429,12 @@ describe("planner repository", () => {
       combinedGrades: ["5"],
     });
 
-    expect(getClassById(db, classId)).toMatchObject({
+    expect(getClassById(db, userId, classId)).toMatchObject({
       grade: "6",
       combinedGrades: ["5"],
     });
 
-    updateClass(db, {
+    updateClass(db, userId, {
       id: classId,
       schoolYearId: "current",
       name: "Grade 5/6 Split",
@@ -431,14 +446,15 @@ describe("planner repository", () => {
       combinedGrades: [],
     });
 
-    expect(getClassById(db, classId)).toMatchObject({ combinedGrades: [] });
+    expect(getClassById(db, userId, classId)).toMatchObject({ combinedGrades: [] });
   });
 
   it("defaults combinedGrades to an empty array when omitted", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const classId = createClass(db, {
+    const classId = createClass(db, userId, {
       schoolYearId: "current",
       name: "Grade 6 French",
       subject: "French",
@@ -448,15 +464,16 @@ describe("planner repository", () => {
       cycleDays: [],
     });
 
-    expect(getClassById(db, classId)).toMatchObject({ combinedGrades: [] });
+    expect(getClassById(db, userId, classId)).toMatchObject({ combinedGrades: [] });
   });
 
   it("throws when updating a nonexistent class", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
     expect(() =>
-      updateClass(db, {
+      updateClass(db, userId, {
         id: "class-does-not-exist",
         schoolYearId: "current",
         name: "X",
@@ -471,9 +488,10 @@ describe("planner repository", () => {
 
   it("creates and updates a unit through the planner model", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    const unitId = createUnit(db, {
+    seedPlannerData(db, userId, plannerData);
+    const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
       color: "blue",
       endDate: "2026-12-04",
@@ -482,7 +500,7 @@ describe("planner repository", () => {
       title: "Patterns and Graphs",
     });
 
-    updateUnit(db, {
+    updateUnit(db, userId, {
       classId: "grade-6-math",
       color: "violet",
       endDate: "2026-12-11",
@@ -492,7 +510,7 @@ describe("planner repository", () => {
       title: "Patterns, Tables, and Graphs",
     });
 
-    const unit = getUnitById(db, unitId);
+    const unit = getUnitById(db, userId, unitId);
 
     expect(unit).toMatchObject({
       classId: "grade-6-math",
@@ -509,9 +527,10 @@ describe("planner repository", () => {
 
   it("defaults a new unit's notes to empty and persists notes through updates", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    const unitId = createUnit(db, {
+    seedPlannerData(db, userId, plannerData);
+    const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
       color: "blue",
       endDate: "2026-12-04",
@@ -520,9 +539,9 @@ describe("planner repository", () => {
       title: "Patterns and Graphs",
     });
 
-    expect(getUnitById(db, unitId)?.notes).toBe("");
+    expect(getUnitById(db, userId, unitId)?.notes).toBe("");
 
-    updateUnit(db, {
+    updateUnit(db, userId, {
       classId: "grade-6-math",
       color: "blue",
       endDate: "2026-12-04",
@@ -533,16 +552,17 @@ describe("planner repository", () => {
       notes: "Ran long — split the graphing lesson into two next year.",
     });
 
-    expect(getUnitById(db, unitId)?.notes).toBe(
+    expect(getUnitById(db, userId, unitId)?.notes).toBe(
       "Ran long — split the graphing lesson into two next year.",
     );
   });
 
   it("patches only a unit's dates, leaving other fields untouched", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
-    seedPlannerData(db, plannerData);
-    const unitId = createUnit(db, {
+    seedPlannerData(db, userId, plannerData);
+    const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
       color: "blue",
       endDate: "2026-12-04",
@@ -551,9 +571,9 @@ describe("planner repository", () => {
       title: "Patterns and Graphs",
     });
 
-    updateUnitDates(db, { endDate: "2026-12-08", id: unitId, startDate: "2026-11-20" });
+    updateUnitDates(db, userId, { endDate: "2026-12-08", id: unitId, startDate: "2026-11-20" });
 
-    const unit = getUnitById(db, unitId);
+    const unit = getUnitById(db, userId, unitId);
 
     expect(unit).toMatchObject({
       color: "blue",
@@ -565,10 +585,11 @@ describe("planner repository", () => {
 
   it("throws when patching dates on a unit that doesn't exist", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
     expect(() =>
-      updateUnitDates(db, {
+      updateUnitDates(db, userId, {
         endDate: "2026-12-08",
         id: "unit-does-not-exist",
         startDate: "2026-11-20",
@@ -578,11 +599,12 @@ describe("planner repository", () => {
 
   it("cascades a lesson date shift across the rest of the unit", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
     // 2026-09-07 is Labour Day (blocked); instructional days run
     // ...09-04, 09-08, 09-09, 09-10, 09-11, 09-14, 09-15...
-    const unitId = createUnitWithLessons(db, {
+    const unitId = createUnitWithLessons(db, userId, {
       unit: {
         classId: "grade-6-math",
         color: "blue",
@@ -598,12 +620,12 @@ describe("planner repository", () => {
       ],
     });
 
-    const before = getUnitById(db, unitId)!;
+    const before = getUnitById(db, userId, unitId)!;
     const day1 = before.lessons.find((lesson) => lesson.summary === "Day 1")!;
     const day2 = before.lessons.find((lesson) => lesson.summary === "Day 2")!;
     const day3 = before.lessons.find((lesson) => lesson.summary === "Day 3")!;
 
-    const result = cascadeRescheduleUnitLessons(db, {
+    const result = cascadeRescheduleUnitLessons(db, userId, {
       unitId,
       fromDate: "2026-09-09",
       shiftByDays: 2,
@@ -611,7 +633,7 @@ describe("planner repository", () => {
 
     expect(result.shiftedLessonIds.sort()).toEqual([day2.id, day3.id].sort());
 
-    const after = getUnitById(db, unitId)!;
+    const after = getUnitById(db, userId, unitId)!;
     expect(after.lessons.find((lesson) => lesson.id === day1.id)?.date).toBe("2026-09-08");
     expect(after.lessons.find((lesson) => lesson.id === day2.id)?.date).toBe("2026-09-11");
     expect(after.lessons.find((lesson) => lesson.id === day3.id)?.date).toBe("2026-09-14");
@@ -619,10 +641,11 @@ describe("planner repository", () => {
 
   it("throws when cascading a nonexistent unit", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
     expect(() =>
-      cascadeRescheduleUnitLessons(db, {
+      cascadeRescheduleUnitLessons(db, userId, {
         unitId: "unit-does-not-exist",
         fromDate: "2026-09-09",
         shiftByDays: 1,
@@ -632,13 +655,14 @@ describe("planner repository", () => {
 
   it("cascades by the class's actual cycle-day meeting dates, not every instructional day", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
     // Seed school year: cycleLength 5, 2026-09-07 blocked (Labour Day,
     // advances). Day 3 lands on 09-03, 09-10, 09-17 — skipping 09-04,
     // 09-08, 09-09, 09-11, 09-14, 09-15, 09-16, which a plain
     // "every instructional day" shift would have landed on instead.
-    const classId = createClass(db, {
+    const classId = createClass(db, userId, {
       schoolYearId: "current",
       name: "French (Day 3 only)",
       subject: "French",
@@ -648,7 +672,7 @@ describe("planner repository", () => {
       cycleDays: [3],
     });
 
-    const unitId = createUnitWithLessons(db, {
+    const unitId = createUnitWithLessons(db, userId, {
       unit: {
         classId,
         color: "blue",
@@ -663,26 +687,27 @@ describe("planner repository", () => {
       ],
     });
 
-    const before = getUnitById(db, unitId)!;
+    const before = getUnitById(db, userId, unitId)!;
     const first = before.lessons.find((lesson) => lesson.title === "First")!;
     const second = before.lessons.find((lesson) => lesson.title === "Second")!;
 
-    cascadeRescheduleUnitLessons(db, {
+    cascadeRescheduleUnitLessons(db, userId, {
       unitId,
       fromDate: "2026-09-03",
       shiftByDays: 1,
     });
 
-    const after = getUnitById(db, unitId)!;
+    const after = getUnitById(db, userId, unitId)!;
     expect(after.lessons.find((lesson) => lesson.id === first.id)?.date).toBe("2026-09-10");
     expect(after.lessons.find((lesson) => lesson.id === second.id)?.date).toBe("2026-09-17");
   });
 
   it("duplicates a lesson onto the class's next meeting date, linked back to the source", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const unitId = createUnit(db, {
+    const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
       color: "blue",
       endDate: "2026-09-14",
@@ -690,7 +715,7 @@ describe("planner repository", () => {
       startDate: "2026-09-08",
       title: "Extend Test Unit",
     });
-    const sourceId = createLesson(db, {
+    const sourceId = createLesson(db, userId, {
       date: "2026-09-08",
       durationMinutes: 45,
       outcomeIds: [],
@@ -700,29 +725,30 @@ describe("planner repository", () => {
       unitId,
     });
 
-    const result = duplicateLessonAsContinuation(db, sourceId);
+    const result = duplicateLessonAsContinuation(db, userId, sourceId);
 
     // grade-6-math has no cycle restriction, so "next meeting date" is just
     // the next instructional day after 2026-09-08.
     expect(result.date).toBe("2026-09-09");
 
-    const continuation = getLessonById(db, result.lessonId)!;
+    const continuation = getLessonById(db, userId, result.lessonId)!;
     expect(continuation.title).toBe("Fractions Intro (cont'd)");
     expect(continuation.date).toBe("2026-09-09");
     expect(continuation.summary).toBe("Original content.");
     expect(continuation.continuesFromLessonId).toBe(sourceId);
 
     // The original lesson is untouched and doesn't carry a continuation link.
-    const source = getLessonById(db, sourceId)!;
+    const source = getLessonById(db, userId, sourceId)!;
     expect(source.date).toBe("2026-09-08");
     expect(source.continuesFromLessonId).toBeUndefined();
   });
 
   it("duplicates onto the next cycle-day meeting date for a restricted class", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const classId = createClass(db, {
+    const classId = createClass(db, userId, {
       schoolYearId: "current",
       name: "French (Day 3 only)",
       subject: "French",
@@ -731,7 +757,7 @@ describe("planner repository", () => {
       meetingPattern: "",
       cycleDays: [3],
     });
-    const unitId = createUnit(db, {
+    const unitId = createUnit(db, userId, {
       classId,
       color: "blue",
       endDate: "2026-09-20",
@@ -739,7 +765,7 @@ describe("planner repository", () => {
       startDate: "2026-09-01",
       title: "French Extend Test Unit",
     });
-    const sourceId = createLesson(db, {
+    const sourceId = createLesson(db, userId, {
       date: "2026-09-03",
       durationMinutes: 30,
       outcomeIds: [],
@@ -749,7 +775,7 @@ describe("planner repository", () => {
       unitId,
     });
 
-    const result = duplicateLessonAsContinuation(db, sourceId);
+    const result = duplicateLessonAsContinuation(db, userId, sourceId);
 
     // Day 3 for this school year lands on 09-03, 09-10, 09-17 (see the
     // cascade test above) — the continuation must skip straight to 09-10,
@@ -759,9 +785,10 @@ describe("planner repository", () => {
 
   it("throws when the class has no more meeting days left in the school year", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const unitId = createUnit(db, {
+    const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
       color: "blue",
       endDate: "2026-12-18",
@@ -770,7 +797,7 @@ describe("planner repository", () => {
       title: "End of Year Unit",
     });
     // 2026-12-18 is the seeded school year's last instructional day.
-    const sourceId = createLesson(db, {
+    const sourceId = createLesson(db, userId, {
       date: "2026-12-18",
       durationMinutes: 45,
       outcomeIds: [],
@@ -780,18 +807,19 @@ describe("planner repository", () => {
       unitId,
     });
 
-    expect(() => duplicateLessonAsContinuation(db, sourceId)).toThrow(
+    expect(() => duplicateLessonAsContinuation(db, userId, sourceId)).toThrow(
       "no more meeting days left",
     );
   });
 
   it("creates a second school year and switches the active one", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    expect(getActiveSchoolYearId(db)).toBe("current");
+    expect(getActiveSchoolYearId(db, userId)).toBe("current");
 
-    const nextYearId = createSchoolYear(db, {
+    const nextYearId = createSchoolYear(db, userId, {
       title: "2027-2028 Grade 6 Homeroom",
       startDate: "2027-09-01",
       endDate: "2027-12-17",
@@ -799,69 +827,74 @@ describe("planner repository", () => {
     });
 
     // Creating a new year doesn't switch to it automatically.
-    expect(getActiveSchoolYearId(db)).toBe("current");
-    expect(getSchoolYear(db).id).toBe("current");
+    expect(getActiveSchoolYearId(db, userId)).toBe("current");
+    expect(getSchoolYear(db, userId).id).toBe("current");
 
-    setActiveSchoolYear(db, nextYearId);
+    setActiveSchoolYear(db, userId, nextYearId);
 
-    expect(getActiveSchoolYearId(db)).toBe(nextYearId);
-    expect(getSchoolYear(db).title).toBe("2027-2028 Grade 6 Homeroom");
+    expect(getActiveSchoolYearId(db, userId)).toBe(nextYearId);
+    expect(getSchoolYear(db, userId).title).toBe("2027-2028 Grade 6 Homeroom");
   });
 
   it("lists school years newest-first", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    createSchoolYear(db, {
+    createSchoolYear(db, userId, {
       title: "2027-2028",
       startDate: "2027-09-01",
       endDate: "2027-12-17",
       cycleLength: 5,
     });
 
-    const years = listSchoolYears(db);
+    const years = listSchoolYears(db, userId);
 
     expect(years.map((year) => year.title)).toEqual(["2027-2028", plannerData.schoolYear.title]);
   });
 
   it("throws when switching to a nonexistent school year", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    expect(() => setActiveSchoolYear(db, "year-does-not-exist")).toThrow(
+    expect(() => setActiveSchoolYear(db, userId, "year-does-not-exist")).toThrow(
       "School year not found",
     );
   });
 
   it("throws when looking up a nonexistent school year by id", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    expect(() => getSchoolYearById(db, "year-does-not-exist")).toThrow(
+    expect(() => getSchoolYearById(db, userId, "year-does-not-exist")).toThrow(
       "School year not found",
     );
   });
 
   it("refuses to delete the active school year", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    expect(() => deleteSchoolYear(db, "current")).toThrow(
+    expect(() => deleteSchoolYear(db, userId, "current")).toThrow(
       "Can't delete the active school year",
     );
   });
 
   it("deletes a non-active school year and cascades its classes", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    const nextYearId = createSchoolYear(db, {
+    const nextYearId = createSchoolYear(db, userId, {
       title: "2027-2028",
       startDate: "2027-09-01",
       endDate: "2027-12-17",
       cycleLength: 5,
     });
-    const classId = createClass(db, {
+    const classId = createClass(db, userId, {
       schoolYearId: nextYearId,
       name: "French",
       subject: "French",
@@ -871,46 +904,49 @@ describe("planner repository", () => {
       cycleDays: [],
     });
 
-    deleteSchoolYear(db, nextYearId);
+    deleteSchoolYear(db, userId, nextYearId);
 
-    expect(() => getSchoolYearById(db, nextYearId)).toThrow("School year not found");
-    expect(getClassById(db, classId)).toBeUndefined();
+    expect(() => getSchoolYearById(db, userId, nextYearId)).toThrow("School year not found");
+    expect(getClassById(db, userId, classId)).toBeUndefined();
   });
 
   it("resetPlannerData clears school-year-scoped data but keeps curriculum outcomes", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    expect(getPlannerData(db).classes.length).toBeGreaterThan(0);
-    expect(getPlannerData(db).units.length).toBeGreaterThan(0);
-    expect(getPlannerData(db).outcomes.length).toBeGreaterThan(0);
+    expect(getPlannerData(db, userId).classes.length).toBeGreaterThan(0);
+    expect(getPlannerData(db, userId).units.length).toBeGreaterThan(0);
+    expect(getPlannerData(db, userId).outcomes.length).toBeGreaterThan(0);
 
-    resetPlannerData(db);
-    const after = getPlannerData(db);
+    resetPlannerData(db, userId);
+    const after = getPlannerData(db, userId);
 
     expect(after.classes).toEqual([]);
     expect(after.units).toEqual([]);
     expect(after.outcomes.length).toBeGreaterThan(0);
-    expect(after.outcomes).toEqual(getPlannerData(db).outcomes);
+    expect(after.outcomes).toEqual(getPlannerData(db, userId).outcomes);
   });
 
   it("resetPlannerData leaves the app usable by activating a blank placeholder year", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
-    seedPlannerData(db, plannerData);
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
 
-    resetPlannerData(db);
+    resetPlannerData(db, userId);
 
-    expect(() => getActiveSchoolYearId(db)).not.toThrow();
-    const activeId = getActiveSchoolYearId(db);
-    expect(() => getSchoolYearById(db, activeId)).not.toThrow();
+    expect(() => getActiveSchoolYearId(db, userId)).not.toThrow();
+    const activeId = getActiveSchoolYearId(db, userId);
+    expect(() => getSchoolYearById(db, userId, activeId)).not.toThrow();
   });
 
   it("hasCurriculumOutcomes reflects whether any outcomes exist", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
 
     expect(hasCurriculumOutcomes(db)).toBe(false);
 
-    seedPlannerData(db, plannerData);
+    seedPlannerData(db, userId, plannerData);
 
     expect(hasCurriculumOutcomes(db)).toBe(true);
   });

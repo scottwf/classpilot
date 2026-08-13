@@ -21,9 +21,9 @@ export const dynamic = "force-dynamic";
 export default async function NewLessonPage({
   searchParams,
 }: NewLessonPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const settings = getAppSettings(getClassPilotDatabase());
   const params = await searchParams;
 

@@ -14,6 +14,7 @@ import {
 } from "./planner-repository";
 import { createOnboardingPresetClasses } from "./onboarding-class-presets";
 import { createClassPilotDatabase } from "./sqlite";
+import { createUser } from "./users-repository";
 
 function createTestYear() {
   const path = join(
@@ -21,27 +22,28 @@ function createTestYear() {
     "test.sqlite",
   );
   const db = createClassPilotDatabase(path);
-  const schoolYearId = createSchoolYear(db, {
+  const userId = createUser(db, { username: "teacher", password: "x" }).id;
+  const schoolYearId = createSchoolYear(db, userId, {
     title: "2026-2027",
     startDate: "2026-09-01",
     endDate: "2027-06-30",
     cycleLength: 6,
     blockedDates: [],
   });
-  return { db, schoolYearId };
+  return { db, userId, schoolYearId };
 }
 
 describe("onboarding class preset repository", () => {
   it("creates a batch with defaults and sequential unused colors", () => {
-    const { db, schoolYearId } = createTestYear();
+    const { db, userId, schoolYearId } = createTestYear();
     const presets = [
       buildInstructionalClassPreset("6", "Mathematics"),
       buildInstructionalClassPreset("6", "Science"),
       buildNonInstructionalClassPresets()[0]!,
     ];
 
-    const ids = createOnboardingPresetClasses(db, schoolYearId, presets);
-    const classes = listClassesForSchoolYear(db, schoolYearId);
+    const ids = createOnboardingPresetClasses(db, userId, schoolYearId, presets);
+    const classes = listClassesForSchoolYear(db, userId, schoolYearId);
 
     expect(ids).toHaveLength(3);
     expect(classes.map((classSection) => classSection.color)).toEqual([
@@ -81,18 +83,18 @@ describe("onboarding class preset repository", () => {
   });
 
   it("skips matching presets on a repeated submission", () => {
-    const { db, schoolYearId } = createTestYear();
+    const { db, userId, schoolYearId } = createTestYear();
     const presets = [buildInstructionalClassPreset("6", "Mathematics")];
 
-    expect(createOnboardingPresetClasses(db, schoolYearId, presets)).toHaveLength(
+    expect(createOnboardingPresetClasses(db, userId, schoolYearId, presets)).toHaveLength(
       1,
     );
-    expect(createOnboardingPresetClasses(db, schoolYearId, presets)).toEqual([]);
-    expect(listClassesForSchoolYear(db, schoolYearId)).toHaveLength(1);
+    expect(createOnboardingPresetClasses(db, userId, schoolYearId, presets)).toEqual([]);
+    expect(listClassesForSchoolYear(db, userId, schoolYearId)).toHaveLength(1);
   });
 
   it("rolls back the whole batch when one insert fails", () => {
-    const { db, schoolYearId } = createTestYear();
+    const { db, userId, schoolYearId } = createTestYear();
     db.exec(`
       CREATE TRIGGER reject_science
       BEFORE INSERT ON class_sections
@@ -103,11 +105,11 @@ describe("onboarding class preset repository", () => {
     `);
 
     expect(() =>
-      createOnboardingPresetClasses(db, schoolYearId, [
+      createOnboardingPresetClasses(db, userId, schoolYearId, [
         buildInstructionalClassPreset("6", "Mathematics"),
         buildInstructionalClassPreset("6", "Science"),
       ]),
     ).toThrow("Science rejected");
-    expect(listClassesForSchoolYear(db, schoolYearId)).toEqual([]);
+    expect(listClassesForSchoolYear(db, userId, schoolYearId)).toEqual([]);
   });
 });

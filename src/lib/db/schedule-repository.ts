@@ -13,7 +13,50 @@ type ScheduleSlotRow = {
   end_date: string | null;
 };
 
-export function getScheduleSlots(db: ClassPilotDatabase, schoolYearId: string): ScheduleSlot[] {
+function notFound(kind: string, id: string): Error {
+  return new Error(`${kind} not found: ${id}`);
+}
+
+function schoolYearOwnedByUser(
+  db: ClassPilotDatabase,
+  schoolYearId: string,
+  userId: string,
+): boolean {
+  return !!db
+    .prepare("SELECT 1 FROM school_years WHERE id = ? AND user_id = ?")
+    .get(schoolYearId, userId);
+}
+
+function classOwnedByUser(db: ClassPilotDatabase, classId: string, userId: string): boolean {
+  return !!db
+    .prepare(
+      `SELECT 1 FROM class_sections
+       JOIN school_years ON school_years.id = class_sections.school_year_id
+       WHERE class_sections.id = ? AND school_years.user_id = ?`,
+    )
+    .get(classId, userId);
+}
+
+function slotOwnedByUser(db: ClassPilotDatabase, slotId: string, userId: string): boolean {
+  return !!db
+    .prepare(
+      `SELECT 1 FROM schedule_slots
+       JOIN class_sections ON class_sections.id = schedule_slots.class_id
+       JOIN school_years ON school_years.id = class_sections.school_year_id
+       WHERE schedule_slots.id = ? AND school_years.user_id = ?`,
+    )
+    .get(slotId, userId);
+}
+
+export function getScheduleSlots(
+  db: ClassPilotDatabase,
+  userId: string,
+  schoolYearId: string,
+): ScheduleSlot[] {
+  if (!schoolYearOwnedByUser(db, schoolYearId, userId)) {
+    return [];
+  }
+
   const rows = db
     .prepare(
       `SELECT schedule_slots.id, schedule_slots.class_id, schedule_slots.cycle_day,
@@ -29,7 +72,15 @@ export function getScheduleSlots(db: ClassPilotDatabase, schoolYearId: string): 
   return rows.map(mapScheduleSlot);
 }
 
-export function getScheduleSlotsForClass(db: ClassPilotDatabase, classId: string): ScheduleSlot[] {
+export function getScheduleSlotsForClass(
+  db: ClassPilotDatabase,
+  userId: string,
+  classId: string,
+): ScheduleSlot[] {
+  if (!classOwnedByUser(db, classId, userId)) {
+    return [];
+  }
+
   const rows = db
     .prepare(
       `SELECT id, class_id, cycle_day, start_time, end_time, start_date, end_date
@@ -68,13 +119,20 @@ function timeRangesOverlap(
  * next day" pick up the right meeting days. Returns any conflicts against
  * other classes' slots on the same cycle day with an overlapping time
  * range — surfaced as a warning, not blocked (a teacher may have a
- * legitimate reason, e.g. team teaching).
+ * legitimate reason, e.g. team teaching). Conflicts are only checked
+ * against the requesting user's own other classes (a JOIN back to
+ * school_years.user_id), never another user's schedule.
  */
 export function setClassSchedule(
   db: ClassPilotDatabase,
+  userId: string,
   classId: string,
   slots: ClassScheduleSlotInput[],
 ): ScheduleConflict[] {
+  if (!classOwnedByUser(db, classId, userId)) {
+    throw notFound("Class", classId);
+  }
+
   const conflicts: ScheduleConflict[] = [];
 
   db.exec("BEGIN;");
@@ -106,9 +164,10 @@ export function setClassSchedule(
         `SELECT schedule_slots.cycle_day, schedule_slots.start_time, schedule_slots.end_time, class_sections.name
          FROM schedule_slots
          JOIN class_sections ON class_sections.id = schedule_slots.class_id
-         WHERE schedule_slots.class_id != ?`,
+         JOIN school_years ON school_years.id = class_sections.school_year_id
+         WHERE schedule_slots.class_id != ? AND school_years.user_id = ?`,
       )
-      .all(classId) as Array<{
+      .all(classId, userId) as Array<{
       cycle_day: number;
       start_time: string;
       end_time: string;
@@ -180,21 +239,28 @@ export type ScheduleSwapNotice = {
  * forward" logic as a snow day, which naturally extends the affected
  * unit's timeline instead of leaving orphaned/overlapping lessons. Returns
  * one notice per displaced class so the caller can surface what happened.
+ * Displacement is only checked against the requesting user's own other
+ * classes, same as setClassSchedule.
  */
 export function addTemporaryScheduleSlot(
   db: ClassPilotDatabase,
+  userId: string,
   classId: string,
   input: TemporaryScheduleSlotInput,
 ): ScheduleSwapNotice[] {
+  if (!classOwnedByUser(db, classId, userId)) {
+    throw notFound("Class", classId);
+  }
+
   const classSection = db
     .prepare("SELECT school_year_id FROM class_sections WHERE id = ?")
     .get(classId) as { school_year_id: string } | undefined;
 
   if (!classSection) {
-    throw new Error(`Class not found: ${classId}`);
+    throw notFound("Class", classId);
   }
 
-  const schoolYear = getSchoolYearById(db, classSection.school_year_id);
+  const schoolYear = getSchoolYearById(db, userId, classSection.school_year_id);
   const cycleDayMap = buildCycleDayMap(schoolYear);
   const displacedOccurrences = Array.from(cycleDayMap.entries()).filter(
     ([date, cycleDay]) =>
@@ -207,11 +273,13 @@ export function addTemporaryScheduleSlot(
               schedule_slots.start_time, schedule_slots.end_time
        FROM schedule_slots
        JOIN class_sections ON class_sections.id = schedule_slots.class_id
+       JOIN school_years ON school_years.id = class_sections.school_year_id
        WHERE schedule_slots.class_id != ?
          AND schedule_slots.cycle_day = ?
-         AND schedule_slots.start_date IS NULL`,
+         AND schedule_slots.start_date IS NULL
+         AND school_years.user_id = ?`,
     )
-    .all(classId, input.cycleDay) as Array<{
+    .all(classId, input.cycleDay, userId) as Array<{
     class_id: string;
     name: string;
     start_time: string;
@@ -249,13 +317,7 @@ export function addTemporaryScheduleSlot(
   // empty, which getClassMeetingDates() reads as "meets every
   // instructional day" — silently wrong for cascade reschedule and
   // "extend to next day", which then place lessons on days the class
-  // never actually meets. Known residual limitation: this still doesn't
-  // teach getClassMeetingDates() about the slot's own date window, so a
-  // cascade/extend near a temporary slot's start/end boundary can still
-  // land outside it — cycleDays has no concept of "only during these
-  // months." Good enough to fix the empty-cycleDays case; a real fix
-  // would need getClassMeetingDates() to read schedule_slots directly
-  // instead of the cycleDays snapshot.
+  // never actually meets.
   const currentCycleDays = db
     .prepare("SELECT cycle_days_json FROM class_sections WHERE id = ?")
     .get(classId) as { cycle_days_json: string };
@@ -285,7 +347,7 @@ export function addTemporaryScheduleSlot(
       }>;
 
       const shiftedUnits = affectedUnits.map((unit) => {
-        const result = cascadeRescheduleUnitLessons(db, {
+        const result = cascadeRescheduleUnitLessons(db, userId, {
           unitId: unit.id,
           fromDate: input.startDate,
           shiftByDays: displacedOccurrences,
@@ -309,6 +371,10 @@ export function addTemporaryScheduleSlot(
   return notices;
 }
 
-export function deleteScheduleSlot(db: ClassPilotDatabase, slotId: string): void {
+export function deleteScheduleSlot(db: ClassPilotDatabase, userId: string, slotId: string): void {
+  if (!slotOwnedByUser(db, slotId, userId)) {
+    throw notFound("Schedule slot", slotId);
+  }
+
   db.prepare("DELETE FROM schedule_slots WHERE id = ?").run(slotId);
 }

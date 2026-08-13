@@ -25,11 +25,11 @@ type ScheduleSettingsRouteProps = {
 export const dynamic = "force-dynamic";
 
 export default async function ScheduleSettingsRoute({ searchParams }: ScheduleSettingsRouteProps) {
-  await requireAuth();
-  const plannerData = getClassPilotPlannerData();
+  const userId = await requireAuth();
+  const plannerData = getClassPilotPlannerData(userId);
   const db = getClassPilotDatabase();
   const schoolYearId = plannerData.schoolYear.id;
-  const scheduleSlots = getScheduleSlots(db, schoolYearId);
+  const scheduleSlots = getScheduleSlots(db, userId, schoolYearId);
   const instructionalTime = computeInstructionalTimeSummary(
     plannerData.schoolYear,
     plannerData.classes,

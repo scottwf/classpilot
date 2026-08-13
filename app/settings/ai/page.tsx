@@ -13,9 +13,9 @@ type AiSettingsRouteProps = {
 export const dynamic = "force-dynamic";
 
 export default async function AiSettingsRoute({ searchParams }: AiSettingsRouteProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const settings = getAppSettings(getClassPilotDatabase());
   const query = await searchParams;
 

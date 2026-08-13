@@ -9,7 +9,7 @@ import { createUnit } from "@/src/lib/db/planner-repository";
 const colors = new Set(["blue", "emerald", "amber", "rose", "violet"]);
 
 export async function createUnitAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const title = requiredString(formData, "title");
   const classId = requiredString(formData, "classId");
@@ -23,7 +23,7 @@ export async function createUnitAction(formData: FormData) {
     redirect("/units/new?error=dates");
   }
 
-  createUnit(getClassPilotDatabase(), {
+  createUnit(getClassPilotDatabase(), userId, {
     classId,
     color: color as UnitPlan["color"],
     endDate,

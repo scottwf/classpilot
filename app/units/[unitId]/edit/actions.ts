@@ -9,7 +9,7 @@ import { updateUnit } from "@/src/lib/db/planner-repository";
 const colors = new Set(["blue", "emerald", "amber", "rose", "violet"]);
 
 export async function updateUnitAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const id = requiredString(formData, "id");
   const title = requiredString(formData, "title");
@@ -24,7 +24,7 @@ export async function updateUnitAction(formData: FormData) {
     redirect(`/units/${id}/edit?error=dates`);
   }
 
-  updateUnit(getClassPilotDatabase(), {
+  updateUnit(getClassPilotDatabase(), userId, {
     classId,
     color: color as UnitPlan["color"],
     endDate,

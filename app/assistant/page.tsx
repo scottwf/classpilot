@@ -8,9 +8,9 @@ import { isAiConfigured, isLocalAiConfigured } from "@/src/lib/ai/config";
 export const dynamic = "force-dynamic";
 
 export default async function AssistantRoutePage() {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const settings = getAppSettings(getClassPilotDatabase());
 
   return (

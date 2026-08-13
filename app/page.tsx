@@ -16,13 +16,15 @@ type HomeProps = {
 };
 
 export default async function Home({ searchParams }: HomeProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const params = await searchParams;
   const db = getClassPilotDatabase();
-  const plannerData = getClassPilotPlannerData();
-  const scheduleSlots = getScheduleSlots(db, plannerData.schoolYear.id);
-  const upcomingBirthdays = findUpcomingBirthdays(listRoster(db, plannerData.schoolYear.id));
+  const plannerData = getClassPilotPlannerData(userId);
+  const scheduleSlots = getScheduleSlots(db, userId, plannerData.schoolYear.id);
+  const upcomingBirthdays = findUpcomingBirthdays(
+    listRoster(db, userId, plannerData.schoolYear.id),
+  );
   const view = params.view === "week" ? "week" : "day";
   const todayKey = new Date().toISOString().slice(0, 10);
   const selectedDate =

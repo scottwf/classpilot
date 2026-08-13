@@ -13,8 +13,8 @@ type CalendarSettingsRouteProps = {
 export const dynamic = "force-dynamic";
 
 export default async function CalendarSettingsRoute({ searchParams }: CalendarSettingsRouteProps) {
-  await requireAuth();
-  const plannerData = getClassPilotPlannerData();
+  const userId = await requireAuth();
+  const plannerData = getClassPilotPlannerData(userId);
   const params = await searchParams;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3020";
   const feedUrl = `${appUrl}/calendar/feed.ics?token=${getCalendarToken()}`;
