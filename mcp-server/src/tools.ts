@@ -22,10 +22,6 @@ import {
 import { parseLessonMarkdown } from "../../src/lib/lessons/markdown-import.ts";
 import { getScheduleSlots, setClassSchedule } from "../../src/lib/db/schedule-repository.ts";
 
-const colorEnum = z
-  .enum(["blue", "emerald", "amber", "rose", "violet"])
-  .describe("Timeline color for the unit block.");
-
 const statusEnum = z
   .enum(["planned", "taught", "delayed", "skipped"])
   .describe("Lesson status.");
@@ -77,7 +73,8 @@ const unitInputShape = {
   title: z.string().min(1),
   startDate: z.string().describe("ISO date, e.g. 2026-09-01."),
   endDate: z.string().describe("ISO date, e.g. 2026-09-30."),
-  color: colorEnum,
+  // No color field -- a unit's color is always derived from its class's
+  // color, not an independent choice (issue #27).
   outcomeIds: z
     .array(z.string())
     .default([])

@@ -116,7 +116,6 @@ describe("planner repository", () => {
     const unitId = createUnitWithLessons(db, userId, {
       unit: {
         classId,
-        color: "violet",
         endDate: "2026-10-09",
         outcomeIds: ["sk-grade-6-mathematics-n6-5"],
         startDate: "2026-09-28",
@@ -164,7 +163,6 @@ describe("planner repository", () => {
       createUnitWithLessons(db, userId, {
         unit: {
           classId,
-          color: "blue",
           endDate: "2026-10-09",
           outcomeIds: [],
           startDate: "2026-09-28",
@@ -493,7 +491,6 @@ describe("planner repository", () => {
     seedPlannerData(db, userId, plannerData);
     const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
-      color: "blue",
       endDate: "2026-12-04",
       outcomeIds: ["sk-grade-6-mathematics-p6-1"],
       startDate: "2026-11-16",
@@ -502,7 +499,6 @@ describe("planner repository", () => {
 
     updateUnit(db, userId, {
       classId: "grade-6-math",
-      color: "violet",
       endDate: "2026-12-11",
       id: unitId,
       outcomeIds: ["sk-grade-6-mathematics-p6-1", "sk-grade-6-mathematics-p6-2"],
@@ -514,7 +510,6 @@ describe("planner repository", () => {
 
     expect(unit).toMatchObject({
       classId: "grade-6-math",
-      color: "violet",
       endDate: "2026-12-11",
       startDate: "2026-11-17",
       title: "Patterns, Tables, and Graphs",
@@ -532,7 +527,6 @@ describe("planner repository", () => {
     seedPlannerData(db, userId, plannerData);
     const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
-      color: "blue",
       endDate: "2026-12-04",
       outcomeIds: [],
       startDate: "2026-11-16",
@@ -543,7 +537,6 @@ describe("planner repository", () => {
 
     updateUnit(db, userId, {
       classId: "grade-6-math",
-      color: "blue",
       endDate: "2026-12-04",
       id: unitId,
       outcomeIds: [],
@@ -564,7 +557,6 @@ describe("planner repository", () => {
     seedPlannerData(db, userId, plannerData);
     const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
-      color: "blue",
       endDate: "2026-12-04",
       outcomeIds: ["sk-grade-6-mathematics-p6-1"],
       startDate: "2026-11-16",
@@ -576,7 +568,6 @@ describe("planner repository", () => {
     const unit = getUnitById(db, userId, unitId);
 
     expect(unit).toMatchObject({
-      color: "blue",
       endDate: "2026-12-08",
       startDate: "2026-11-20",
       title: "Patterns and Graphs",
@@ -607,7 +598,6 @@ describe("planner repository", () => {
     const unitId = createUnitWithLessons(db, userId, {
       unit: {
         classId: "grade-6-math",
-        color: "blue",
         endDate: "2026-09-14",
         outcomeIds: [],
         startDate: "2026-09-08",
@@ -675,7 +665,6 @@ describe("planner repository", () => {
     const unitId = createUnitWithLessons(db, userId, {
       unit: {
         classId,
-        color: "blue",
         endDate: "2026-09-20",
         outcomeIds: [],
         startDate: "2026-09-01",
@@ -709,7 +698,6 @@ describe("planner repository", () => {
 
     const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
-      color: "blue",
       endDate: "2026-09-14",
       outcomeIds: [],
       startDate: "2026-09-08",
@@ -759,7 +747,6 @@ describe("planner repository", () => {
     });
     const unitId = createUnit(db, userId, {
       classId,
-      color: "blue",
       endDate: "2026-09-20",
       outcomeIds: [],
       startDate: "2026-09-01",
@@ -790,7 +777,6 @@ describe("planner repository", () => {
 
     const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
-      color: "blue",
       endDate: "2026-12-18",
       outcomeIds: [],
       startDate: "2026-12-18",

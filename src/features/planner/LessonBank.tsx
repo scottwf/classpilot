@@ -5,6 +5,22 @@ import type {
   LessonBankFilters,
   LessonBankSort,
 } from "./lesson-queries";
+import type { ClassColor } from "./types";
+
+// Same 8-hue set as every other class-identity dot in the app (Schedule,
+// Outcomes, Curriculum Library) -- see issue #27: class color should be
+// visible everywhere a class's lessons show up, including here, which
+// previously had no color at all.
+const classDotColorClass: Record<ClassColor, string> = {
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  emerald: "bg-emerald-500",
+  orange: "bg-orange-500",
+  rose: "bg-rose-500",
+  sky: "bg-sky-500",
+  teal: "bg-teal-500",
+  violet: "bg-violet-500",
+};
 
 type LessonBankProps = {
   filterOptions: LessonBankFilterOptions;
@@ -166,7 +182,13 @@ export function LessonBank({
               </Link>
               <div className="mt-1 text-xs text-slate-500">{lesson.date}</div>
             </div>
-            <div className="text-slate-700">{lesson.subject}</div>
+            <div className="flex items-center gap-2 text-slate-700">
+              <span
+                aria-hidden="true"
+                className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[lesson.classColor]}`}
+              />
+              {lesson.subject}
+            </div>
             <div className="text-slate-700">{lesson.unitTitle}</div>
             <div className="text-slate-700">{lesson.outcomeCodes.join(", ")}</div>
           </div>

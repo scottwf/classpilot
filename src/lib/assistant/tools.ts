@@ -61,7 +61,6 @@ const classColors: ClassColor[] = [
   "orange",
   "teal",
 ];
-const unitColors = ["blue", "emerald", "amber", "rose", "violet"] as const;
 
 function ok(data: unknown): ToolResult {
   return { ok: true, data };
@@ -267,7 +266,6 @@ const listUnitsTool: AssistantTool = {
       units.map((unit) => ({
         unitId: unit.id,
         classId: unit.classId,
-        color: unit.color,
         endDate: unit.endDate,
         lessonCount: unit.lessons.length,
         startDate: unit.startDate,
@@ -283,7 +281,7 @@ const listUnitsTool: AssistantTool = {
 const createUnitTool: AssistantTool = {
   contentGeneration: false,
   description:
-    "Creates a unit for a class with no AI-drafted content — just the title, dates, color, and outcomes. Give either endDate directly, or lessonDayCount to compute the end date from the class's real meeting days. Use includeAllClassOutcomes to attach every outcome for the class's subject/grade(s) instead of listing outcomeIds by hand.",
+    "Creates a unit for a class with no AI-drafted content — just the title, dates, and outcomes. Its color is always a shade of the class's color, not something to choose. Give either endDate directly, or lessonDayCount to compute the end date from the class's real meeting days. Use includeAllClassOutcomes to attach every outcome for the class's subject/grade(s) instead of listing outcomeIds by hand.",
   execute: async (db, userId, args) => {
     const classId = str(args, "classId");
     const title = str(args, "title");
@@ -311,9 +309,6 @@ const createUnitTool: AssistantTool = {
       return fail("Provide either endDate or lessonDayCount.");
     }
 
-    const colorArg = str(args, "color");
-    const color = (unitColors as readonly string[]).includes(colorArg) ? colorArg : "blue";
-
     const classGrades = [classSection.grade, ...(classSection.combinedGrades ?? [])];
     const explicitOutcomeIds = strArray(args, "outcomeIds");
     const outcomeIds =
@@ -336,7 +331,6 @@ const createUnitTool: AssistantTool = {
 
     const unitId = createUnit(db, userId, {
       classId,
-      color: color as (typeof unitColors)[number],
       endDate,
       outcomeIds,
       startDate,
@@ -364,7 +358,6 @@ const createUnitTool: AssistantTool = {
         type: "integer",
         description: "Number of the class's actual meeting days this unit should span — used to compute endDate.",
       },
-      color: { type: "string", enum: unitColors as unknown as string[] },
       outcomeIds: { type: "array", items: { type: "string" } },
       includeAllClassOutcomes: {
         type: "boolean",
@@ -515,13 +508,9 @@ const saveUnitFromOutlineTool: AssistantTool = {
       return fail(`No class found with id ${classId}.`);
     }
 
-    const colorArg = str(args, "color");
-    const color = (unitColors as readonly string[]).includes(colorArg) ? colorArg : "blue";
-
     try {
       const unitId = saveUnitOutlineDraft(db, userId, planner, {
         classId,
-        color: color as (typeof unitColors)[number],
         draft,
         lessonMinutes: num(args, "lessonMinutes") ?? 45,
         lessonsPerWeek: num(args, "lessonsPerWeek") ?? 3,
@@ -539,7 +528,6 @@ const saveUnitFromOutlineTool: AssistantTool = {
     properties: {
       classId: { type: "string" },
       startDate: { type: "string", description: "YYYY-MM-DD" },
-      color: { type: "string", enum: unitColors as unknown as string[] },
       lessonsPerWeek: { type: "integer" },
       lessonMinutes: { type: "integer" },
       selectedOutcomeIds: { type: "array", items: { type: "string" } },

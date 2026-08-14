@@ -19,7 +19,6 @@ type UnitFormProps = {
   units: UnitPlan[];
 };
 
-const colors: UnitPlan["color"][] = ["blue", "emerald", "amber", "rose", "violet"];
 const defaultStartDate = "2026-09-01";
 const defaultLessonDays = 10;
 
@@ -150,42 +149,27 @@ export function UnitForm({
           </p>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">
-              Subject row
-            </span>
-            <select
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              name="classId"
-              onChange={(event) => setSelectedClassId(event.target.value)}
-              required
-              value={selectedClassId ?? ""}
-            >
-              {classes.map((classSection) => (
-                <option key={classSection.id} value={classSection.id}>
-                  {classSection.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Color</span>
-            <select
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              defaultValue={unit?.color ?? "blue"}
-              name="color"
-              required
-            >
-              {colors.map((color) => (
-                <option key={color} value={color}>
-                  {color}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">
+            Subject row
+          </span>
+          <select
+            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            name="classId"
+            onChange={(event) => setSelectedClassId(event.target.value)}
+            required
+            value={selectedClassId ?? ""}
+          >
+            {classes.map((classSection) => (
+              <option key={classSection.id} value={classSection.id}>
+                {classSection.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            The unit&apos;s color is a shade of this class&apos;s color — no need to pick one.
+          </p>
+        </label>
       </div>
 
       <aside className="space-y-4">

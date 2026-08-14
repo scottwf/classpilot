@@ -39,7 +39,6 @@ describe("planner timeline", () => {
           title: "Ecosystems",
           startDate: "2026-09-03",
           endDate: "2026-09-11",
-          color: "emerald",
           outcomeIds: [],
           lessons: [],
           notes: "",

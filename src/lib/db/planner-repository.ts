@@ -58,7 +58,10 @@ type UnitPlanRow = {
   title: string;
   start_date: string;
   end_date: string;
-  color: UnitPlan["color"];
+  // Column stays for now (NOT NULL, avoids a migration) but is never read
+  // -- unit color is always derived from the parent class's color, see
+  // src/features/planner/unit-color.ts (issue #27).
+  color: string;
   outcome_ids_json: string;
   notes: string;
 };
@@ -98,7 +101,6 @@ export type UpdateLessonInput = CreateLessonInput & {
 
 export type CreateUnitInput = {
   classId: string;
-  color: UnitPlan["color"];
   endDate: string;
   outcomeIds: string[];
   startDate: string;
@@ -380,7 +382,8 @@ export function seedPlannerData(
         unit.title,
         unit.startDate,
         unit.endDate,
-        unit.color,
+        // Column stays NOT NULL but is never read -- see UnitPlanRow.
+        "blue",
         JSON.stringify(unit.outcomeIds),
       );
 
@@ -666,7 +669,7 @@ export function createUnit(
     input.title,
     input.startDate,
     input.endDate,
-    input.color,
+    "blue",
     JSON.stringify(input.outcomeIds),
     input.notes ?? "",
   );
@@ -713,7 +716,7 @@ export function createUnitWithLessons(
       input.unit.title,
       input.unit.startDate,
       input.unit.endDate,
-      input.unit.color,
+      "blue",
       JSON.stringify(input.unit.outcomeIds),
       input.unit.notes ?? "",
     );
@@ -786,7 +789,6 @@ export function updateUnit(
       title = ?,
       start_date = ?,
       end_date = ?,
-      color = ?,
       outcome_ids_json = ?,
       notes = ?
     WHERE id = ?
@@ -795,7 +797,6 @@ export function updateUnit(
     input.title,
     input.startDate,
     input.endDate,
-    input.color,
     JSON.stringify(input.outcomeIds),
     input.notes ?? "",
     input.id,
@@ -1233,7 +1234,6 @@ function mapUnitPlan(row: UnitPlanRow, lessonRows: LessonPlanRow[]): UnitPlan {
     title: row.title,
     startDate: row.start_date,
     endDate: row.end_date,
-    color: row.color,
     outcomeIds: JSON.parse(row.outcome_ids_json) as string[],
     lessons: lessonRows.map(mapLessonPlan),
     notes: row.notes,

@@ -311,7 +311,6 @@ describe("schedule repository", () => {
 
     const unitId = createUnit(db, userId, {
       classId: "grade-6-math",
-      color: "blue",
       startDate: "2026-09-01",
       endDate: "2026-10-30",
       outcomeIds: [],

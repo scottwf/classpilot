@@ -7,14 +7,7 @@ import { createLessonAction } from "@/app/lessons/new/actions";
 import { moveUnitAction } from "@/app/units/actions";
 import { getUnitTimelinePosition } from "./timeline";
 import type { ClassSection, InstructionalDay, UnitPlan } from "./types";
-
-const colorClass: Record<UnitPlan["color"], string> = {
-  amber: "bg-amber-300 text-amber-950 border-amber-400",
-  blue: "bg-blue-300 text-blue-950 border-blue-400",
-  emerald: "bg-emerald-300 text-emerald-950 border-emerald-400",
-  rose: "bg-rose-300 text-rose-950 border-rose-400",
-  violet: "bg-violet-300 text-violet-950 border-violet-400",
-};
+import { getUnitColorClasses, getUnitShadeIndex } from "./unit-color";
 
 type UnitTimelineProps = {
   classes: ClassSection[];
@@ -316,7 +309,7 @@ export function UnitTimeline({
                         }}
                       >
                         <Link
-                          className={`block size-full rounded-md border px-3 py-2 text-sm font-semibold shadow-sm ${colorClass[unit.color]}`}
+                          className={`block size-full rounded-md border px-3 py-2 text-sm font-semibold shadow-sm ${getUnitColorClasses(classSection.color, getUnitShadeIndex(unit.id, classUnits)).block}`}
                           href={`/units/${unit.id}`}
                           title={
                             warningLabel

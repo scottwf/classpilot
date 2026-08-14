@@ -15,6 +15,7 @@ function lesson(overrides: Partial<EnrichedLesson> = {}): EnrichedLesson {
     className: "Grade 6 Math",
     subject: "Math",
     grade: "6",
+    classColor: "blue",
     unitId: "unit-ratios",
     unitTitle: "Ratios, Rates, and Percent",
     outcomeCodes: [],

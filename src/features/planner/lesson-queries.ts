@@ -14,6 +14,9 @@ export type EnrichedLesson = LessonPlan & {
   className: string;
   subject: string;
   grade: string;
+  /** The parent class's color -- issue #27: lessons show color everywhere
+   * now, matching the class/unit color hierarchy (see unit-color.ts). */
+  classColor: ClassColor;
   unitId: string;
   unitTitle: string;
   outcomeCodes: string[];
@@ -240,6 +243,7 @@ function enrichLesson(
     className: classSection?.name ?? "Unknown class",
     subject: classSection?.subject ?? "Unknown subject",
     grade: classSection?.grade ?? "",
+    classColor: classSection?.color ?? "blue",
     unitId: unit.id,
     unitTitle: unit.title,
     outcomeCodes: lesson.outcomeIds.map(

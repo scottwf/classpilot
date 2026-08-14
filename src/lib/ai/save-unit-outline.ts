@@ -2,12 +2,11 @@ import { createUnitWithLessons } from "@/src/lib/db/planner-repository";
 import type { ClassPilotDatabase } from "@/src/lib/db/sqlite";
 import { buildInstructionalDays } from "@/src/features/planner/timeline";
 import { scheduleLessonDates } from "@/src/features/planner/schedule";
-import type { LessonSections, PlannerData, UnitPlan } from "@/src/features/planner/types";
+import type { LessonSections, PlannerData } from "@/src/features/planner/types";
 import type { UnitOutlineDraft } from "./types";
 
 export type SaveUnitOutlineDraftInput = {
   classId: string;
-  color: UnitPlan["color"];
   startDate: string;
   draft: UnitOutlineDraft;
   lessonsPerWeek: number;
@@ -62,7 +61,6 @@ export function saveUnitOutlineDraft(
   return createUnitWithLessons(db, userId, {
     unit: {
       classId: input.classId,
-      color: input.color,
       endDate: dates[dates.length - 1],
       outcomeIds: unitOutcomeIds,
       startDate: dates[0],

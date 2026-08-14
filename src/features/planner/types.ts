@@ -40,7 +40,8 @@ export type UnitPlan = {
   title: string;
   startDate: string;
   endDate: string;
-  color: "blue" | "emerald" | "amber" | "rose" | "violet";
+  // No independent color -- always derived from the parent class's color
+  // (see unit-color.ts). Issue #27.
   outcomeIds: string[];
   lessons: LessonPlan[];
   /** Free-text notes for things that don't belong in outcomes or lesson
