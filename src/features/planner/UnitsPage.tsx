@@ -30,10 +30,6 @@ export function UnitsPage({ data }: UnitsPageProps) {
           <h2 className="mt-1 text-2xl font-semibold text-slate-950">
             Place units across the school year.
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            This is the long-range planning view. Create and edit units here,
-            then build lessons inside them.
-          </p>
         </div>
         <Link
           className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"

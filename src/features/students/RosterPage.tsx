@@ -14,11 +14,6 @@ export function RosterPage({ roster }: RosterPageProps) {
           <h2 className="mt-1 text-2xl font-semibold text-slate-950">
             Your private homeroom roster.
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Profiles, notes, accommodations, contacts, and follow-up reminders
-            stay in this local workspace. Keep this device and your backups
-            protected before entering real student information.
-          </p>
         </div>
         <div className="flex shrink-0 gap-2">
           <Link

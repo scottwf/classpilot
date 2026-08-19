@@ -37,10 +37,6 @@ export function SettingsPage({
         <h2 className="mt-1 text-2xl font-semibold text-slate-950">
           App configuration.
         </h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          School year management lives here. AI providers, classes, calendar,
-          and schedule are all under Settings too — use the tabs below.
-        </p>
       </section>
 
       <SettingsTabs active="years" />

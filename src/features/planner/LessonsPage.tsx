@@ -33,11 +33,6 @@ export function LessonsPage({ data }: LessonsPageProps) {
             <h2 className="text-2xl font-semibold text-slate-950">
               Find and organize every class lesson.
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Sort lessons by date, subject, unit, or outcome without leaving
-              the page. This is the working bank for lesson reuse and future
-              editing.
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
