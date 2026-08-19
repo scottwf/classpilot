@@ -52,14 +52,18 @@ quick reference.
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `CLASSPILOT_MCP_TOKEN` | Yes | none — the server refuses to start without it, in dev or production | Shared secret every MCP client must send as the `x-classpilot-mcp-key` header. Generate with `openssl rand -base64 32`. Rotating it requires editing `.env` and restarting the container (`docker compose up -d`). |
 | `CLASSPILOT_MCP_PORT` | No | `3900` | Docker Compose only — host-side port mapping (`${CLASSPILOT_MCP_PORT:-3900}:3900`). The container's internal port is hardcoded to `3900` via `compose.yaml`'s `environment: PORT=3900`, not read from `.env` inside the app. |
+
+**`CLASSPILOT_MCP_TOKEN` is no longer used.** MCP auth is per-user tokens
+now, created from Settings → MCP Tokens in the app itself — see
+[MCP-SETUP.md](MCP-SETUP.md). The env var can be left in `.env` (harmless)
+or removed.
 
 **Not env-configurable:** the MCP server's `allowedHosts` list (which
 hostnames/IPs it accepts the `Host` header from) is hardcoded in
 `mcp-server/src/index.ts`. Deploying on a new host or connecting via a new
 hostname means editing that array directly and redeploying — see
-[MCP-SETUP.md](MCP-SETUP.md#2-allow-your-connecting-host).
+[MCP-SETUP.md](MCP-SETUP.md#self-hosting-notes-only-relevant-if-youre-standing-up-your-own-instance).
 
 ## Calendar Feed
 

@@ -3,15 +3,18 @@
 ClassPilot ships a separate MCP server (`mcp-server/`, deployed as the
 `classpilot-mcp` container) that exposes your planner data — units, lessons,
 classes, schedule, curriculum outcomes — as [MCP](https://modelcontextprotocol.io)
-tools over Streamable HTTP. Any MCP client (Claude Code, Claude Desktop, or
-anything else that speaks MCP) can connect to it and read or write your plan
-directly, instead of you copying content between a chat window and the app by
-hand.
+tools over Streamable HTTP. Any MCP client (Claude Code, Claude Desktop,
+Claude cowork, or anything else that speaks MCP) can connect to it and read
+or write your plan directly, instead of you copying content between a chat
+window and the app by hand.
 
 **It never has access to the Student CMS tables** (roster, contacts, notes,
 support plans). It shares the same SQLite database file as the main app —
 anything the MCP server creates or edits shows up in the web UI immediately,
 and vice versa.
+
+Every request is scoped to **your own account's data only** — see
+"Per-user tokens" below.
 
 ## What it can do
 
@@ -33,127 +36,109 @@ days — `set_class_schedule` is the single source of truth for that (it
 overwrites the class's `cycleDays` when you save a schedule), matching how
 the web UI's Schedule page works.
 
-## Prerequisites
+Units no longer take a `color` field — a unit's color is always a shade of
+its class's color now, not an independent choice.
 
-- ClassPilot is already deployed via Docker Compose (see the main
-  [README](../README.md)) — the `classpilot-mcp` service is already defined
-  in `compose.yaml` alongside the main `classpilot` service and starts with
-  it.
-- You know the host/IP where ClassPilot runs (e.g. `192.168.1.50`, or a
-  Tailscale MagicDNS name like `echo.tailxxxxx.ts.net`).
+## Per-user tokens
 
-## 1. Set the MCP token
+Every MCP token belongs to one account and only ever sees that account's
+data — a token has no way to reach another account's classes, units, or
+lessons, even if it somehow guessed their IDs.
 
-In your deployment's `.env` (same file the main app uses):
+### 1. Create a token
 
-```bash
-CLASSPILOT_MCP_TOKEN=replace-with-a-long-random-secret
-CLASSPILOT_MCP_PORT=3900
+Sign in to ClassPilot, go to **Settings → MCP Tokens**, give it a label
+(e.g. "Claude Desktop", "Claude Code — laptop"), and create it. **The
+plaintext token is shown exactly once, right after creation** — copy it
+immediately. Only its hash is stored, so if you lose it, revoke it and
+create a new one.
+
+The same page shows the server URL to use and the exact header name.
+
+### 2. Connect a client
+
+**Public URL (works from anywhere, including Claude cowork):**
+
+```
+https://classpilot.woods-fehr.ca/mcp
 ```
 
-Generate a strong token:
+**LAN-only URL** (if you're on the same network as the server and don't
+need remote access):
 
-```bash
-openssl rand -base64 32
+```
+http://172.16.1.140:3900/mcp
 ```
 
-This token is a **shared secret** — every MCP client that has it can read
-and write every unit, lesson, and class in your active school year (never
-student records). Treat it like a password. There's currently no per-user
-scoping; if you ever share this with someone else, they get full read/write
-access to your plan data. (Tracked for a future pass — see the "Known
-limitations" section below.)
+Both require the same header: `x-classpilot-mcp-key: <your token>`.
 
-## 2. Allow your connecting host
-
-The MCP server validates the `Host` header on incoming requests against a
-hardcoded allow-list in `mcp-server/src/index.ts`:
-
-```ts
-const app = createMcpExpressApp({
-  host: "0.0.0.0",
-  allowedHosts: [
-    "172.16.1.140",
-    "localhost",
-    "127.0.0.1",
-    "echo",
-    "echo.tail00bf7.ts.net",
-  ],
-});
-```
-
-If you're deploying on a different machine or connecting via a different
-hostname than what's already listed, add it here and redeploy
-(`docker compose up -d --build`) — a request from an unlisted host is
-rejected before it ever reaches the auth check. This list isn't
-environment-configurable yet; it's a plain code edit.
-
-## 3. Start (or redeploy) the containers
-
-```bash
-docker compose up -d --build
-```
-
-Confirm it's up:
-
-```bash
-curl http://<your-host>:3900/health
-# {"status":"ok"}
-```
-
-## 4. Connect an MCP client
-
-### Claude Code
+#### Claude Code
 
 ```bash
 claude mcp add --transport http --scope user classpilot \
-  http://<your-host>:3900/mcp \
-  --header "x-classpilot-mcp-key: <your CLASSPILOT_MCP_TOKEN>"
+  https://classpilot.woods-fehr.ca/mcp \
+  --header "x-classpilot-mcp-key: <your token>"
 ```
-
-Use whatever address reaches your deployment — a LAN IP
-(`http://192.168.1.50:3900/mcp`), a Tailscale MagicDNS name
-(`http://echo.tailxxxxx.ts.net:3900/mcp`), or `localhost` if Claude Code is
-running on the same machine.
 
 `--scope user` makes it available in every Claude Code session on that
 machine, not just the current project.
 
-### Claude Desktop
+#### Claude Desktop / Claude cowork
 
-Add to your MCP config (Settings → Developer → Edit Config), matching the
-`mcpServers` shape Claude Desktop expects for a remote HTTP server — consult
+Add to your MCP config (Claude Desktop: Settings → Developer → Edit
+Config), matching the `mcpServers` shape Claude Desktop expects for a
+remote HTTP server — consult
 [Claude Desktop's MCP docs](https://modelcontextprotocol.io/quickstart/user)
-for the current config format, since it's changed between versions. The
-URL and header are the same as the Claude Code example above.
+for the current config format, since it's changed between versions. The URL
+and header are the same as the Claude Code example above.
 
-### Verify the connection
+### 3. Verify the connection
 
 Ask your MCP client to call `get_planner_data` (or just ask it something
 like "what units do I have this year?"). If it responds with real data from
 your school year, the connection is working.
 
-## Known limitations
+### Revoking a token
 
-- **Single shared token, no per-user accounts.** Fine for one teacher using
-  ClassPilot from multiple machines (their laptop, their desktop, this
-  MCP connection). Not fine for handing this token to a second teacher —
-  see the multi-user auth work tracked for later (registration/sign-in,
-  per-user data isolation, per-user MCP tokens).
-- **`allowedHosts` is a code edit, not a config setting.** Adding a new
-  connecting host means editing `mcp-server/src/index.ts` and redeploying.
-- **No rate limiting or request logging beyond `docker logs classpilot-mcp`.**
-  Treat the token with the same care as your ClassPilot login password.
+Settings → MCP Tokens → Revoke, next to the token. Takes effect
+immediately — the next request with that token gets `401 Unauthorized`.
+Revoked tokens are kept (not deleted) so there's a record of what existed.
+
+## Self-hosting notes (only relevant if you're standing up your own instance)
+
+- ClassPilot is deployed via Docker Compose (see the main
+  [README](../README.md)) — the `classpilot-mcp` service is already defined
+  in `compose.yaml` alongside the main `classpilot` service and starts with
+  it.
+- `CLASSPILOT_MCP_TOKEN` in `.env` is **no longer used** — the MCP server
+  doesn't read it at all. Per-user tokens (above) replaced it. Safe to leave
+  the leftover line in `.env` or remove it.
+- The MCP server validates the `Host` header on incoming requests against a
+  hardcoded allow-list in `mcp-server/src/index.ts`. If you're deploying on
+  a different domain/host than what's already listed there, add it and
+  redeploy (`docker compose up -d --build`) — a request from an unlisted
+  host is rejected before it ever reaches the auth check. This list isn't
+  environment-configurable yet; it's a plain code edit.
+- To expose `/mcp` on the same public domain as the main app (rather than a
+  raw `host:3900` address), configure your reverse proxy to route the
+  `/mcp*` path prefix to the `classpilot-mcp` container's port, leaving
+  everything else routed to the main app's port. On this deployment that's
+  a Caddy Proxy Manager (CPM) `locationRules` entry on the existing proxy
+  host — see `Homelab/Networking/caddy-migration-plan.md` in the Obsidian
+  vault for the exact procedure (CPM's create/update API has a known bug;
+  the fallback is a direct SQLite edit, documented there).
 
 ## Troubleshooting
 
 - **`401 Unauthorized`** — the `x-classpilot-mcp-key` header doesn't match
-  `CLASSPILOT_MCP_TOKEN` in `.env`. Double check for trailing whitespace or
-  a stale token after rotating it (rotating requires a container restart:
-  `docker compose up -d` picks up the new `.env` value).
-- **Connection refused / timeout** — confirm `CLASSPILOT_MCP_PORT` (default
-  `3900`) is reachable from where you're connecting (firewall, Tailscale ACL,
+  any active token, or the token was revoked. Create a new one from
+  Settings → MCP Tokens.
+- **Connection refused / timeout** — confirm the port/domain you're using
+  is reachable from where you're connecting (firewall, Tailscale ACL,
   etc.), and that the `classpilot-mcp` container is actually running:
   `docker ps` should show it healthy.
 - **Request rejected before auth even runs** — your connecting hostname
-  isn't in `allowedHosts` (see step 2 above).
+  isn't in `allowedHosts` (self-hosting notes above).
+- **A tool call returns "not found" for something you can see in the web
+  UI** — double check you're using a token for the right account; a token
+  can only ever see its own account's data, by design.
