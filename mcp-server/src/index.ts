@@ -25,6 +25,10 @@ const app = createMcpExpressApp({
     "127.0.0.1",
     "echo",
     "echo.tail00bf7.ts.net",
+    // Reached via the public domain's /mcp* path, proxied here by Caddy
+    // (CPM proxy host id 49) -- Host header stays classpilot.woods-fehr.ca
+    // even though the request lands on this container's own port.
+    "classpilot.woods-fehr.ca",
   ],
 });
 

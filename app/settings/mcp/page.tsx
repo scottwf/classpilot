@@ -8,10 +8,12 @@ import { revokeMcpTokenAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-// Same host as the web app, different port -- see docs/MCP-SETUP.md. No
-// dedicated env var for this exists yet, so it's derived from
-// NEXT_PUBLIC_APP_URL's hostname rather than adding a new one just for
-// display purposes.
+// Same public URL as the web app, at the /mcp path -- Caddy (CPM proxy
+// host id 49) routes /mcp* to the classpilot-mcp container's port
+// separately from everything else, which goes to the main app. Falls back
+// to the direct host:3900 form when NEXT_PUBLIC_APP_URL isn't set (e.g.
+// local dev), matching the pre-public-routing setup documented in
+// docs/MCP-SETUP.md.
 function deriveMcpUrl(): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
@@ -20,8 +22,7 @@ function deriveMcpUrl(): string {
   }
 
   try {
-    const hostname = new URL(appUrl).hostname;
-    return `http://${hostname}:3900/mcp`;
+    return new URL("/mcp", appUrl).toString();
   } catch {
     return "http://<your-host>:3900/mcp";
   }
