@@ -5,6 +5,7 @@ import type { PlannerData, ScheduleSlot } from "./types";
 import type { UpcomingBirthday } from "@/src/features/students/birthdays";
 
 type ClassPilotPlannerProps = {
+  calendarMonth?: string;
   data: PlannerData;
   scheduleSlots?: ScheduleSlot[];
   selectedDate?: string;
@@ -18,6 +19,7 @@ function todayDateKey() {
 }
 
 export function ClassPilotPlanner({
+  calendarMonth,
   data,
   scheduleSlots = [],
   selectedDate,
@@ -37,6 +39,7 @@ export function ClassPilotPlanner({
   return (
     <AppShell activePage="planbook" data={data}>
       <PlanBookPage
+        calendarMonth={calendarMonth}
         data={data}
         scheduleSlots={scheduleSlots}
         selectedDate={resolvedSelectedDate}

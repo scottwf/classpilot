@@ -12,6 +12,7 @@ type HomeProps = {
   searchParams: Promise<{
     date?: string;
     view?: string;
+    month?: string;
   }>;
 };
 
@@ -37,6 +38,7 @@ export default async function Home({ searchParams }: HomeProps) {
 
   return (
     <ClassPilotPlanner
+      calendarMonth={params.month}
       data={plannerData}
       scheduleSlots={scheduleSlots}
       selectedDate={selectedDate}

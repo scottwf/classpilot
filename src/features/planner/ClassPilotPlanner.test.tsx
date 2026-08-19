@@ -19,9 +19,6 @@ describe("ClassPilotPlanner", () => {
       screen.getByRole("heading", { name: "ClassPilot" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Grade 6 Math").length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("heading", { name: "Start with the lessons you need to teach." }),
-    ).toBeInTheDocument();
     const primaryNav = within(screen.getByRole("navigation", { name: "Primary" }));
     expect(primaryNav.getByRole("link", { name: "Lessons" })).toHaveAttribute(
       "href",

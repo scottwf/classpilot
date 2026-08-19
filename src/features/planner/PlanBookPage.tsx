@@ -1,17 +1,21 @@
 import { buildDayAgenda } from "./day-agenda";
 import { DailyPlanner } from "./DailyPlanner";
+import { DashboardStats } from "./DashboardStats";
 import {
   getLessonsForDate,
   getLessonsForWeek,
   getWeekdayDates,
 } from "./lesson-queries";
+import { MiniCalendar } from "./MiniCalendar";
 import { PlanBookNav } from "./PlanBookNav";
+import { buildInstructionalDays } from "./timeline";
 import type { PlannerData, ScheduleSlot } from "./types";
 import { UpcomingBirthdaysCard } from "./UpcomingBirthdaysCard";
 import { ViewSwitcher } from "./ViewSwitcher";
 import type { UpcomingBirthday } from "@/src/features/students/birthdays";
 
 type PlanBookPageProps = {
+  calendarMonth?: string;
   data: PlannerData;
   scheduleSlots: ScheduleSlot[];
   selectedDate: string;
@@ -21,6 +25,7 @@ type PlanBookPageProps = {
 };
 
 export function PlanBookPage({
+  calendarMonth,
   data,
   scheduleSlots,
   selectedDate,
@@ -49,28 +54,31 @@ export function PlanBookPage({
   const otherLessons = lessonsInRange.filter((lesson) => !scheduledLessonIds.has(lesson.id));
 
   return (
-    <>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <section>
-          <p className="text-sm font-medium text-blue-700">Plan book</p>
-          <h2 className="mt-1 text-2xl font-semibold text-slate-950">
-            Start with the lessons you need to teach.
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Day and week views show your actual timetable — click a
-            scheduled class to add or open its lesson. Lessons, units, and
-            outcomes each have their own pages so this screen stays focused.
-          </p>
-        </section>
-        <div className="flex flex-col items-start gap-2 lg:items-end">
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="min-w-0 space-y-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
           <ViewSwitcher date={selectedDate} view={view} />
           <PlanBookNav date={selectedDate} todayDate={todayDate} view={view} />
         </div>
+
+        <UpcomingBirthdaysCard birthdays={upcomingBirthdays} />
+
+        <DailyPlanner date={selectedDate} days={days} otherLessons={otherLessons} view={view} />
       </div>
 
-      <UpcomingBirthdaysCard birthdays={upcomingBirthdays} />
-
-      <DailyPlanner date={selectedDate} days={days} otherLessons={otherLessons} view={view} />
-    </>
+      <aside className="space-y-4">
+        <MiniCalendar
+          monthKey={calendarMonth}
+          selectedDate={selectedDate}
+          todayDate={todayDate}
+          view={view}
+        />
+        <DashboardStats
+          classCount={data.classes.length}
+          instructionalDayCount={buildInstructionalDays(data.schoolYear).length}
+          unitCount={data.units.length}
+        />
+      </aside>
+    </div>
   );
 }
