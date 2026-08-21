@@ -104,8 +104,8 @@ CLASSPILOT_COOKIE_SECURE=true
 CLASSPILOT_DATA_KEY=
 CLASSPILOT_CALENDAR_TOKEN=
 
-# MCP server
-CLASSPILOT_MCP_TOKEN=
+# MCP server — no token here; auth is per-user tokens from Settings > MCP
+# Tokens in the running app. See docs/MCP-SETUP.md.
 CLASSPILOT_MCP_PORT=3900
 
 # AI assistant — leave blank to keep it disabled
@@ -117,7 +117,7 @@ CLASSPILOT_AI_LOCAL_MODEL=
 ```
 
 Every secret above (`CLASSPILOT_APP_PASSWORD`, `CLASSPILOT_AUTH_SECRET`,
-`CLASSPILOT_DATA_KEY`, `CLASSPILOT_CALENDAR_TOKEN`, `CLASSPILOT_MCP_TOKEN`)
+`CLASSPILOT_DATA_KEY`, `CLASSPILOT_CALENDAR_TOKEN`)
 is required once `NODE_ENV=production` (which the Docker build sets) — the
 app and MCP server both fail to start without them rather than silently
 falling back to an insecure dev default.

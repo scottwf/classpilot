@@ -2,11 +2,11 @@
 
 ClassPilot is a personal, self-hosted teacher plan book for a Grade 6 homeroom classroom. It combines a daily/weekly plan book, unit timeline, lesson bank, curriculum outcome tracking, Markdown lesson import, and a foundation for privacy-conscious student information workflows.
 
-This is not a public SaaS product. The first version is designed to run on a homelab for one teacher, with SQLite persistence and a future path to PostgreSQL if the app grows.
+This is not a public SaaS product. The first version is designed to run on a homelab for one teacher (or a small group sharing a deployment), with SQLite persistence and a future path to PostgreSQL if the app grows.
 
 ## Current Features
 
-- Password-protected single-user access
+- Multi-user accounts, each with completely isolated classes/units/lessons/students/schedule (admin-provisioned, no self-service signup) — see the wiki's Using ClassPilot page
 - Daily and weekly lesson plan book
 - Unit timeline for the school year
 - Unit planning hub with lesson sequence and outcome coverage

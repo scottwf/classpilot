@@ -71,9 +71,16 @@ run when the DB is empty.
 All of this is shipped and deployed on echo, on the `feature/multi-year-onboarding`
 branch (not merged to `main` — check before assuming `main` is current):
 
-- **Auth** — password-gated single-user access (HMAC-signed httpOnly cookie,
-  14-day TTL), constant-time password check, fail-closed secrets in production,
-  and a `proxy.ts` middleware backstop that redirects unauthenticated requests.
+- **Auth** — multi-user accounts (issue #21, Phases 1-4 shipped): `users`
+  table with scrypt-hashed passwords, identity-bound session cookie
+  (HMAC-signed, carries `user_id`, httpOnly, 14-day TTL, `Secure` when
+  served over HTTPS), account creation from Settings > Accounts
+  (admin-provisioned, no self-service signup), fail-closed secrets in
+  production, login rate-limiting/lockout after repeated failures, and a
+  `proxy.ts` middleware backstop that redirects unauthenticated requests.
+  Every unit/lesson/class/student/attachment read and write is scoped to
+  the requesting user via the `school_years.user_id` FK chain — see issue
+  #21 for the full IDOR-audit history.
 - **Plan book** — daily/weekly views.
 - **Unit timeline** — static year grid with instructional-day math.
 - **Units & lessons** — full CRUD with validation; structured lesson sections
@@ -185,12 +192,16 @@ branch (not merged to `main` — check before assuming `main` is current):
   tables. `create_class`/`update_class` no longer accept `cycleDays`
   directly (fixed 2026-08-09 to match the Class-form change above) — use
   `set_class_schedule` to set meeting days/times; `update_class` preserves
-  whatever `cycleDays` the class already has. Auth is a single shared
-  header token (`x-classpilot-mcp-key`, `CLASSPILOT_MCP_TOKEN`) — fine for
-  one homelab user, needs real per-user tokens before another teacher gets
-  access (tracked in issue #21, alongside the same problem for app login).
-  Shares the same SQLite file as the main app; `sqlite.ts` sets `PRAGMA
-  journal_mode = WAL` so the two processes don't lock each other out.
+  whatever `cycleDays` the class already has. Auth is per-user tokens
+  (issue #21 Phase 4, shipped): a header token (`x-classpilot-mcp-key`)
+  resolves to its owning user via the `mcp_tokens` table, and every tool
+  call is scoped to that user the same way the web app is — the old shared
+  `CLASSPILOT_MCP_TOKEN` env var is retired and no longer read. Tokens are
+  created/revoked from Settings > MCP Tokens. Publicly reachable at
+  `https://classpilot.woods-fehr.ca/mcp` (Caddy path-routes `/mcp*` to this
+  container) as well as the LAN-only `172.16.1.140:3900/mcp`. Shares the
+  same SQLite file as the main app; `sqlite.ts` sets `PRAGMA journal_mode =
+  WAL` so the two processes don't lock each other out.
 
 For the architecture, data model, conventions, and file map, read
 [CODEBASE-OVERVIEW.md](CODEBASE-OVERVIEW.md). Do not duplicate that here.
