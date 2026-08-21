@@ -42,33 +42,40 @@ openssl rand -base64 32
   separately via your password manager.
 - (Future, Phase 2b) the private uploads directory, once attachments ship.
 
-## Encrypted backup procedure
+## Encrypted backup procedure (implemented, running)
 
-Stop writes (or accept a quiesced copy), then snapshot and encrypt. Example using
-`age`:
+Automated as of 2026-08-21. Script: `/home/docker/appdata/classpilot-backups/backup.sh`
+on echo, run nightly at 03:00 via `scott`'s crontab
+(`crontab -l` shows the entry; output logs to
+`/home/docker/appdata/classpilot-backups/backup.log`).
+
+What it does:
 
 ```bash
-# one-time: create a backup keypair, store the private key safely
-age-keygen -o classpilot-backup.key   # prints a public key "age1..."
-
-# scheduled backup (public-key encryption; no secrets on the box)
-ts=$(date +%Y%m%d-%H%M%S)
-sqlite3 ./data/classpilot.sqlite ".backup '/tmp/classpilot-$ts.sqlite'"
-age -r age1XXXXXXXX -o "/backups/classpilot-$ts.sqlite.age" "/tmp/classpilot-$ts.sqlite"
+sqlite3 ./data/classpilot.sqlite ".backup '/tmp/classpilot-$ts.sqlite'"   # consistent live copy, safe under WAL
+age -r age1xefl7wnq5ye34ewyv3pmqn97xp5f8vrj56dvyd6dwtpa0avr25fqjpvpkn \
+  -o "$DEST/classpilot-$ts.sqlite.age" "/tmp/classpilot-$ts.sqlite"
 rm -f "/tmp/classpilot-$ts.sqlite"
 ```
 
-`gpg --symmetric --cipher-algo AES256` is an acceptable alternative if you prefer
-a passphrase-based flow.
-
-Notes:
-- `sqlite3 .backup` produces a consistent copy even while the app is running.
-- Keep several dated copies and rotate; verify free space.
+- **Destination:** `/mnt/media-chitek/Backup/Echo/classpilot/` — off-host, on
+  the chitek NFS share, following the same `Backup/Echo/...` convention
+  already used for other services on this box.
+- **Retention:** 30 days, pruned automatically by the script (`find -mtime +30 -delete`).
+- **Public key only** lives on echo, inside the script — encryption doesn't
+  need the private key, so there's nothing sensitive to protect on the host
+  itself if the script or repo leaks.
+- **Private key** (`AGE-SECRET-KEY-1...`) was generated once, shown to Scott
+  in chat, and is **not** stored anywhere on echo or in this repo — it must
+  live in a password manager only. Without it, none of these backups are
+  recoverable.
 
 ## Restore procedure
 
 ```bash
-age -d -i classpilot-backup.key -o ./data/classpilot.sqlite "/backups/classpilot-YYYYMMDD-HHMMSS.sqlite.age"
+age -d -i <path to your saved private key file> \
+  -o ./data/classpilot.sqlite \
+  /mnt/media-chitek/Backup/Echo/classpilot/classpilot-YYYYMMDD-HHMMSS.sqlite.age
 ```
 
 Then set the **same** `CLASSPILOT_DATA_KEY` in `.env` that was in use when the
@@ -76,15 +83,17 @@ backup was taken, and start the app. A different key cannot decrypt the fields.
 
 ## Test the restore before real data
 
-Do a full dry run on a throwaway directory:
+Full dry run completed 2026-08-21:
 
-1. Encrypt a backup of the current (demo) database.
-2. Restore it to a scratch path and point `CLASSPILOT_DATABASE_PATH` at it.
-3. Start the app, open a student profile, and confirm encrypted fields (notes,
-   contact details) render correctly with the same key.
-4. Confirm that starting with a **wrong/empty** key fails to reveal those fields.
+1. Ran the real backup script against production.
+2. Decrypted the resulting `.age` file to a scratch path with the real
+   private key — confirmed real table data (`users`, `school_years` row
+   counts matched known production state).
+3. Repeated the decrypt with a freshly-generated, wrong key — `age` correctly
+   refused (`no identity matched any of the recipients`).
 
-Document the date of your last successful restore test.
+Re-run this drill (steps 2-3 at least) periodically, and any time the backup
+script or key changes.
 
 ## Pre-real-data checklist
 
@@ -92,5 +101,5 @@ Document the date of your last successful restore test.
 - [ ] `./data` lives on an encrypted volume
 - [ ] Strong `CLASSPILOT_APP_PASSWORD` and long random `CLASSPILOT_AUTH_SECRET`
 - [ ] HTTPS + `CLASSPILOT_COOKIE_SECURE=true` for any remote access
-- [ ] Scheduled encrypted backups running, key stored separately
-- [ ] A restore has been tested end to end
+- [x] Scheduled encrypted backups running, key stored separately — nightly cron on echo, `docs/backup-and-recovery.md` above has the details
+- [x] A restore has been tested end to end — 2026-08-21, see above
