@@ -1,4 +1,5 @@
 import type {
+  ClassColor,
   ClassSection,
   CurriculumOutcome,
   LessonPlan,
@@ -12,13 +13,33 @@ export type EnrichedLesson = LessonPlan & {
   classId: string;
   className: string;
   subject: string;
+  grade: string;
+  /** The parent class's color -- issue #27: lessons show color everywhere
+   * now, matching the class/unit color hierarchy (see unit-color.ts). */
+  classColor: ClassColor;
   unitId: string;
   unitTitle: string;
   outcomeCodes: string[];
 };
 
+export type LessonBankFilters = {
+  subject?: string;
+  unitId?: string;
+  grade?: string;
+  outcomeCode?: string;
+};
+
+export type LessonBankFilterOptions = {
+  subjects: string[];
+  units: Array<{ id: string; title: string }>;
+  grades: string[];
+  outcomeCodes: string[];
+};
+
 export type SubjectOutcomeCoverage = {
+  classId: string;
   subject: string;
+  color: ClassColor;
   covered: CurriculumOutcome[];
   planned: CurriculumOutcome[];
   uncovered: CurriculumOutcome[];
@@ -83,8 +104,46 @@ export function sortLessonBank(
   });
 }
 
+/** Empty string in any filter field means "no filter" for that field. */
+export function filterLessonBank(
+  lessons: EnrichedLesson[],
+  filters: LessonBankFilters,
+): EnrichedLesson[] {
+  return lessons.filter((lesson) => {
+    if (filters.subject && lesson.subject !== filters.subject) return false;
+    if (filters.unitId && lesson.unitId !== filters.unitId) return false;
+    if (filters.grade && lesson.grade !== filters.grade) return false;
+    if (filters.outcomeCode && !lesson.outcomeCodes.includes(filters.outcomeCode)) return false;
+    return true;
+  });
+}
+
+/** Distinct filter values actually present in the lesson bank, sorted for
+ * stable dropdown ordering — rebuilt from `lessons` so a filter never
+ * offers an option that would produce zero results. */
+export function buildLessonBankFilterOptions(
+  lessons: EnrichedLesson[],
+): LessonBankFilterOptions {
+  const unitsById = new Map(lessons.map((lesson) => [lesson.unitId, lesson.unitTitle]));
+
+  return {
+    subjects: uniqueSorted(lessons.map((lesson) => lesson.subject)),
+    units: Array.from(unitsById.entries())
+      .map(([id, title]) => ({ id, title }))
+      .sort((left, right) => compareStrings(left.title, right.title)),
+    grades: uniqueSorted(lessons.map((lesson) => lesson.grade).filter(Boolean)),
+    outcomeCodes: uniqueSorted(lessons.flatMap((lesson) => lesson.outcomeCodes)),
+  };
+}
+
+function uniqueSorted(values: string[]): string[] {
+  return Array.from(new Set(values)).sort(compareStrings);
+}
+
 export function buildOutcomeCoverage(data: PlannerData): SubjectOutcomeCoverage[] {
-  return data.classes.map((classSection) => {
+  // Non-instructional blocks (recess, supervision, assemblies) have no
+  // curriculum outcomes to cover.
+  return data.classes.filter((classSection) => classSection.isInstructional).map((classSection) => {
     const classUnits = data.units.filter((unit) => unit.classId === classSection.id);
     const subjectOutcomes = data.outcomes.filter(
       (outcome) => outcome.subject === classSection.subject,
@@ -106,7 +165,9 @@ export function buildOutcomeCoverage(data: PlannerData): SubjectOutcomeCoverage[
     );
 
     return {
+      classId: classSection.id,
       subject: classSection.subject,
+      color: classSection.color,
       covered: subjectOutcomes.filter((outcome) => coveredIds.has(outcome.id)),
       planned: subjectOutcomes.filter(
         (outcome) => !coveredIds.has(outcome.id) && plannedIds.has(outcome.id),
@@ -131,6 +192,45 @@ export function getWeekRange(dateKey: string): { start: string; end: string } {
   };
 }
 
+/** The five weekday date keys (Monday..Friday) of the week containing
+ * dateKey — the columns of Plan Book's week view. */
+export function getWeekdayDates(dateKey: string): string[] {
+  const { start } = getWeekRange(dateKey);
+  const monday = parseDate(start);
+
+  return Array.from({ length: 5 }, (_, index) => toDateKey(addDays(monday, index)));
+}
+
+/** Plain calendar-day shift (not instructional-day aware) — for the Plan
+ * Book's prev/next day and prev/next week navigation. */
+export function shiftDateKey(dateKey: string, days: number): string {
+  return toDateKey(addDays(parseDate(dateKey), days));
+}
+
+/**
+ * The date the Plan Book should open to when the URL has no explicit
+ * `?date=`. Today, if today falls within the school year; the school
+ * year's first day with an actual lesson planned if today is still
+ * before the year starts (so the dashboard isn't just an empty day);
+ * the school year's last day if today is after it ends.
+ */
+export function resolvePlanBookDefaultDate(
+  schoolYear: { startDate: string; endDate: string },
+  lessonDates: string[],
+  todayKey: string,
+): string {
+  if (todayKey >= schoolYear.startDate && todayKey <= schoolYear.endDate) {
+    return todayKey;
+  }
+
+  if (todayKey > schoolYear.endDate) {
+    return schoolYear.endDate;
+  }
+
+  const firstLessonDate = lessonDates.filter((date) => date >= schoolYear.startDate).sort()[0];
+  return firstLessonDate ?? schoolYear.startDate;
+}
+
 function enrichLesson(
   lesson: LessonPlan,
   unit: UnitPlan,
@@ -142,6 +242,8 @@ function enrichLesson(
     classId: unit.classId,
     className: classSection?.name ?? "Unknown class",
     subject: classSection?.subject ?? "Unknown subject",
+    grade: classSection?.grade ?? "",
+    classColor: classSection?.color ?? "blue",
     unitId: unit.id,
     unitTitle: unit.title,
     outcomeCodes: lesson.outcomeIds.map(

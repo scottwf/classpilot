@@ -6,7 +6,7 @@ import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
 import { cascadeRescheduleUnitLessons } from "@/src/lib/db/planner-repository";
 
 export async function cascadeRescheduleAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const unitId = requiredString(formData, "unitId");
   const fromDate = requiredString(formData, "fromDate");
@@ -16,7 +16,7 @@ export async function cascadeRescheduleAction(formData: FormData) {
     redirect(`/units/${unitId}?error=shift`);
   }
 
-  const result = cascadeRescheduleUnitLessons(getClassPilotDatabase(), {
+  const result = cascadeRescheduleUnitLessons(getClassPilotDatabase(), userId, {
     unitId,
     fromDate,
     shiftByDays,

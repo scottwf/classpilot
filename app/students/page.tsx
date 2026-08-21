@@ -10,10 +10,10 @@ import { listRoster } from "@/src/lib/db/students-repository";
 export const dynamic = "force-dynamic";
 
 export default async function StudentsRoute() {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
-  const roster = listRoster(getClassPilotDatabase());
+  const plannerData = getClassPilotPlannerData(userId);
+  const roster = listRoster(getClassPilotDatabase(), userId, plannerData.schoolYear.id);
 
   return (
     <AppShell activePage="students" data={plannerData}>

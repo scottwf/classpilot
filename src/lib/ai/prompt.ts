@@ -1,4 +1,10 @@
-import type { ChatMessage, LessonDraftRequest, UnitOutlineRequest } from "./types";
+import type {
+  ChatMessage,
+  LessonDraftRequest,
+  LessonResourceRequest,
+  LessonResourceType,
+  UnitOutlineRequest,
+} from "./types";
 
 const unitOutlineSystemPrompt = [
   "You are a planning assistant for an elementary homeroom teacher.",
@@ -105,6 +111,64 @@ export function buildLessonDraftMessages(
 
   return [
     { role: "system", content: lessonDraftSystemPrompt },
+    { role: "user", content: userPrompt },
+  ];
+}
+
+const resourceTypeInstructions: Record<LessonResourceType, string> = {
+  exit_card: [
+    "Draft a one-page exit card: 2-4 short questions or prompts a student",
+    "answers in the last few minutes of the lesson to show what they",
+    "understood. Keep language age-appropriate and each prompt on its own",
+    "line.",
+  ].join(" "),
+  handout: [
+    "Draft a one-page student handout: a short title, brief instructions or",
+    "notes, and any practice items or organizers the lesson needs. Use",
+    "Markdown headings and lists so it's easy to scan and print.",
+  ].join(" "),
+  slide_outline: [
+    "Draft a slide-by-slide outline for this lesson: one Markdown heading",
+    "per slide (\"## Slide 1: ...\") with a few bullet points of what goes on",
+    "it. Aim for 5-10 slides covering the lesson's flow from opening to",
+    "close.",
+  ].join(" "),
+};
+
+/**
+ * Builds the chat messages for drafting a printable/copyable lesson
+ * resource (handout, exit card, or slide outline) as plain Markdown — no
+ * JSON wrapper, unlike the outline/section drafters, since the output here
+ * is just the document itself. Pure and deterministic; only the
+ * non-sensitive fields of {@link LessonResourceRequest} are ever included.
+ */
+export function buildLessonResourceMessages(request: LessonResourceRequest): ChatMessage[] {
+  const systemPrompt = [
+    "You are a planning assistant for an elementary homeroom teacher.",
+    "You draft one classroom resource as plain Markdown — no JSON, no code",
+    "fences, no commentary before or after. Stay grounded in the curriculum",
+    "outcomes provided and do not invent outcome codes that were not given",
+    "to you. Never reference or assume anything about individual children",
+    "in the class.",
+    "",
+    resourceTypeInstructions[request.resourceType],
+  ].join("\n");
+
+  const userPrompt = [
+    `Subject: ${request.subject}`,
+    `Grade: ${request.grade}`,
+    `Lesson: ${request.lessonTitle}`,
+    `Focus: ${request.lessonFocus || "(none provided — infer from the lesson title)"}`,
+    request.teachingNotes
+      ? `Teaching preferences: ${request.teachingNotes}`
+      : "Teaching preferences: (none provided)",
+    "",
+    "Curriculum outcomes for this lesson:",
+    buildOutcomeLines(request.outcomes),
+  ].join("\n");
+
+  return [
+    { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt },
   ];
 }

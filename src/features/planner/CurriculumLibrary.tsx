@@ -1,12 +1,38 @@
-import type { CurriculumOutcome } from "./types";
+"use client";
+
+import { useState } from "react";
+import { OutcomePicker } from "./OutcomePicker";
+import type { ClassColor, ClassSection, CurriculumOutcome } from "./types";
 
 type CurriculumLibraryProps = {
   outcomes: CurriculumOutcome[];
+  classes: ClassSection[];
 };
 
-export function CurriculumLibrary({ outcomes }: CurriculumLibraryProps) {
+const classDotColorClass: Record<ClassColor, string> = {
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  emerald: "bg-emerald-500",
+  orange: "bg-orange-500",
+  rose: "bg-rose-500",
+  sky: "bg-sky-500",
+  teal: "bg-teal-500",
+  violet: "bg-violet-500",
+};
+
+export function CurriculumLibrary({ outcomes, classes }: CurriculumLibraryProps) {
+  const [subjectFilter, setSubjectFilter] = useState<string | null>(null);
   const subjects = summarizeSubjects(outcomes);
-  const featuredOutcomes = outcomes.slice(0, 5);
+  // The active year's instructional class teaching each subject, if any —
+  // used to color-match the subject tile to that class.
+  const classBySubject = new Map(
+    classes
+      .filter((classSection) => classSection.isInstructional)
+      .map((classSection) => [classSection.subject, classSection]),
+  );
+  const visibleOutcomes = subjectFilter
+    ? outcomes.filter((outcome) => outcome.subject === subjectFilter)
+    : outcomes;
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -22,32 +48,50 @@ export function CurriculumLibrary({ outcomes }: CurriculumLibraryProps) {
         </span>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {subjects.map((subject) => (
-          <div
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
-            key={subject.name}
-          >
-            <div className="text-sm font-medium text-slate-950">
-              {subject.name}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {subject.count} outcomes
-            </div>
-          </div>
-        ))}
+      <p className="mt-2 text-xs leading-5 text-slate-500">
+        Click a subject to filter the list below, or search across all
+        subjects.
+      </p>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {subjects.map((subject) => {
+          const matchingClass = classBySubject.get(subject.name);
+          const isActive = subjectFilter === subject.name;
+
+          return (
+            <button
+              className={`rounded-lg border px-3 py-2 text-left ${
+                isActive
+                  ? "border-blue-400 bg-blue-50"
+                  : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+              }`}
+              key={subject.name}
+              onClick={() => setSubjectFilter(isActive ? null : subject.name)}
+              type="button"
+            >
+              <div className="flex items-center gap-1.5 text-sm font-medium text-slate-950">
+                {matchingClass ? (
+                  <span
+                    aria-hidden="true"
+                    className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[matchingClass.color]}`}
+                  />
+                ) : null}
+                {subject.name}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                {subject.count} outcomes
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="mt-4 space-y-2">
-        {featuredOutcomes.map((outcome) => (
-          <article
-            className="rounded-lg bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-700"
-            key={outcome.id}
-          >
-            <span className="font-semibold text-slate-950">{outcome.code}</span>{" "}
-            <span>{outcome.description}</span>
-          </article>
-        ))}
+      <div className="mt-4">
+        <OutcomePicker
+          emptyMessage="No outcomes loaded yet."
+          outcomes={visibleOutcomes}
+          selectable={false}
+        />
       </div>
     </section>
   );

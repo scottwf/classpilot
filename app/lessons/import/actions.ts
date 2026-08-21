@@ -7,11 +7,11 @@ import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/cl
 import { createLesson } from "@/src/lib/db/planner-repository";
 
 export async function importLessonMarkdownAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const markdown = await getMarkdown(formData);
   const parsed = parseLessonMarkdown(markdown);
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const unit = plannerData.units.find((candidate) =>
     matchesReference(candidate.id, candidate.title, parsed.unitRef),
   );
@@ -31,7 +31,7 @@ export async function importLessonMarkdownAction(formData: FormData) {
     redirect("/lessons/import?error=outcome");
   }
 
-  createLesson(getClassPilotDatabase(), {
+  createLesson(getClassPilotDatabase(), userId, {
     date: parsed.date,
     durationMinutes: parsed.durationMinutes,
     outcomeIds: outcomeIds as string[],

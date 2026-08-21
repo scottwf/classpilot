@@ -21,17 +21,17 @@ export default async function EditStudentPage({
   params,
   searchParams,
 }: EditStudentPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { studentId } = await params;
   const { error } = await searchParams;
-  const student = getStudentById(getClassPilotDatabase(), studentId);
+  const student = getStudentById(getClassPilotDatabase(), userId, studentId);
 
   if (!student) {
     notFound();
   }
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
 
   return (
     <AppShell activePage="students" data={plannerData}>

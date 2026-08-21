@@ -3,6 +3,7 @@ import {
   buildCycleDayMap,
   getClassMeetingDates,
   getCycleDayForDate,
+  getDayLabel,
   getNextClassMeetingDate,
 } from "./cycle";
 
@@ -86,6 +87,48 @@ describe("getClassMeetingDates", () => {
   });
 });
 
+describe("getClassMeetingDates with scheduleSlots", () => {
+  it("derives meeting dates from a date-windowed slot instead of cycleDays, honoring the window", () => {
+    // A class scheduled only via a temporary/burst slot (cycleDays stays
+    // [] until addTemporaryScheduleSlot unions it in) -- once a slot is
+    // passed, dates come from the slot's own start/end window, not "every
+    // instructional day" fallback behavior.
+    const dates = getClassMeetingDates(schoolYear, { cycleDays: [1] }, [
+      { cycleDay: 1, startDate: "2026-09-07", endDate: "2026-09-14" },
+    ]);
+    expect(dates).toEqual(["2026-09-07", "2026-09-10", "2026-09-14"]);
+  });
+
+  it("excludes dates outside the slot's window even if the cycle day matches", () => {
+    const dates = getClassMeetingDates(schoolYear, { cycleDays: [1] }, [
+      { cycleDay: 1, startDate: "2026-09-07", endDate: "2026-09-14" },
+    ]);
+    expect(dates).not.toContain("2026-09-01");
+    expect(dates).not.toContain("2026-09-03");
+  });
+
+  it("unions multiple slots, including ones with no date bounds (regular slots)", () => {
+    const dates = getClassMeetingDates(schoolYear, { cycleDays: [1] }, [
+      { cycleDay: 1, startDate: undefined, endDate: undefined },
+      { cycleDay: 2, startDate: "2026-09-09", endDate: "2026-09-11" },
+    ]);
+    expect(dates).toEqual([
+      "2026-09-01",
+      "2026-09-03",
+      "2026-09-07",
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-14",
+    ]);
+  });
+
+  it("falls back to cycleDays-only behavior when scheduleSlots is omitted or empty", () => {
+    const dates = getClassMeetingDates(schoolYear, { cycleDays: [1] }, []);
+    expect(dates).toEqual(["2026-09-01", "2026-09-03", "2026-09-07", "2026-09-10", "2026-09-14"]);
+  });
+});
+
 describe("getNextClassMeetingDate", () => {
   it("finds the next date the class meets after a given date", () => {
     expect(getNextClassMeetingDate(schoolYear, { cycleDays: [1] }, "2026-09-03")).toBe(
@@ -95,5 +138,36 @@ describe("getNextClassMeetingDate", () => {
 
   it("returns undefined when there are no more meeting days in the year", () => {
     expect(getNextClassMeetingDate(schoolYear, { cycleDays: [1] }, "2026-09-14")).toBeUndefined();
+  });
+
+  it("respects a scheduleSlots date window when given", () => {
+    expect(
+      getNextClassMeetingDate(schoolYear, { cycleDays: [1] }, "2026-09-01", [
+        { cycleDay: 1, startDate: "2026-09-07", endDate: "2026-09-14" },
+      ]),
+    ).toBe("2026-09-07");
+  });
+});
+
+describe("getDayLabel", () => {
+  it("labels numerically by default", () => {
+    expect(getDayLabel("numeric", 1)).toBe("Day 1");
+    expect(getDayLabel("numeric", 6)).toBe("Day 6");
+  });
+
+  it("labels with letters", () => {
+    expect(getDayLabel("letters", 1)).toBe("Day A");
+    expect(getDayLabel("letters", 2)).toBe("Day B");
+    expect(getDayLabel("letters", 26)).toBe("Day Z");
+    expect(getDayLabel("letters", 27)).toBe("Day AA");
+  });
+
+  it("labels odd/even for the first two cycle days", () => {
+    expect(getDayLabel("odd-even", 1)).toBe("Odd Day");
+    expect(getDayLabel("odd-even", 2)).toBe("Even Day");
+  });
+
+  it("falls back to numeric for odd-even beyond a 2-day cycle", () => {
+    expect(getDayLabel("odd-even", 3)).toBe("Day 3");
   });
 });

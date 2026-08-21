@@ -15,6 +15,7 @@ export const plannerData: PlannerData = {
     // No rotating cycle in the demo data (cycleLength 5 with every class
     // left unrestricted below is equivalent to "no cycle" — see cycle.ts).
     cycleLength: 5,
+    dayLabelScheme: "numeric",
     blockedDates: [
       { date: "2026-09-07", label: "Labour Day", advancesCycle: true },
       { date: "2026-10-12", label: "Thanksgiving", advancesCycle: true },
@@ -33,6 +34,8 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Daily literacy block",
       cycleDays: [],
+      color: "amber",
+      isInstructional: true,
     },
     {
       id: "grade-6-math",
@@ -43,6 +46,8 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Daily numeracy block",
       cycleDays: [],
+      color: "blue",
+      isInstructional: true,
     },
     {
       id: "grade-6-science",
@@ -53,6 +58,8 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Mon/Wed/Fri inquiry block",
       cycleDays: [],
+      color: "violet",
+      isInstructional: true,
     },
     {
       id: "grade-6-social-studies",
@@ -63,6 +70,8 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Tue/Thu project block",
       cycleDays: [],
+      color: "teal",
+      isInstructional: true,
     },
     {
       id: "grade-6-homeroom",
@@ -73,6 +82,8 @@ export const plannerData: PlannerData = {
       room: "Homeroom",
       meetingPattern: "Morning meeting and end-of-day routines",
       cycleDays: [],
+      color: "rose",
+      isInstructional: true,
     },
   ],
   outcomes: [
@@ -94,8 +105,8 @@ export const plannerData: PlannerData = {
       title: "Reading Identity and Belonging",
       startDate: "2026-09-03",
       endDate: "2026-10-02",
-      color: "emerald",
       outcomeIds: [outcomeIdFor("English Language Arts", "CR6.1")],
+      notes: "",
       lessons: [
         {
           id: "lesson-reading-inventory",
@@ -125,11 +136,11 @@ export const plannerData: PlannerData = {
       title: "Ratios, Rates, and Percent",
       startDate: "2026-09-10",
       endDate: "2026-10-16",
-      color: "amber",
       outcomeIds: [
         outcomeIdFor("Mathematics", "N6.5"),
         outcomeIdFor("Mathematics", "N6.8"),
       ],
+      notes: "",
       lessons: [
         {
           id: "lesson-ratio-language",
@@ -159,8 +170,8 @@ export const plannerData: PlannerData = {
       title: "Diversity of Living Things",
       startDate: "2026-09-01",
       endDate: "2026-09-25",
-      color: "blue",
       outcomeIds: [outcomeIdFor("Science", "DL6.2")],
+      notes: "",
       lessons: [
         {
           id: "lesson-classification-systems",
@@ -180,8 +191,8 @@ export const plannerData: PlannerData = {
       title: "Community, Place, and Identity",
       startDate: "2026-09-14",
       endDate: "2026-10-23",
-      color: "violet",
       outcomeIds: [outcomeIdFor("Social Studies", "IN6.1")],
+      notes: "",
       lessons: [
         {
           id: "lesson-identity-map",
@@ -201,8 +212,8 @@ export const plannerData: PlannerData = {
       title: "Classroom Routines and Belonging",
       startDate: "2026-09-01",
       endDate: "2026-09-18",
-      color: "rose",
       outcomeIds: ["homeroom-community"],
+      notes: "",
       lessons: [],
     },
   ],

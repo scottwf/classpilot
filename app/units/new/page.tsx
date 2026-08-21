@@ -13,9 +13,9 @@ type NewUnitPageProps = {
 export const dynamic = "force-dynamic";
 
 export default async function NewUnitPage({ searchParams }: NewUnitPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const params = await searchParams;
 
   return (
@@ -36,6 +36,8 @@ export default async function NewUnitPage({ searchParams }: NewUnitPageProps) {
         error={params.error}
         mode="create"
         outcomes={plannerData.outcomes}
+        schoolYear={plannerData.schoolYear}
+        units={plannerData.units}
       />
     </AppShell>
   );

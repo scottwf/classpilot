@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "import:docx-lessons": "tsx scripts/docx-to-lesson-markdown.ts",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run"
@@ -12,6 +13,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.0",
     "lucide-react": "^0.556.0",
+    "mammoth": "^1.12.1",
     "next": "^16.2.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
@@ -27,6 +29,7 @@
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.2.6",
     "jsdom": "^27.3.0",
+    "tsx": "^4.23.12",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"
   }

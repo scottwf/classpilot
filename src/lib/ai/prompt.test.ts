@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildLessonDraftMessages, buildUnitOutlineMessages } from "./prompt";
-import type { LessonDraftRequest, UnitOutlineRequest } from "./types";
+import { buildLessonDraftMessages, buildLessonResourceMessages, buildUnitOutlineMessages } from "./prompt";
+import type { LessonDraftRequest, LessonResourceRequest, UnitOutlineRequest } from "./types";
 
 const baseRequest: UnitOutlineRequest = {
   subject: "Science",
@@ -111,5 +111,73 @@ describe("buildLessonDraftMessages", () => {
 
     expect(user.content).toContain("No specific outcomes selected");
     expect(user.content).toContain("infer from the lesson title and unit");
+  });
+});
+
+const baseResourceRequest: LessonResourceRequest = {
+  resourceType: "handout",
+  subject: "Science",
+  grade: "6",
+  lessonTitle: "Simple circuits",
+  lessonFocus: "Building a circuit with a battery and bulb",
+  teachingNotes: "Hands-on, small groups.",
+  outcomes: [{ code: "SCI6.2", description: "Build simple circuits." }],
+};
+
+describe("buildLessonResourceMessages", () => {
+  it("includes subject, lesson, and outcome context in the user prompt", () => {
+    const [system, user] = buildLessonResourceMessages(baseResourceRequest);
+
+    expect(system.role).toBe("system");
+    expect(user.role).toBe("user");
+    expect(user.content).toContain("Subject: Science");
+    expect(user.content).toContain("Simple circuits");
+    expect(user.content).toContain("SCI6.2: Build simple circuits.");
+  });
+
+  it("asks for plain Markdown, not JSON, unlike the other drafters", () => {
+    const [system] = buildLessonResourceMessages(baseResourceRequest);
+
+    expect(system.content).toContain("plain Markdown");
+    expect(system.content).not.toContain("JSON object");
+  });
+
+  it("gives different instructions per resource type", () => {
+    const [handoutSystem] = buildLessonResourceMessages({
+      ...baseResourceRequest,
+      resourceType: "handout",
+    });
+    const [exitCardSystem] = buildLessonResourceMessages({
+      ...baseResourceRequest,
+      resourceType: "exit_card",
+    });
+    const [slideSystem] = buildLessonResourceMessages({
+      ...baseResourceRequest,
+      resourceType: "slide_outline",
+    });
+
+    expect(handoutSystem.content).toContain("student handout");
+    expect(exitCardSystem.content).toContain("exit card");
+    expect(slideSystem.content).toContain("slide-by-slide outline");
+  });
+
+  it("never leaks student-identifying fields (data minimization)", () => {
+    // "student" itself legitimately appears here (e.g. "student handout"
+    // in the instructions) — unlike the other drafters' prompts, so this
+    // checks for actual identifying fields rather than the word itself.
+    const serialized = JSON.stringify(buildLessonResourceMessages(baseResourceRequest));
+
+    expect(serialized).not.toMatch(/birthdate|guardian|email|phone/i);
+  });
+
+  it("handles an empty outcome list and blank focus gracefully", () => {
+    const [, user] = buildLessonResourceMessages({
+      ...baseResourceRequest,
+      outcomes: [],
+      lessonFocus: "",
+    });
+
+    expect(user.content).toContain("No specific outcomes selected");
+    expect(user.content).toContain("infer from the lesson title");
   });
 });

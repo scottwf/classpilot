@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { LessonBank } from "./LessonBank";
-import type { LessonBankSort } from "./lesson-queries";
-import { sortLessonBank } from "./lesson-queries";
+import type { LessonBankFilters, LessonBankSort } from "./lesson-queries";
+import { buildLessonBankFilterOptions, filterLessonBank, sortLessonBank } from "./lesson-queries";
 import type { PlannerData } from "./types";
 
 type LessonsPageProps = {
@@ -13,7 +13,16 @@ type LessonsPageProps = {
 
 export function LessonsPage({ data }: LessonsPageProps) {
   const [sort, setSort] = useState<LessonBankSort>("date");
-  const lessons = useMemo(() => sortLessonBank(data, sort), [data, sort]);
+  const [filters, setFilters] = useState<LessonBankFilters>({});
+  const sortedLessons = useMemo(() => sortLessonBank(data, sort), [data, sort]);
+  const filterOptions = useMemo(
+    () => buildLessonBankFilterOptions(sortedLessons),
+    [sortedLessons],
+  );
+  const lessons = useMemo(
+    () => filterLessonBank(sortedLessons, filters),
+    [sortedLessons, filters],
+  );
 
   return (
     <>
@@ -24,11 +33,6 @@ export function LessonsPage({ data }: LessonsPageProps) {
             <h2 className="text-2xl font-semibold text-slate-950">
               Find and organize every class lesson.
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Sort lessons by date, subject, unit, or outcome without leaving
-              the page. This is the working bank for lesson reuse and future
-              editing.
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -47,7 +51,15 @@ export function LessonsPage({ data }: LessonsPageProps) {
         </div>
       </section>
 
-      <LessonBank lessons={lessons} onSortChange={setSort} sort={sort} />
+      <LessonBank
+        filterOptions={filterOptions}
+        filters={filters}
+        lessons={lessons}
+        onFiltersChange={setFilters}
+        onSortChange={setSort}
+        sort={sort}
+        totalCount={sortedLessons.length}
+      />
     </>
   );
 }

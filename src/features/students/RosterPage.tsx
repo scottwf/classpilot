@@ -14,18 +14,21 @@ export function RosterPage({ roster }: RosterPageProps) {
           <h2 className="mt-1 text-2xl font-semibold text-slate-950">
             Your private homeroom roster.
           </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Profiles, notes, accommodations, contacts, and follow-up reminders
-            stay in this local workspace. Keep this device and your backups
-            protected before entering real student information.
-          </p>
         </div>
-        <Link
-          className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
-          href="/students/new"
-        >
-          Add student
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link
+            className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            href="/students/import"
+          >
+            Import CSV
+          </Link>
+          <Link
+            className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+            href="/students/new"
+          >
+            Add student
+          </Link>
+        </div>
       </section>
 
       {roster.length === 0 ? (

@@ -21,11 +21,11 @@ export default async function EditUnitPage({
   params,
   searchParams,
 }: EditUnitPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const { unitId } = await params;
-  const plannerData = getClassPilotPlannerData();
-  const unit = getUnitById(getClassPilotDatabase(), unitId);
+  const plannerData = getClassPilotPlannerData(userId);
+  const unit = getUnitById(getClassPilotDatabase(), userId, unitId);
   const query = await searchParams;
 
   if (!unit) {
@@ -51,7 +51,9 @@ export default async function EditUnitPage({
         error={query.error}
         mode="edit"
         outcomes={plannerData.outcomes}
+        schoolYear={plannerData.schoolYear}
         unit={unit}
+        units={plannerData.units}
       />
     </AppShell>
   );

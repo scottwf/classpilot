@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Pencil } from "lucide-react";
+import { formatClassGrade } from "./curriculum-subjects";
 import type { PlannerData } from "./types";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
@@ -53,7 +54,7 @@ export function ClassesPage({ data, deleteAction }: ClassesPageProps) {
                     {classSection.name}
                   </h3>
                   <p className="mt-1 text-sm text-slate-600">
-                    {classSection.subject} · Grade {classSection.grade}
+                    {classSection.subject} · Grade {formatClassGrade(classSection)}
                     {classSection.room ? ` · ${classSection.room}` : ""}
                   </p>
                   <p className="mt-2 text-sm text-slate-600">

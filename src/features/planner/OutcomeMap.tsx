@@ -1,7 +1,19 @@
 import type { SubjectOutcomeCoverage } from "./lesson-queries";
+import type { ClassColor } from "./types";
 
 type OutcomeMapProps = {
   coverage: SubjectOutcomeCoverage[];
+};
+
+const classDotColorClass: Record<ClassColor, string> = {
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  emerald: "bg-emerald-500",
+  orange: "bg-orange-500",
+  rose: "bg-rose-500",
+  sky: "bg-sky-500",
+  teal: "bg-teal-500",
+  violet: "bg-violet-500",
 };
 
 export function OutcomeMap({ coverage }: OutcomeMapProps) {
@@ -18,10 +30,16 @@ export function OutcomeMap({ coverage }: OutcomeMapProps) {
         {coverage.map((subject) => (
           <article
             className="rounded-lg border border-slate-200 bg-slate-50 p-3"
-            key={subject.subject}
+            key={subject.classId}
           >
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold text-slate-950">{subject.subject}</h3>
+              <h3 className="flex items-center gap-2 font-semibold text-slate-950">
+                <span
+                  aria-hidden="true"
+                  className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[subject.color]}`}
+                />
+                {subject.subject}
+              </h3>
               <span className="text-xs text-slate-500">
                 {subject.covered.length} covered · {subject.planned.length} planned
               </span>

@@ -76,7 +76,9 @@ idempotent (`CREATE TABLE IF NOT EXISTS` + `addColumnIfMissing`).
 
 Built and working (matches MVP):
 
-- Password-gated single-user access (HMAC-signed, httpOnly cookie, 14-day TTL)
+- Multi-user accounts, identity-bound sessions (HMAC-signed, httpOnly cookie,
+  14-day TTL), per-user data isolation, per-user MCP tokens, login rate
+  limiting (issue #21)
 - Daily/weekly plan book, unit timeline grid, unit detail/coverage hub
 - Unit + lesson CRUD with validation; lesson bank with sorting; outcome browser
 - Structured lesson sections (8 fields) + Markdown import (file or paste)

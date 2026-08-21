@@ -9,7 +9,7 @@ import { updateStudent } from "@/src/lib/db/students-repository";
 const statuses = new Set<StudentStatus>(["active", "inactive", "transferred"]);
 
 export async function updateStudentAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const id = String(formData.get("id") ?? "").trim();
   const firstName = String(formData.get("firstName") ?? "").trim();
@@ -25,7 +25,7 @@ export async function updateStudentAction(formData: FormData) {
 
   const status = String(formData.get("status") ?? "active");
 
-  updateStudent(getClassPilotDatabase(), {
+  updateStudent(getClassPilotDatabase(), userId, {
     id,
     firstName,
     lastName,

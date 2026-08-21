@@ -42,6 +42,44 @@ export function migrate(db: ClassPilotDatabase) {
       active_school_year_id TEXT NOT NULL REFERENCES school_years(id)
     );
 
+    -- See src/lib/db/users-repository.ts (issue #21).
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    -- Per-user MCP auth tokens (issue #21 Phase 4), replacing the old
+    -- single shared CLASSPILOT_MCP_TOKEN env var. token_hash is a SHA-256
+    -- digest -- see src/lib/db/mcp-tokens-repository.ts; the plaintext
+    -- token is only ever available to the caller at creation time. A
+    -- revoked token is kept (revoked_at set) rather than deleted, so
+    -- "who had access and when" stays auditable.
+    CREATE TABLE IF NOT EXISTS mcp_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      label TEXT NOT NULL DEFAULT '',
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT,
+      revoked_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user ON mcp_tokens(user_id);
+
+    -- Login lockout (issue #21 Phase 5 security checklist). One row per
+    -- failed login attempt; see src/lib/auth/login-rate-limit.ts. Rows are
+    -- pruned as they age out of the lockout window rather than kept
+    -- forever -- this is a throttle, not an audit log.
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username, created_at);
+
     CREATE TABLE IF NOT EXISTS app_settings (
       id TEXT PRIMARY KEY,
       ai_api_key_encrypted TEXT NOT NULL DEFAULT '',
@@ -164,19 +202,36 @@ export function migrate(db: ClassPilotDatabase) {
       completed_at TEXT NOT NULL DEFAULT ''
     );
 
-    CREATE TABLE IF NOT EXISTS periods (
-      id TEXT PRIMARY KEY,
-      label TEXT NOT NULL,
-      start_time TEXT NOT NULL,
-      end_time TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0
-    );
-
+    -- A class's own meeting time on one cycle day — no shared "period"
+    -- entity; see ScheduleSlot in src/features/planner/types.ts. Existing
+    -- installs get migrated off the old periods/schedule_slots(period_id)
+    -- shape by migrateAwayFromPeriods() below.
     CREATE TABLE IF NOT EXISTS schedule_slots (
       id TEXT PRIMARY KEY,
       class_id TEXT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
-      period_id TEXT NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
-      cycle_day INTEGER NOT NULL
+      cycle_day INTEGER NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL
+    );
+
+    -- Links and uploaded files attached to a unit or a lesson. Exactly one
+    -- of unit_id/lesson_id is set. Uploaded files are stored on disk (see
+    -- src/lib/storage/attachment-storage.ts) under stored_name, which is a
+    -- generated name (never the original file_name) to avoid path
+    -- traversal / collisions; file_name is only for display and download.
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      unit_id TEXT REFERENCES unit_plans(id) ON DELETE CASCADE,
+      lesson_id TEXT REFERENCES lesson_plans(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      label TEXT NOT NULL,
+      url TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL DEFAULT '',
+      stored_name TEXT NOT NULL DEFAULT '',
+      mime_type TEXT NOT NULL DEFAULT '',
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      CHECK ((unit_id IS NOT NULL) != (lesson_id IS NOT NULL))
     );
 
     CREATE INDEX IF NOT EXISTS idx_students_year ON students(school_year_id, last_name);
@@ -186,7 +241,9 @@ export function migrate(db: ClassPilotDatabase) {
     CREATE INDEX IF NOT EXISTS idx_support_student ON support_plans(student_id);
     CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(status, due_date);
     CREATE INDEX IF NOT EXISTS idx_schedule_slots_class ON schedule_slots(class_id);
-    CREATE INDEX IF NOT EXISTS idx_schedule_slots_day_period ON schedule_slots(cycle_day, period_id);
+    CREATE INDEX IF NOT EXISTS idx_schedule_slots_day ON schedule_slots(cycle_day);
+    CREATE INDEX IF NOT EXISTS idx_attachments_unit ON attachments(unit_id);
+    CREATE INDEX IF NOT EXISTS idx_attachments_lesson ON attachments(lesson_id);
   `);
 
   addColumnIfMissing(
@@ -219,6 +276,72 @@ export function migrate(db: ClassPilotDatabase) {
     "target_minutes_per_year",
     "INTEGER",
   );
+  addColumnIfMissing(
+    db,
+    "class_sections",
+    "color",
+    "TEXT NOT NULL DEFAULT 'blue'",
+  );
+  addColumnIfMissing(
+    db,
+    "class_sections",
+    "is_instructional",
+    "INTEGER NOT NULL DEFAULT 1",
+  );
+  addColumnIfMissing(
+    db,
+    "class_sections",
+    "combined_grades_json",
+    "TEXT NOT NULL DEFAULT '[]'",
+  );
+  addColumnIfMissing(
+    db,
+    "app_settings",
+    "ai_local_base_url",
+    "TEXT NOT NULL DEFAULT ''",
+  );
+  addColumnIfMissing(
+    db,
+    "app_settings",
+    "ai_local_model",
+    "TEXT NOT NULL DEFAULT ''",
+  );
+  addColumnIfMissing(
+    db,
+    "school_years",
+    "day_label_scheme",
+    "TEXT NOT NULL DEFAULT 'numeric'",
+  );
+
+  // Multi-user data isolation (issue #21 Phase 2). Nullable for the same
+  // reason school_year_id on class_sections is (SQLite can't add a NOT
+  // NULL column with a REFERENCES clause in one ALTER) — backfilled to the
+  // sole existing user by classpilot-db.ts on boot, not here, since which
+  // user to backfill to is app-level bootstrapping (needs the app
+  // password), not pure schema. active_school_year_id replaces the old
+  // app_state singleton — "which year is active" is naturally a property
+  // of a user. app_state itself is left in place (unused) rather than
+  // dropped, to avoid extra migration risk for no benefit.
+  addColumnIfMissing(
+    db,
+    "school_years",
+    "user_id",
+    "TEXT REFERENCES users(id) ON DELETE CASCADE",
+  );
+  addColumnIfMissing(
+    db,
+    "users",
+    "active_school_year_id",
+    "TEXT REFERENCES school_years(id)",
+  );
+
+  // Temporary/burst schedule slots (see ScheduleSlot in types.ts) — both
+  // null means a regular, year-long recurring slot (unchanged behavior);
+  // both set means a class temporarily claims this cycleDay/time only
+  // between these dates.
+  addColumnIfMissing(db, "schedule_slots", "start_date", "TEXT");
+  addColumnIfMissing(db, "schedule_slots", "end_date", "TEXT");
+  addColumnIfMissing(db, "unit_plans", "notes", "TEXT NOT NULL DEFAULT ''");
 
   // Multi-year scoping. These columns can't carry a NOT NULL DEFAULT in the
   // same ALTER as a REFERENCES clause (SQLite restriction, verified against
@@ -229,18 +352,65 @@ export function migrate(db: ClassPilotDatabase) {
     "school_year_id",
     "TEXT REFERENCES school_years(id) ON DELETE CASCADE",
   );
-  addColumnIfMissing(
-    db,
-    "periods",
-    "school_year_id",
-    "TEXT REFERENCES school_years(id) ON DELETE CASCADE",
-  );
 
   backfillSchoolYearScoping(db);
+  migrateAwayFromPeriods(db);
 }
 
-// Points every pre-existing class_sections/periods row at the earliest
-// school_years row (there was only ever one before multi-year support), and
+// Existing installs have a `periods` table (shared bell-schedule times) and
+// schedule_slots(period_id). Classes are scheduled directly with their own
+// (cycleDay, startTime, endTime) now — no shared period entity — so this
+// moves each slot's period time onto the slot itself, then drops periods
+// entirely. No-ops once already migrated (periods table gone) or on a
+// brand-new install (never had one).
+function migrateAwayFromPeriods(db: ClassPilotDatabase) {
+  const periodsTableExists = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'periods'")
+    .get();
+
+  if (!periodsTableExists) {
+    return;
+  }
+
+  const scheduleSlotsColumns = db.prepare("PRAGMA table_info(schedule_slots)").all() as Array<{
+    name: string;
+  }>;
+  const alreadyMigrated = scheduleSlotsColumns.some((column) => column.name === "start_time");
+
+  if (!alreadyMigrated) {
+    db.exec("BEGIN;");
+    try {
+      db.exec(`
+        CREATE TABLE schedule_slots_new (
+          id TEXT PRIMARY KEY,
+          class_id TEXT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+          cycle_day INTEGER NOT NULL,
+          start_time TEXT NOT NULL,
+          end_time TEXT NOT NULL
+        );
+      `);
+      db.exec(`
+        INSERT INTO schedule_slots_new (id, class_id, cycle_day, start_time, end_time)
+        SELECT ss.id, ss.class_id, ss.cycle_day, p.start_time, p.end_time
+        FROM schedule_slots ss
+        JOIN periods p ON p.id = ss.period_id;
+      `);
+      db.exec("DROP TABLE schedule_slots;");
+      db.exec("ALTER TABLE schedule_slots_new RENAME TO schedule_slots;");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_schedule_slots_class ON schedule_slots(class_id);");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_schedule_slots_day ON schedule_slots(cycle_day);");
+      db.exec("COMMIT;");
+    } catch (error) {
+      db.exec("ROLLBACK;");
+      throw error;
+    }
+  }
+
+  db.exec("DROP TABLE periods;");
+}
+
+// Points every pre-existing class_sections row at the earliest school_years
+// row (there was only ever one before multi-year support), and
 // bootstraps app_state so getActiveSchoolYearId() always has something to
 // return. No-ops once already backfilled (checks IS NULL / NOT EXISTS), and
 // no-ops entirely on a brand-new database (no school_years row yet — the
@@ -255,9 +425,6 @@ function backfillSchoolYearScoping(db: ClassPilotDatabase) {
   }
 
   db.prepare("UPDATE class_sections SET school_year_id = ? WHERE school_year_id IS NULL").run(
-    firstYear.id,
-  );
-  db.prepare("UPDATE periods SET school_year_id = ? WHERE school_year_id IS NULL").run(
     firstYear.id,
   );
   db.prepare(

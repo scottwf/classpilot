@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import { outcomeIdFor } from "@/src/lib/curriculum/sk-outcomes";
 import { plannerData } from "./seed-data";
 import {
+  buildLessonBankFilterOptions,
   buildOutcomeCoverage,
+  filterLessonBank,
+  getAllLessons,
   getLessonsForDate,
   getLessonsForWeek,
+  resolvePlanBookDefaultDate,
+  shiftDateKey,
   sortLessonBank,
 } from "./lesson-queries";
 
@@ -42,6 +47,38 @@ describe("lesson queries", () => {
     );
   });
 
+  it("filters the lesson bank by subject, unit, grade, and outcome", () => {
+    const lessons = getAllLessons(plannerData);
+    const mathLessons = filterLessonBank(lessons, { subject: "Mathematics" });
+
+    expect(mathLessons.length).toBeGreaterThan(0);
+    expect(mathLessons.every((lesson) => lesson.subject === "Mathematics")).toBe(true);
+
+    const oneUnit = mathLessons[0]!.unitId;
+    expect(
+      filterLessonBank(lessons, { unitId: oneUnit }).every((lesson) => lesson.unitId === oneUnit),
+    ).toBe(true);
+
+    const oneOutcome = mathLessons.flatMap((lesson) => lesson.outcomeCodes)[0]!;
+    expect(
+      filterLessonBank(lessons, { outcomeCode: oneOutcome }).every((lesson) =>
+        lesson.outcomeCodes.includes(oneOutcome),
+      ),
+    ).toBe(true);
+
+    expect(filterLessonBank(lessons, { subject: "Nonexistent Subject" })).toHaveLength(0);
+    expect(filterLessonBank(lessons, {})).toHaveLength(lessons.length);
+  });
+
+  it("builds distinct, sorted filter options from the lesson bank", () => {
+    const options = buildLessonBankFilterOptions(getAllLessons(plannerData));
+
+    expect(options.subjects).toEqual([...options.subjects].sort());
+    expect(new Set(options.subjects).size).toBe(options.subjects.length);
+    expect(options.units.length).toBeGreaterThan(0);
+    expect(new Set(options.units.map((unit) => unit.id)).size).toBe(options.units.length);
+  });
+
   it("maps planned, covered, and uncovered outcomes for a subject", () => {
     const coverage = buildOutcomeCoverage(plannerData);
     const ela = coverage.find(
@@ -56,5 +93,46 @@ describe("lesson queries", () => {
       outcomeIdFor("Mathematics", "N6.5"),
     );
     expect(math?.uncovered.length).toBeGreaterThan(0);
+  });
+});
+
+describe("shiftDateKey", () => {
+  it("shifts a date forward and backward by whole calendar days", () => {
+    expect(shiftDateKey("2026-09-11", 1)).toBe("2026-09-12");
+    expect(shiftDateKey("2026-09-11", -1)).toBe("2026-09-10");
+    expect(shiftDateKey("2026-09-11", 7)).toBe("2026-09-18");
+  });
+
+  it("rolls over month and year boundaries", () => {
+    expect(shiftDateKey("2026-09-30", 1)).toBe("2026-10-01");
+    expect(shiftDateKey("2026-12-31", 1)).toBe("2027-01-01");
+  });
+});
+
+describe("resolvePlanBookDefaultDate", () => {
+  const schoolYear = { startDate: "2026-09-02", endDate: "2026-12-18" };
+
+  it("defaults to today when today falls within the school year", () => {
+    expect(resolvePlanBookDefaultDate(schoolYear, [], "2026-10-15")).toBe("2026-10-15");
+  });
+
+  it("defaults to the first day with a lesson when today is before the school year starts", () => {
+    const lessonDates = ["2026-09-05", "2026-09-08", "2026-09-03"];
+
+    expect(resolvePlanBookDefaultDate(schoolYear, lessonDates, "2026-08-09")).toBe("2026-09-03");
+  });
+
+  it("falls back to the school year's start date when today is before the year and there are no lessons yet", () => {
+    expect(resolvePlanBookDefaultDate(schoolYear, [], "2026-08-09")).toBe("2026-09-02");
+  });
+
+  it("ignores lessons dated before the school year starts", () => {
+    const lessonDates = ["2026-06-01", "2026-09-10"];
+
+    expect(resolvePlanBookDefaultDate(schoolYear, lessonDates, "2026-08-09")).toBe("2026-09-10");
+  });
+
+  it("defaults to the school year's end date when today is after the school year ends", () => {
+    expect(resolvePlanBookDefaultDate(schoolYear, [], "2027-01-15")).toBe("2026-12-18");
   });
 });

@@ -4,12 +4,13 @@ import { redirect } from "next/navigation";
 import type { StudentStatus } from "@/src/features/students/types";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { getActiveSchoolYearId } from "@/src/lib/db/planner-repository";
 import { createStudent } from "@/src/lib/db/students-repository";
 
 const statuses = new Set<StudentStatus>(["active", "inactive", "transferred"]);
 
 export async function createStudentAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
@@ -19,8 +20,10 @@ export async function createStudentAction(formData: FormData) {
   }
 
   const status = String(formData.get("status") ?? "active");
+  const db = getClassPilotDatabase();
 
-  const id = createStudent(getClassPilotDatabase(), {
+  const id = createStudent(db, userId, {
+    schoolYearId: getActiveSchoolYearId(db, userId),
     firstName,
     lastName,
     preferredName: String(formData.get("preferredName") ?? "").trim(),

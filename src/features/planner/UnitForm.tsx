@@ -1,5 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import type { CurriculumOutcome, ClassSection, UnitPlan } from "./types";
+import { useMemo, useState } from "react";
+import { getClassMeetingDates } from "./cycle";
+import { formatClassGrade } from "./curriculum-subjects";
+import { computeUnitEndDate } from "./unit-pacing";
+import { OutcomePicker } from "./OutcomePicker";
+import type { CurriculumOutcome, ClassSection, SchoolYear, UnitPlan } from "./types";
 
 type UnitFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -7,10 +14,13 @@ type UnitFormProps = {
   error?: string;
   mode: "create" | "edit";
   outcomes: CurriculumOutcome[];
+  schoolYear: SchoolYear;
   unit?: UnitPlan;
+  units: UnitPlan[];
 };
 
-const colors: UnitPlan["color"][] = ["blue", "emerald", "amber", "rose", "violet"];
+const defaultStartDate = "2026-09-01";
+const defaultLessonDays = 10;
 
 export function UnitForm({
   action,
@@ -18,8 +28,53 @@ export function UnitForm({
   error,
   mode,
   outcomes,
+  schoolYear,
   unit,
+  units,
 }: UnitFormProps) {
+  const [selectedClassId, setSelectedClassId] = useState(
+    unit?.classId ?? classes[0]?.id,
+  );
+  const selectedClass = classes.find((classSection) => classSection.id === selectedClassId);
+  const selectedClassGrades = selectedClass
+    ? [selectedClass.grade, ...(selectedClass.combinedGrades ?? [])]
+    : [];
+  const classOutcomes = selectedClass
+    ? outcomes.filter(
+        (outcome) =>
+          outcome.subject === selectedClass.subject && selectedClassGrades.includes(outcome.grade),
+      )
+    : [];
+
+  const meetingDates = useMemo(
+    () => (selectedClass ? getClassMeetingDates(schoolYear, selectedClass) : []),
+    [schoolYear, selectedClass],
+  );
+
+  const [startDate, setStartDate] = useState(unit?.startDate ?? defaultStartDate);
+  const [lessonDays, setLessonDays] = useState(() => {
+    if (!unit) return defaultLessonDays;
+    const count = meetingDates.filter(
+      (date) => date >= unit.startDate && date <= unit.endDate,
+    ).length;
+    return count > 0 ? count : defaultLessonDays;
+  });
+
+  const hasFutureMeetingDay = meetingDates.some((date) => date >= startDate);
+  const { endDate: computedEndDate, actualLessonDays } = selectedClass
+    ? computeUnitEndDate(schoolYear, selectedClass, startDate, lessonDays)
+    : { endDate: startDate, actualLessonDays: 0 };
+
+  const otherClassUnits = units.filter(
+    (candidate) => candidate.classId === selectedClassId && candidate.id !== unit?.id,
+  );
+  const previousUnit = otherClassUnits
+    .filter((candidate) => candidate.endDate < startDate)
+    .sort((a, b) => (a.endDate < b.endDate ? 1 : -1))[0];
+  const overlappingUnit = otherClassUnits.find(
+    (candidate) => candidate.startDate <= computedEndDate && candidate.endDate >= startDate,
+  );
+
   return (
     <form
       action={action}
@@ -36,57 +91,85 @@ export function UnitForm({
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            defaultValue={unit?.startDate ?? "2026-09-01"}
-            label="Start date"
-            name="startDate"
-            required
-            type="date"
-          />
-          <Field
-            defaultValue={unit?.endDate ?? "2026-09-25"}
-            label="End date"
-            name="endDate"
-            required
-            type="date"
-          />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="text-sm font-medium text-slate-700">
-              Subject row
+              Start date
             </span>
-            <select
+            <input
               className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              defaultValue={unit?.classId}
-              name="classId"
+              name="startDate"
+              onChange={(event) => setStartDate(event.target.value)}
               required
-            >
-              {classes.map((classSection) => (
-                <option key={classSection.id} value={classSection.id}>
-                  {classSection.name}
-                </option>
-              ))}
-            </select>
+              type="date"
+              value={startDate}
+            />
           </label>
-
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Color</span>
-            <select
+            <span className="text-sm font-medium text-slate-700">
+              Lesson days
+            </span>
+            <input
               className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              defaultValue={unit?.color ?? "blue"}
-              name="color"
+              min={1}
+              onChange={(event) =>
+                setLessonDays(Math.max(1, Number(event.target.value) || 1))
+              }
               required
-            >
-              {colors.map((color) => (
-                <option key={color} value={color}>
-                  {color}
-                </option>
-              ))}
-            </select>
+              type="number"
+              value={lessonDays}
+            />
           </label>
+          <input name="endDate" type="hidden" value={computedEndDate} />
         </div>
+
+        <p className="text-sm text-slate-600">
+          {!hasFutureMeetingDay
+            ? selectedClass
+              ? "This class has no scheduled meeting days on or after the start date."
+              : "Choose a class to compute the unit's end date from its schedule."
+            : `Ends ${computedEndDate}${
+                actualLessonDays < lessonDays
+                  ? ` — only ${actualLessonDays} of ${lessonDays} lesson days fit before the end of the school year.`
+                  : ` (${actualLessonDays} lesson days for this class).`
+              }`}
+        </p>
+
+        {previousUnit ? (
+          <p className="text-sm text-slate-600">
+            {selectedClass?.name ?? "This class"}&apos;s previous unit,{" "}
+            <span className="font-medium text-slate-950">{previousUnit.title}</span>, ends{" "}
+            {previousUnit.endDate}.
+          </p>
+        ) : null}
+
+        {overlappingUnit ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            This overlaps &quot;{overlappingUnit.title}&quot; ({overlappingUnit.startDate} –{" "}
+            {overlappingUnit.endDate}) for the same class.
+          </p>
+        ) : null}
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">
+            Subject row
+          </span>
+          <select
+            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            name="classId"
+            onChange={(event) => setSelectedClassId(event.target.value)}
+            required
+            value={selectedClassId ?? ""}
+          >
+            {classes.map((classSection) => (
+              <option key={classSection.id} value={classSection.id}>
+                {classSection.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            The unit&apos;s color is a shade of this class&apos;s color — no need to pick one.
+          </p>
+        </label>
       </div>
 
       <aside className="space-y-4">
@@ -95,33 +178,40 @@ export function UnitForm({
             Unit outcomes
           </h3>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Connect this unit to Grade 6 outcomes. Lesson-level outcome tracking
-            builds on this foundation.
+            {selectedClass
+              ? `${selectedClass.subject} outcomes for Grade ${formatClassGrade(selectedClass)}. Lesson-level outcome tracking builds on this foundation.`
+              : "Choose a class to see its curriculum outcomes."}
           </p>
         </div>
 
-        <div className="max-h-96 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2">
-          {outcomes.slice(0, 100).map((outcome) => (
-            <label
-              className="flex gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-              key={outcome.id}
-            >
-              <input
-                className="mt-1"
-                defaultChecked={unit?.outcomeIds.includes(outcome.id)}
-                name="outcomeIds"
-                type="checkbox"
-                value={outcome.id}
-              />
-              <span>
-                <span className="font-semibold text-slate-950">
-                  {outcome.code}
-                </span>{" "}
-                {outcome.subject}
-              </span>
-            </label>
-          ))}
+        <div className="max-h-96 overflow-y-auto rounded-lg border border-slate-200 p-2">
+          <OutcomePicker
+            emptyMessage={
+              <>
+                No curriculum outcomes found for {selectedClass?.subject || "this class"}
+                {selectedClass ? `, Grade ${formatClassGrade(selectedClass)}` : ""}. Check the
+                class&apos;s subject/grade on the{" "}
+                <Link className="text-blue-700 underline" href="/settings">
+                  Settings
+                </Link>{" "}
+                page.
+              </>
+            }
+            name="outcomeIds"
+            outcomes={classOutcomes}
+            selectedIds={unit?.outcomeIds}
+          />
         </div>
+
+        <label className="block">
+          <span className="text-sm font-medium text-slate-700">Notes</span>
+          <textarea
+            className="mt-2 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            defaultValue={unit?.notes}
+            name="notes"
+            placeholder="How did this unit go? Anything to change next time?"
+          />
+        </label>
 
         {error ? (
           <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">

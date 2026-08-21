@@ -2,11 +2,11 @@
 
 ClassPilot is a personal, self-hosted teacher plan book for a Grade 6 homeroom classroom. It combines a daily/weekly plan book, unit timeline, lesson bank, curriculum outcome tracking, Markdown lesson import, and a foundation for privacy-conscious student information workflows.
 
-This is not a public SaaS product. The first version is designed to run on a homelab for one teacher, with SQLite persistence and a future path to PostgreSQL if the app grows.
+This is not a public SaaS product. The first version is designed to run on a homelab for one teacher (or a small group sharing a deployment), with SQLite persistence and a future path to PostgreSQL if the app grows.
 
 ## Current Features
 
-- Password-protected single-user access
+- Multi-user accounts, each with completely isolated classes/units/lessons/students/schedule (admin-provisioned, no self-service signup) — see the wiki's Using ClassPilot page
 - Daily and weekly lesson plan book
 - Unit timeline for the school year
 - Unit planning hub with lesson sequence and outcome coverage
@@ -161,6 +161,20 @@ docker compose logs -f classpilot
 docker compose down
 ```
 
+## Configuration Reference
+
+Every environment variable, its default, and which container reads it is
+documented in [docs/CONFIG-REFERENCE.md](docs/CONFIG-REFERENCE.md).
+
+## MCP Server (AI Tool Access)
+
+ClassPilot also runs a separate MCP server (`classpilot-mcp`, started
+alongside the main app by the same `docker compose up`) so an MCP client
+like Claude Code or Claude Desktop can read and write your units, lessons,
+classes, and schedule directly — no Student CMS access. See
+[docs/MCP-SETUP.md](docs/MCP-SETUP.md) for the token setup, host allow-list,
+and how to connect a client.
+
 ## Privacy Notes
 
 ClassPilot is being built for private classroom planning and eventual student information storage. Before entering real student data:
@@ -194,7 +208,76 @@ The working product plan is tracked in [ClassPilot-summary-plan.md](ClassPilot-s
 
 A technical code summary, plan-vs-implementation gap analysis, and clean/secure code findings are tracked in [docs/CODEBASE-OVERVIEW.md](docs/CODEBASE-OVERVIEW.md).
 
+Setting up the MCP server so an AI assistant can read/write your plan directly is covered in [docs/MCP-SETUP.md](docs/MCP-SETUP.md).
+
 The schema and privacy design for the upcoming Student Information CMS is in [docs/student-cms-plan.md](docs/student-cms-plan.md).
+
+## Roadmap
+
+Tracked, not yet built. Grouped by area; roughly the order they'll get picked up.
+
+**Navigation & Settings**
+- Rename/evolve Plan Book into "Dashboard" — same home page, but surfaces
+  daily notes/reminders (e.g. upcoming birthdays) alongside the lesson view.
+- Add a real mobile bottom tab bar (Dashboard, Lessons, Students, Schedule,
+  More) instead of the current hamburger-only mobile nav. Assistant is the
+  leading candidate to take a tab slot once it becomes a real chat interface.
+- Move Classes into Settings as its own section (setup-time task, not a
+  daily-use page).
+- Move School Year management (switch/create/delete years) from Calendar
+  into Settings; Calendar refocuses purely on showing the active year's
+  calendar, styled like the onboarding wizard's calendar grid.
+
+**Onboarding wizard**
+- Range-select multiple calendar days (shift-click first + last day of a
+  break) to label them all in one action, instead of one day per click.
+- Default a new class's color to one not already in use in the active year,
+  instead of every class starting out blue.
+- Grade-driven class picker: pick a grade, then check off which curriculum
+  subjects to add (each pre-wired to that subject's outcomes) plus common
+  non-instructional defaults (recess, lunch, staff meeting), instead of
+  adding classes one at a time. Support adding a second grade afterward, and
+  combined/split-grade classes (e.g. a single Grade 6/7 Science class whose
+  outcomes span both grades).
+- Bell-schedule step: show all cycle days at once instead of one day per
+  tab; reconsider whether "periods" are still needed as a separate concept
+  now that instructional and non-instructional classes both exist, versus
+  clicking a class directly onto a day/time grid.
+
+**Plan Book**
+- Real week view — the Day/Week toggle currently renders the same content
+  either way.
+- Once classes are scheduled, show that day/week's actual timetable and let
+  the teacher click a slot to add a lesson directly into it.
+
+**Units & lessons**
+- Unit creation: enter a start date and a number of lesson days instead of
+  an end date, with the end date computed from the class's actual
+  instructional days (respecting calendar non-instructional days and the
+  class's cycle days). Show the class's previous unit's end date so new
+  units don't accidentally overlap.
+- Fix the unit outcome picker — it currently lists every curriculum outcome
+  from every subject and grade unfiltered, instead of just the outcomes for
+  the unit's own class subject, and shows only the code, not the outcome's
+  title.
+- Click the unit timeline to open an add-lesson modal instead of
+  navigating to a separate page with no context.
+- Unit-level notes/comments, and a "copy this unit to another school year"
+  action that surfaces last year's lesson reflections and unit notes so a
+  re-taught unit gets improved instead of blindly repeated.
+
+**Students**
+- Show calculated age on the student profile.
+- Upcoming-birthday reminders on the dashboard.
+- A real chat interface for the AI Assistant with tool-calling, so
+  reminders and notes can be created conversationally instead of only
+  through manual forms.
+
+**Other**
+- Pacing / overload checks across a class's units.
+- Interactive unit-timeline drag/resize.
+- Full AI lesson drafting UI (the prompt/parse layer already exists;
+  the orchestrator and UI to use it don't yet).
 
 ## Repository Hygiene
 

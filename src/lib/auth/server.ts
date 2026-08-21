@@ -1,12 +1,12 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { shouldUseSecureCookies } from "./cookie-policy";
-import { authCookieName, getAppPassword, getAuthSecret } from "./secrets";
-import { createSessionToken, verifySessionToken } from "./session";
+import { authCookieName, getAppPassword, getAppUsername, getAuthSecret } from "./secrets";
+import { createSessionToken, verifySessionToken, type SessionTokenPayload } from "./session";
 
-export { authCookieName, getAppPassword, getAuthSecret };
+export { authCookieName, getAppPassword, getAppUsername, getAuthSecret };
 
-export async function isAuthenticated(): Promise<boolean> {
+async function getSessionPayload(): Promise<SessionTokenPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(authCookieName)?.value;
 
@@ -16,15 +16,28 @@ export async function isAuthenticated(): Promise<boolean> {
   });
 }
 
-export async function requireAuth() {
-  if (!(await isAuthenticated())) {
-    redirect("/login");
-  }
+export async function isAuthenticated(): Promise<boolean> {
+  return (await getSessionPayload()) !== null;
 }
 
-export async function setAuthCookie() {
+export async function getCurrentUserId(): Promise<string | null> {
+  return (await getSessionPayload())?.userId ?? null;
+}
+
+/** Redirects to /login if not authenticated; otherwise returns the current user's id. */
+export async function requireAuth(): Promise<string> {
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    redirect("/login");
+  }
+
+  return userId;
+}
+
+export async function setAuthCookie(userId: string) {
   const cookieStore = await cookies();
-  cookieStore.set(authCookieName, createSessionToken({ secret: getAuthSecret() }), {
+  cookieStore.set(authCookieName, createSessionToken({ secret: getAuthSecret(), userId }), {
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 14,
     path: "/",

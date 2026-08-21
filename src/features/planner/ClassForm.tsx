@@ -1,22 +1,65 @@
+"use client";
+
 import Link from "next/link";
-import type { ClassSection } from "./types";
+import { useState } from "react";
+import { classColorPalette, pickUnusedClassColor } from "./class-color";
+import type { GradeSubjects } from "./curriculum-subjects";
+import type { ClassColor, ClassSection } from "./types";
 
 type ClassFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   classSection?: ClassSection;
-  cycleLength: number;
   error?: string;
+  /** Other classes already in the active year — used to default a new
+   * class's color to one not already in use. */
+  existingClasses: ClassSection[];
+  /** Grades and subjects that have curriculum outcomes loaded — populates
+   * the instructional-class curriculum picker below. */
+  gradeSubjects: GradeSubjects[];
   mode: "create" | "edit";
+};
+
+const classColors = classColorPalette;
+
+const classColorSwatchClass: Record<ClassColor, string> = {
+  amber: "bg-amber-500",
+  blue: "bg-blue-500",
+  emerald: "bg-emerald-500",
+  orange: "bg-orange-500",
+  rose: "bg-rose-500",
+  sky: "bg-sky-500",
+  teal: "bg-teal-500",
+  violet: "bg-violet-500",
 };
 
 export function ClassForm({
   action,
   classSection,
-  cycleLength,
   error,
+  existingClasses,
+  gradeSubjects,
   mode,
 }: ClassFormProps) {
-  const cycleDayNumbers = Array.from({ length: cycleLength }, (_, index) => index + 1);
+  const selectedColor = classSection?.color ?? pickUnusedClassColor(existingClasses);
+  const isInstructional = classSection?.isInstructional ?? true;
+  const initialCurriculumChoice =
+    classSection && isInstructional
+      ? `${classSection.grade}|${classSection.subject}`
+      : "";
+  const curriculumChoiceExists = gradeSubjects.some(
+    (entry) =>
+      entry.grade === classSection?.grade && entry.subjects.includes(classSection?.subject ?? ""),
+  );
+
+  const [curriculumChoice, setCurriculumChoice] = useState(
+    curriculumChoiceExists ? initialCurriculumChoice : "",
+  );
+  const [selectedGrade, selectedSubject] = curriculumChoice.split("|");
+  const otherGradesWithSameSubject = selectedSubject
+    ? gradeSubjects.filter(
+        (entry) => entry.grade !== selectedGrade && entry.subjects.includes(selectedSubject),
+      )
+    : [];
 
   return (
     <form
@@ -37,20 +80,103 @@ export function ClassForm({
           name="name"
           required
         />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            defaultValue={classSection?.subject}
-            label="Subject"
-            name="subject"
-            required
+        <div>
+          <input
+            className="peer"
+            defaultChecked={isInstructional}
+            id="isInstructional"
+            name="isInstructional"
+            type="checkbox"
+            value="1"
           />
-          <Field
-            defaultValue={classSection?.grade}
-            label="Grade"
-            name="grade"
-            required
-          />
+          <label
+            className="ml-2 text-sm font-medium text-slate-700"
+            htmlFor="isInstructional"
+          >
+            This is an instructional class (has curriculum outcomes)
+          </label>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Uncheck for non-instructional blocks on the schedule — recess,
+            supervision, a one-off assembly — which skip curriculum outcomes
+            and instructional-time tracking.
+          </p>
+
+          <div className="mt-3 hidden peer-checked:block">
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">
+                Grade and subject
+              </span>
+              <select
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                name="curriculumChoice"
+                onChange={(event) => setCurriculumChoice(event.target.value)}
+                value={curriculumChoice}
+              >
+                <option value="">Select a subject…</option>
+                {gradeSubjects.map((entry) => (
+                  <optgroup key={entry.grade} label={`Grade ${entry.grade}`}>
+                    {entry.subjects.map((subject) => (
+                      <option key={subject} value={`${entry.grade}|${subject}`}>
+                        {subject}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs leading-5 text-slate-500">
+                From curriculum outcomes already loaded on the{" "}
+                <Link className="text-blue-700 underline" href="/outcomes">
+                  Outcomes
+                </Link>{" "}
+                page.
+              </span>
+            </label>
+
+            {otherGradesWithSameSubject.length > 0 ? (
+              <div className="mt-3">
+                <span className="text-sm font-medium text-slate-700">
+                  Combine with other grades (optional)
+                </span>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  For a split class (e.g. a combined 5/6). Outcomes from the
+                  grades checked here are added on top of Grade {selectedGrade}
+                  &apos;s.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {otherGradesWithSameSubject.map((entry) => (
+                    <label
+                      className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 has-checked:border-blue-600 has-checked:bg-blue-50 has-checked:text-blue-700"
+                      key={entry.grade}
+                    >
+                      <input
+                        defaultChecked={classSection?.combinedGrades?.includes(entry.grade)}
+                        name="combinedGrades"
+                        type="checkbox"
+                        value={entry.grade}
+                      />
+                      Grade {entry.grade}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-3 grid gap-4 peer-checked:hidden sm:grid-cols-2">
+            <Field
+              defaultValue={isInstructional ? undefined : classSection?.subject}
+              label="Subject or label"
+              name="subjectFreeText"
+              placeholder="e.g. Recess, Supervision"
+            />
+            <Field
+              defaultValue={isInstructional ? undefined : classSection?.grade}
+              label="Grade (optional)"
+              name="gradeFreeText"
+            />
+          </div>
         </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field defaultValue={classSection?.room} label="Room" name="room" />
           <Field
@@ -63,37 +189,36 @@ export function ClassForm({
       </div>
 
       <aside className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-950">
-            Day cycle membership
-          </h3>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Which of the school&apos;s {cycleLength} cycle days this class
-            meets on. Leave all unchecked to meet every instructional day
-            (the default — most classes on a regular weekly schedule want
-            this). Edit the cycle length on the{" "}
-            <Link className="text-blue-700 underline" href="/calendar">
-              Calendar
-            </Link>{" "}
-            page.
-          </p>
-        </div>
+        <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+          Which days this class meets and at what times is set on the{" "}
+          <Link className="text-blue-700 underline" href="/settings/schedule">
+            Schedule
+          </Link>{" "}
+          page{mode === "create" ? ", after you save this class" : ""}.
+        </p>
 
-        <div className="flex flex-wrap gap-2">
-          {cycleDayNumbers.map((day) => (
-            <label
-              className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1.5 text-sm text-slate-700 has-checked:border-blue-600 has-checked:bg-blue-50 has-checked:text-blue-700"
-              key={day}
-            >
-              <input
-                defaultChecked={classSection?.cycleDays.includes(day)}
-                name="cycleDays"
-                type="checkbox"
-                value={day}
-              />
-              Day {day}
-            </label>
-          ))}
+        <div>
+          <span className="text-sm font-medium text-slate-700">Color</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {classColors.map((color) => (
+              <label
+                className="flex items-center"
+                key={color}
+                title={color}
+              >
+                <input
+                  className="peer sr-only"
+                  defaultChecked={color === selectedColor}
+                  name="color"
+                  type="radio"
+                  value={color}
+                />
+                <span
+                  className={`size-7 cursor-pointer rounded-full ring-offset-2 peer-checked:ring-2 peer-checked:ring-blue-600 ${classColorSwatchClass[color]}`}
+                />
+              </label>
+            ))}
+          </div>
         </div>
 
         <label className="block">
@@ -130,7 +255,7 @@ export function ClassForm({
           </button>
           <Link
             className="rounded-md px-4 py-2 text-center text-sm font-medium text-slate-600 hover:bg-slate-100"
-            href="/classes"
+            href="/settings/classes"
           >
             Cancel
           </Link>

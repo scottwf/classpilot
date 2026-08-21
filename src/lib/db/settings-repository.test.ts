@@ -22,6 +22,8 @@ describe("settings repository", () => {
       aiApiKey: "",
       aiBaseUrl: "",
       aiModel: "",
+      aiLocalBaseUrl: "",
+      aiLocalModel: "",
     });
   });
 
@@ -30,14 +32,18 @@ describe("settings repository", () => {
 
     updateAppSettings(db, {
       aiApiKey: "sk-super-secret",
-      aiBaseUrl: "http://localhost:11434/v1",
-      aiModel: "llama3.1",
+      aiBaseUrl: "https://openrouter.ai/api/v1",
+      aiModel: "deepseek/deepseek-chat",
+      aiLocalBaseUrl: "http://localhost:11434/v1",
+      aiLocalModel: "llama3.1",
     });
 
     expect(getAppSettings(db)).toEqual({
       aiApiKey: "sk-super-secret",
-      aiBaseUrl: "http://localhost:11434/v1",
-      aiModel: "llama3.1",
+      aiBaseUrl: "https://openrouter.ai/api/v1",
+      aiModel: "deepseek/deepseek-chat",
+      aiLocalBaseUrl: "http://localhost:11434/v1",
+      aiLocalModel: "llama3.1",
     });
 
     const raw = db
@@ -50,13 +56,27 @@ describe("settings repository", () => {
   it("overwrites previous settings on a second update", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
 
-    updateAppSettings(db, { aiApiKey: "sk-first", aiBaseUrl: "", aiModel: "" });
-    updateAppSettings(db, { aiApiKey: "", aiBaseUrl: "http://localhost:11434/v1", aiModel: "" });
+    updateAppSettings(db, {
+      aiApiKey: "sk-first",
+      aiBaseUrl: "",
+      aiModel: "",
+      aiLocalBaseUrl: "",
+      aiLocalModel: "",
+    });
+    updateAppSettings(db, {
+      aiApiKey: "",
+      aiBaseUrl: "",
+      aiModel: "",
+      aiLocalBaseUrl: "http://localhost:11434/v1",
+      aiLocalModel: "llama3.1",
+    });
 
     expect(getAppSettings(db)).toEqual({
       aiApiKey: "",
-      aiBaseUrl: "http://localhost:11434/v1",
+      aiBaseUrl: "",
       aiModel: "",
+      aiLocalBaseUrl: "http://localhost:11434/v1",
+      aiLocalModel: "llama3.1",
     });
   });
 });

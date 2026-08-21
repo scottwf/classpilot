@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ClassPilotPlanner } from "./ClassPilotPlanner";
 import { LessonDetailPage } from "./LessonDetailPage";
@@ -10,31 +10,32 @@ import { UnitsPage } from "./UnitsPage";
 
 describe("ClassPilotPlanner", () => {
   it("renders the planner shell with classes, units, and today panel", () => {
-    render(<ClassPilotPlanner data={plannerData} />);
+    // Explicit date: a known day with a Math lesson in the seed data — this
+    // test isn't exercising the default-date resolution logic (see
+    // lesson-queries.test.ts for that), just needs a day with content.
+    render(<ClassPilotPlanner data={plannerData} selectedDate="2026-09-11" />);
 
     expect(
       screen.getByRole("heading", { name: "ClassPilot" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Grade 6 Math").length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("heading", { name: "Start with the lessons you need to teach." }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Lessons" })).toHaveAttribute(
+    const primaryNav = within(screen.getByRole("navigation", { name: "Primary" }));
+    expect(primaryNav.getByRole("link", { name: "Lessons" })).toHaveAttribute(
       "href",
       "/lessons",
     );
-    expect(screen.getByRole("link", { name: "Outcomes" })).toHaveAttribute(
+    expect(primaryNav.getByRole("link", { name: "Outcomes" })).toHaveAttribute(
       "href",
       "/outcomes",
     );
     expect(
-      screen.getByRole("link", { name: "Unit Timeline" }),
+      primaryNav.getByRole("link", { name: "Unit Timeline" }),
     ).toHaveAttribute("href", "/units");
     expect(screen.queryByRole("heading", { name: "All class lessons" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Coverage by class" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Today's lessons")).toBeInTheDocument();
+    expect(screen.getByText("Today's schedule")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add lesson" })).toHaveAttribute(
       "href",
       "/lessons/new?date=2026-09-11",
@@ -58,7 +59,17 @@ describe("ClassPilotPlanner", () => {
       throw new Error("Expected seeded ratios unit");
     }
 
-    render(<UnitDetailPage data={plannerData} rescheduleAction={() => {}} unit={unit} />);
+    render(
+      <UnitDetailPage
+        attachments={[]}
+        createFileAttachmentAction={() => {}}
+        createLinkAttachmentAction={() => {}}
+        data={plannerData}
+        deleteAttachmentAction={() => {}}
+        rescheduleAction={() => {}}
+        unit={unit}
+      />,
+    );
 
     expect(
       screen.getByRole("heading", { name: "Ratios, Rates, and Percent" }),
@@ -108,7 +119,17 @@ describe("ClassPilotPlanner", () => {
       } satisfies LessonSections,
     };
 
-    render(<LessonDetailPage data={plannerData} extendAction={() => {}} lesson={lesson} />);
+    render(
+      <LessonDetailPage
+        attachments={[]}
+        createFileAttachmentAction={() => {}}
+        createLinkAttachmentAction={() => {}}
+        data={plannerData}
+        deleteAttachmentAction={() => {}}
+        extendAction={() => {}}
+        lesson={lesson}
+      />,
+    );
 
     expect(
       screen.getByRole("heading", { name: "Ratio Language in Real Life" }),

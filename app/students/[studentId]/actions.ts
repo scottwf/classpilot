@@ -70,7 +70,7 @@ function required(formData: FormData, key: string): string {
 }
 
 export async function addContactAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
   const name = String(formData.get("name") ?? "").trim();
 
@@ -78,7 +78,7 @@ export async function addContactAction(formData: FormData) {
     redirect(`/students/${studentId}?error=contact`);
   }
 
-  createContact(getClassPilotDatabase(), {
+  createContact(getClassPilotDatabase(), userId, {
     studentId,
     name,
     relationship: String(formData.get("relationship") ?? "").trim(),
@@ -93,14 +93,14 @@ export async function addContactAction(formData: FormData) {
 }
 
 export async function deleteContactAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
-  deleteContact(getClassPilotDatabase(), required(formData, "id"));
+  deleteContact(getClassPilotDatabase(), userId, required(formData, "id"));
   redirect(`/students/${studentId}`);
 }
 
 export async function addNoteAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
   const body = String(formData.get("body") ?? "").trim();
   const category = String(formData.get("category") ?? "");
@@ -110,7 +110,7 @@ export async function addNoteAction(formData: FormData) {
     redirect(`/students/${studentId}?error=note`);
   }
 
-  createNote(getClassPilotDatabase(), {
+  createNote(getClassPilotDatabase(), userId, {
     studentId,
     date: String(formData.get("date") ?? "").trim() || todayKey(),
     category: category as NoteCategory,
@@ -125,13 +125,14 @@ export async function addNoteAction(formData: FormData) {
 }
 
 export async function setNoteFollowUpAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
   const status = String(formData.get("followUpStatus") ?? "none");
 
   if (followUpStatuses.has(status as FollowUpStatus)) {
     setNoteFollowUpStatus(
       getClassPilotDatabase(),
+      userId,
       required(formData, "id"),
       status as FollowUpStatus,
     );
@@ -141,14 +142,14 @@ export async function setNoteFollowUpAction(formData: FormData) {
 }
 
 export async function deleteNoteAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
-  deleteNote(getClassPilotDatabase(), required(formData, "id"));
+  deleteNote(getClassPilotDatabase(), userId, required(formData, "id"));
   redirect(`/students/${studentId}`);
 }
 
 export async function addSupportPlanAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
   const title = String(formData.get("title") ?? "").trim();
   const planType = String(formData.get("planType") ?? "");
@@ -157,7 +158,7 @@ export async function addSupportPlanAction(formData: FormData) {
     redirect(`/students/${studentId}?error=support`);
   }
 
-  createSupportPlan(getClassPilotDatabase(), {
+  createSupportPlan(getClassPilotDatabase(), userId, {
     studentId,
     planType: planType as SupportPlanType,
     title,
@@ -171,14 +172,14 @@ export async function addSupportPlanAction(formData: FormData) {
 }
 
 export async function deleteSupportPlanAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
-  deleteSupportPlan(getClassPilotDatabase(), required(formData, "id"));
+  deleteSupportPlan(getClassPilotDatabase(), userId, required(formData, "id"));
   redirect(`/students/${studentId}`);
 }
 
 export async function addReminderAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
   const title = String(formData.get("title") ?? "").trim();
   const dueDate = String(formData.get("dueDate") ?? "").trim();
@@ -188,7 +189,7 @@ export async function addReminderAction(formData: FormData) {
     redirect(`/students/${studentId}?error=reminder`);
   }
 
-  createReminder(getClassPilotDatabase(), {
+  createReminder(getClassPilotDatabase(), userId, {
     studentId,
     dueDate,
     category: reminderCategories.has(category as ReminderCategory)
@@ -202,13 +203,14 @@ export async function addReminderAction(formData: FormData) {
 }
 
 export async function setReminderStatusAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
   const status = String(formData.get("status") ?? "");
 
   if (reminderStatuses.has(status as ReminderStatus)) {
     setReminderStatus(
       getClassPilotDatabase(),
+      userId,
       required(formData, "id"),
       status as ReminderStatus,
     );
@@ -218,15 +220,15 @@ export async function setReminderStatusAction(formData: FormData) {
 }
 
 export async function deleteReminderAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
   const studentId = required(formData, "studentId");
-  deleteReminder(getClassPilotDatabase(), required(formData, "id"));
+  deleteReminder(getClassPilotDatabase(), userId, required(formData, "id"));
   redirect(`/students/${studentId}`);
 }
 
 export async function deleteStudentAction(formData: FormData) {
-  await requireAuth();
-  deleteStudent(getClassPilotDatabase(), required(formData, "id"));
+  const userId = await requireAuth();
+  deleteStudent(getClassPilotDatabase(), userId, required(formData, "id"));
   redirect("/students");
 }
 

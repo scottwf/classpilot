@@ -4,6 +4,7 @@ export const authCookieName = "classpilot_session";
 
 const devSecret = "classpilot-local-dev-secret";
 const devPassword = "classpilot";
+const devUsername = "teacher";
 const devCalendarToken = "classpilot-calendar-dev-token";
 
 function isProduction(): boolean {
@@ -41,11 +42,12 @@ export function getAppPassword(): string {
   return devPassword;
 }
 
-export function verifyAppPassword(candidate: string): boolean {
-  const expected = createHash("sha256").update(getAppPassword()).digest();
-  const actual = createHash("sha256").update(candidate).digest();
-
-  return timingSafeEqual(expected, actual);
+// Username for the single account created by the users-table backfill
+// migration (see ensureBackfilledUser in users-repository.ts) — lets an
+// operator pick something other than "teacher" without a manual DB edit.
+// Only relevant until account creation (Phase 3 of issue #21) exists.
+export function getAppUsername(): string {
+  return process.env.CLASSPILOT_APP_USERNAME ?? devUsername;
 }
 
 // Separate from the login password: calendar clients subscribing by URL

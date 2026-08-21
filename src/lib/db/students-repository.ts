@@ -17,8 +17,6 @@ import type {
 import { decryptField, encryptField } from "@/src/lib/crypto/field-cipher";
 import type { ClassPilotDatabase } from "./sqlite";
 
-const defaultSchoolYearId = "current";
-
 type StudentRow = {
   id: string;
   school_year_id: string;
@@ -100,10 +98,13 @@ export type CreateStudentInput = {
   strengths?: string;
   interests?: string;
   status?: StudentStatus;
-  schoolYearId?: string;
+  schoolYearId: string;
 };
 
-export type UpdateStudentInput = CreateStudentInput & {
+// Doesn't touch school_year_id -- a student's year is set once at creation
+// and never reassigned by the edit form, so update doesn't need it (unlike
+// CreateStudentInput, where it's required for the ownership check).
+export type UpdateStudentInput = Omit<CreateStudentInput, "schoolYearId"> & {
   id: string;
 };
 
@@ -153,10 +154,98 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function notFound(kind: string, id: string): Error {
+  return new Error(`${kind} not found: ${id}`);
+}
+
+function schoolYearOwnedByUser(
+  db: ClassPilotDatabase,
+  schoolYearId: string,
+  userId: string,
+): boolean {
+  return !!db
+    .prepare("SELECT 1 FROM school_years WHERE id = ? AND user_id = ?")
+    .get(schoolYearId, userId);
+}
+
+function studentOwnedByUser(db: ClassPilotDatabase, studentId: string, userId: string): boolean {
+  return !!db
+    .prepare(
+      `SELECT 1 FROM students
+       JOIN school_years ON school_years.id = students.school_year_id
+       WHERE students.id = ? AND school_years.user_id = ?`,
+    )
+    .get(studentId, userId);
+}
+
+// Contacts/notes/support plans/reminders all key off student_id — one
+// shared ownership check reused by every table below.
+function contactOwnedByUser(db: ClassPilotDatabase, contactId: string, userId: string): boolean {
+  return !!db
+    .prepare(
+      `SELECT 1 FROM student_contacts
+       JOIN students ON students.id = student_contacts.student_id
+       JOIN school_years ON school_years.id = students.school_year_id
+       WHERE student_contacts.id = ? AND school_years.user_id = ?`,
+    )
+    .get(contactId, userId);
+}
+
+function noteOwnedByUser(db: ClassPilotDatabase, noteId: string, userId: string): boolean {
+  return !!db
+    .prepare(
+      `SELECT 1 FROM student_notes
+       JOIN students ON students.id = student_notes.student_id
+       JOIN school_years ON school_years.id = students.school_year_id
+       WHERE student_notes.id = ? AND school_years.user_id = ?`,
+    )
+    .get(noteId, userId);
+}
+
+function supportPlanOwnedByUser(db: ClassPilotDatabase, planId: string, userId: string): boolean {
+  return !!db
+    .prepare(
+      `SELECT 1 FROM support_plans
+       JOIN students ON students.id = support_plans.student_id
+       JOIN school_years ON school_years.id = students.school_year_id
+       WHERE support_plans.id = ? AND school_years.user_id = ?`,
+    )
+    .get(planId, userId);
+}
+
+// A reminder's student_id is nullable (a reminder can be freestanding, not
+// tied to a specific student) -- ownership for those goes through
+// source_note_id -> student_notes -> students instead, when set. A
+// reminder with neither is only reachable by someone who already has a
+// session (created via the app, never user-suppliable across accounts), so
+// it's treated as belonging to whichever user's query found it -- there is
+// no other owner to check it against. In practice every reminder currently
+// created by the app sets student_id, so this fallback is inert.
+function reminderOwnedByUser(db: ClassPilotDatabase, reminderId: string, userId: string): boolean {
+  const row = db
+    .prepare("SELECT student_id FROM reminders WHERE id = ?")
+    .get(reminderId) as { student_id: string | null } | undefined;
+
+  if (!row) {
+    return false;
+  }
+
+  if (row.student_id === null) {
+    return true;
+  }
+
+  return studentOwnedByUser(db, row.student_id, userId);
+}
+
 export function listRoster(
   db: ClassPilotDatabase,
-  schoolYearId: string = defaultSchoolYearId,
+  userId: string,
+  schoolYearId: string,
 ): RosterEntry[] {
+  if (!schoolYearOwnedByUser(db, schoolYearId, userId)) {
+    return [];
+  }
+
   const rows = db
     .prepare(
       `SELECT * FROM students WHERE school_year_id = ? ORDER BY last_name, first_name`,
@@ -190,8 +279,13 @@ export function listRoster(
 
 export function getStudentById(
   db: ClassPilotDatabase,
+  userId: string,
   id: string,
 ): Student | undefined {
+  if (!studentOwnedByUser(db, id, userId)) {
+    return undefined;
+  }
+
   const row = db.prepare(`SELECT * FROM students WHERE id = ?`).get(id) as
     | StudentRow
     | undefined;
@@ -201,9 +295,10 @@ export function getStudentById(
 
 export function getStudentProfile(
   db: ClassPilotDatabase,
+  userId: string,
   id: string,
 ): StudentProfile | undefined {
-  const student = getStudentById(db, id);
+  const student = getStudentById(db, userId, id);
 
   if (!student) {
     return undefined;
@@ -244,8 +339,13 @@ export function getStudentProfile(
 
 export function createStudent(
   db: ClassPilotDatabase,
+  userId: string,
   input: CreateStudentInput,
 ): string {
+  if (!schoolYearOwnedByUser(db, input.schoolYearId, userId)) {
+    throw notFound("School year", input.schoolYearId);
+  }
+
   const id = `student-${crypto.randomUUID()}`;
   const timestamp = now();
 
@@ -254,7 +354,7 @@ export function createStudent(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
-    input.schoolYearId ?? defaultSchoolYearId,
+    input.schoolYearId,
     input.firstName,
     input.lastName,
     input.preferredName ?? "",
@@ -273,8 +373,13 @@ export function createStudent(
 
 export function updateStudent(
   db: ClassPilotDatabase,
+  userId: string,
   input: UpdateStudentInput,
 ) {
+  if (!studentOwnedByUser(db, input.id, userId)) {
+    throw notFound("Student", input.id);
+  }
+
   const result = db
     .prepare(
       `UPDATE students
@@ -296,22 +401,31 @@ export function updateStudent(
     );
 
   if (result.changes === 0) {
-    throw new Error(`Student not found: ${input.id}`);
+    throw notFound("Student", input.id);
   }
 }
 
-export function deleteStudent(db: ClassPilotDatabase, id: string) {
+export function deleteStudent(db: ClassPilotDatabase, userId: string, id: string) {
+  if (!studentOwnedByUser(db, id, userId)) {
+    throw notFound("Student", id);
+  }
+
   const result = db.prepare(`DELETE FROM students WHERE id = ?`).run(id);
 
   if (result.changes === 0) {
-    throw new Error(`Student not found: ${id}`);
+    throw notFound("Student", id);
   }
 }
 
 export function createContact(
   db: ClassPilotDatabase,
+  userId: string,
   input: CreateContactInput,
 ): string {
+  if (!studentOwnedByUser(db, input.studentId, userId)) {
+    throw notFound("Student", input.studentId);
+  }
+
   const id = `contact-${crypto.randomUUID()}`;
   const timestamp = now();
 
@@ -335,14 +449,23 @@ export function createContact(
   return id;
 }
 
-export function deleteContact(db: ClassPilotDatabase, id: string) {
+export function deleteContact(db: ClassPilotDatabase, userId: string, id: string) {
+  if (!contactOwnedByUser(db, id, userId)) {
+    throw notFound("Contact", id);
+  }
+
   db.prepare(`DELETE FROM student_contacts WHERE id = ?`).run(id);
 }
 
 export function createNote(
   db: ClassPilotDatabase,
+  userId: string,
   input: CreateNoteInput,
 ): string {
+  if (!studentOwnedByUser(db, input.studentId, userId)) {
+    throw notFound("Student", input.studentId);
+  }
+
   const id = `note-${crypto.randomUUID()}`;
   const timestamp = now();
 
@@ -368,22 +491,36 @@ export function createNote(
 
 export function setNoteFollowUpStatus(
   db: ClassPilotDatabase,
+  userId: string,
   id: string,
   followUpStatus: FollowUpStatus,
 ) {
+  if (!noteOwnedByUser(db, id, userId)) {
+    throw notFound("Note", id);
+  }
+
   db.prepare(
     `UPDATE student_notes SET follow_up_status = ?, updated_at = ? WHERE id = ?`,
   ).run(followUpStatus, now(), id);
 }
 
-export function deleteNote(db: ClassPilotDatabase, id: string) {
+export function deleteNote(db: ClassPilotDatabase, userId: string, id: string) {
+  if (!noteOwnedByUser(db, id, userId)) {
+    throw notFound("Note", id);
+  }
+
   db.prepare(`DELETE FROM student_notes WHERE id = ?`).run(id);
 }
 
 export function createSupportPlan(
   db: ClassPilotDatabase,
+  userId: string,
   input: CreateSupportPlanInput,
 ): string {
+  if (!studentOwnedByUser(db, input.studentId, userId)) {
+    throw notFound("Student", input.studentId);
+  }
+
   const id = `support-${crypto.randomUUID()}`;
   const timestamp = now();
 
@@ -407,14 +544,23 @@ export function createSupportPlan(
   return id;
 }
 
-export function deleteSupportPlan(db: ClassPilotDatabase, id: string) {
+export function deleteSupportPlan(db: ClassPilotDatabase, userId: string, id: string) {
+  if (!supportPlanOwnedByUser(db, id, userId)) {
+    throw notFound("Support plan", id);
+  }
+
   db.prepare(`DELETE FROM support_plans WHERE id = ?`).run(id);
 }
 
 export function createReminder(
   db: ClassPilotDatabase,
+  userId: string,
   input: CreateReminderInput,
 ): string {
+  if (input.studentId && !studentOwnedByUser(db, input.studentId, userId)) {
+    throw notFound("Student", input.studentId);
+  }
+
   const id = `reminder-${crypto.randomUUID()}`;
 
   db.prepare(
@@ -436,16 +582,25 @@ export function createReminder(
 
 export function setReminderStatus(
   db: ClassPilotDatabase,
+  userId: string,
   id: string,
   status: ReminderStatus,
 ) {
+  if (!reminderOwnedByUser(db, id, userId)) {
+    throw notFound("Reminder", id);
+  }
+
   const completedAt = status === "done" ? now() : "";
   db.prepare(
     `UPDATE reminders SET status = ?, completed_at = ? WHERE id = ?`,
   ).run(status, completedAt, id);
 }
 
-export function deleteReminder(db: ClassPilotDatabase, id: string) {
+export function deleteReminder(db: ClassPilotDatabase, userId: string, id: string) {
+  if (!reminderOwnedByUser(db, id, userId)) {
+    throw notFound("Reminder", id);
+  }
+
   db.prepare(`DELETE FROM reminders WHERE id = ?`).run(id);
 }
 

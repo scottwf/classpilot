@@ -76,3 +76,57 @@ async function safeReadText(response: Response): Promise<string> {
     return "";
   }
 }
+
+type ModelListResponse = {
+  data?: Array<{ id?: string }>;
+};
+
+/**
+ * Lists model IDs from an OpenAI-compatible `/models` endpoint — used to
+ * validate a provider/model pair from the Settings page before saving,
+ * since a typo'd model ID otherwise only surfaces as a failure the next
+ * time a teacher tries to draft something. Not every OpenAI-compatible
+ * server implements this (falls back to a generic error the caller can
+ * still act on).
+ */
+export async function listProviderModels(
+  config: Pick<AiConfig, "baseUrl" | "apiKey">,
+): Promise<string[]> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${config.baseUrl}/models`, {
+      headers: config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {},
+      method: "GET",
+    });
+  } catch (error) {
+    throw new AiError(
+      "request_failed",
+      `Could not reach ${config.baseUrl}: ${(error as Error).message}`,
+    );
+  }
+
+  if (!response.ok) {
+    const detail = await safeReadText(response);
+    throw new AiError(
+      "request_failed",
+      `${config.baseUrl}/models returned ${response.status}${detail ? `: ${detail}` : ""}`,
+    );
+  }
+
+  let payload: ModelListResponse;
+  try {
+    payload = (await response.json()) as ModelListResponse;
+  } catch {
+    throw new AiError("request_failed", `${config.baseUrl}/models returned a non-JSON body.`);
+  }
+
+  if (!Array.isArray(payload.data)) {
+    throw new AiError(
+      "request_failed",
+      `${config.baseUrl}/models didn't return the expected {data: [...]} shape.`,
+    );
+  }
+
+  return payload.data.map((entry) => entry.id).filter((id): id is string => Boolean(id));
+}

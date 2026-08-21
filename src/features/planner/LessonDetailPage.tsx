@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { CalendarDays, CalendarPlus, Clock3, FileText, Image, LinkIcon, Pencil } from "lucide-react";
+import { AttachmentList } from "./AttachmentList";
 import { parseLessonResources } from "@/src/lib/lessons/lesson-resources";
 import { lessonSectionFields } from "@/src/lib/lessons/lesson-sections";
-import type { CurriculumOutcome, LessonPlan, PlannerData } from "./types";
+import type { Attachment, CurriculumOutcome, LessonPlan, PlannerData } from "./types";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
 
 type LessonDetailPageProps = {
+  attachmentError?: string;
+  attachments: Attachment[];
+  createFileAttachmentAction: ServerAction;
+  createLinkAttachmentAction: ServerAction;
   data: PlannerData;
+  deleteAttachmentAction: ServerAction;
   error?: string;
   extendAction: ServerAction;
   lesson: LessonPlan & {
@@ -16,7 +22,12 @@ type LessonDetailPageProps = {
 };
 
 export function LessonDetailPage({
+  attachmentError,
+  attachments,
+  createFileAttachmentAction,
+  createLinkAttachmentAction,
   data,
+  deleteAttachmentAction,
   error,
   extendAction,
   lesson,
@@ -204,6 +215,16 @@ export function LessonDetailPage({
               )}
             </div>
           </section>
+
+          <AttachmentList
+            attachments={attachments}
+            createFileAction={createFileAttachmentAction}
+            createLinkAction={createLinkAttachmentAction}
+            deleteAction={deleteAttachmentAction}
+            error={attachmentError}
+            ownerId={lesson.id}
+            ownerType="lesson"
+          />
         </aside>
       </div>
     </>

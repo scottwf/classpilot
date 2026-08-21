@@ -1,5 +1,6 @@
 import { AppShell } from "@/src/features/planner/AppShell";
 import { ClassForm } from "@/src/features/planner/ClassForm";
+import { groupSubjectsByGrade } from "@/src/features/planner/curriculum-subjects";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { createClassAction } from "../actions";
@@ -13,9 +14,9 @@ type NewClassPageProps = {
 export const dynamic = "force-dynamic";
 
 export default async function NewClassPage({ searchParams }: NewClassPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
   const params = await searchParams;
 
   return (
@@ -26,15 +27,16 @@ export default async function NewClassPage({ searchParams }: NewClassPageProps) 
           Add a class.
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Classes are the rows on the unit timeline. Set its day-cycle
-          membership so scheduling only lands on days it actually meets.
+          Classes are the rows on the unit timeline. Set which days it meets
+          and at what times on the Schedule page after saving.
         </p>
       </section>
 
       <ClassForm
         action={createClassAction}
-        cycleLength={plannerData.schoolYear.cycleLength}
         error={params.error}
+        existingClasses={plannerData.classes}
+        gradeSubjects={groupSubjectsByGrade(plannerData.outcomes)}
         mode="create"
       />
     </AppShell>

@@ -1,12 +1,15 @@
-import Link from "next/link";
+import { CalendarDays } from "lucide-react";
 import { AppShell } from "@/src/features/planner/AppShell";
-import { LessonSectionFields } from "@/src/features/planner/LessonSectionFields";
+import { LessonForm } from "@/src/features/planner/LessonForm";
 import { requireAuth } from "@/src/lib/auth/server";
-import { getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
-import { createLessonAction } from "./actions";
+import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
+import { getAppSettings } from "@/src/lib/db/settings-repository";
+import { isAiConfigured } from "@/src/lib/ai/config";
+import { createLessonAction, moveLessonToDateAction } from "./actions";
 
 type NewLessonPageProps = {
   searchParams: Promise<{
+    classId?: string;
     date?: string;
     error?: string;
     unitId?: string;
@@ -18,14 +21,27 @@ export const dynamic = "force-dynamic";
 export default async function NewLessonPage({
   searchParams,
 }: NewLessonPageProps) {
-  await requireAuth();
+  const userId = await requireAuth();
 
-  const plannerData = getClassPilotPlannerData();
+  const plannerData = getClassPilotPlannerData(userId);
+  const settings = getAppSettings(getClassPilotDatabase());
   const params = await searchParams;
-  const selectedDate = params.date ?? "2026-09-11";
-  const selectedUnitId = plannerData.units.some((unit) => unit.id === params.unitId)
-    ? params.unitId
-    : plannerData.units[0]?.id;
+
+  // Filling a specific schedule slot (came from the plan book's "+ Add
+  // lesson") — offer moving an existing lesson from the bank here as an
+  // alternative to creating a new one, per the "move it to this slot" UX
+  // decision: the picked lesson's date changes, everything else stays.
+  const classUnitIds = params.classId
+    ? new Set(plannerData.units.filter((unit) => unit.classId === params.classId).map((unit) => unit.id))
+    : new Set<string>();
+  const existingLessonsForClass = params.classId
+    ? plannerData.units
+        .filter((unit) => classUnitIds.has(unit.id))
+        .flatMap((unit) =>
+          unit.lessons.map((lesson) => ({ ...lesson, unitTitle: unit.title })),
+        )
+        .sort((a, b) => a.date.localeCompare(b.date))
+    : [];
 
   return (
     <AppShell activePage="lessons" data={plannerData}>
@@ -35,142 +51,65 @@ export default async function NewLessonPage({
           Add a lesson to the plan book.
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Save a planned lesson to SQLite and connect it to a unit and any
-          outcomes you want to track.
+          Connect this lesson to a unit and any outcomes you want to track.
         </p>
       </section>
 
-      <form
-        action={createLessonAction}
-        className="grid gap-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_320px]"
-      >
-        <div className="space-y-4">
-          <Field label="Lesson title" name="title" required />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              defaultValue={selectedDate}
-              label="Date"
-              name="date"
-              required
-              type="date"
-            />
-            <Field
-              defaultValue="55"
-              label="Duration minutes"
-              min="1"
-              name="durationMinutes"
-              required
-              type="number"
-            />
-          </div>
-
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Unit</span>
-            <select
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              defaultValue={selectedUnitId}
-              name="unitId"
-              required
-            >
-              {plannerData.units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.title}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Summary</span>
-            <textarea
-              className="mt-2 min-h-32 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              name="summary"
-            />
-          </label>
-
-          <LessonSectionFields />
-        </div>
-
-        <aside className="space-y-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-950">
-              Track outcomes
-            </h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Pick the outcomes this lesson will address. This will feed the
-              outcome map.
-            </p>
-          </div>
-          <div className="max-h-96 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2">
-            {plannerData.outcomes.slice(0, 80).map((outcome) => (
-              <label
-                className="flex gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                key={outcome.id}
+      {params.classId && params.date && existingLessonsForClass.length > 0 ? (
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-950">
+            Or move an existing lesson here
+          </h3>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Pick a lesson from this class&apos;s bank to move it to{" "}
+            {params.date} instead of creating a new one — its title,
+            sections, and outcomes come with it.
+          </p>
+          <ul className="mt-3 max-h-64 space-y-1.5 overflow-y-auto">
+            {existingLessonsForClass.map((lesson) => (
+              <li
+                className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm"
+                key={lesson.id}
               >
-                <input
-                  className="mt-1"
-                  name="outcomeIds"
-                  type="checkbox"
-                  value={outcome.id}
-                />
-                <span>
-                  <span className="font-semibold text-slate-950">
-                    {outcome.code}
-                  </span>{" "}
-                  {outcome.subject}
-                </span>
-              </label>
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-950">{lesson.title}</p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                    <CalendarDays aria-hidden="true" className="size-3.5 shrink-0" />
+                    {lesson.date} · {lesson.unitTitle}
+                  </p>
+                </div>
+                <form action={moveLessonToDateAction}>
+                  <input name="lessonId" type="hidden" value={lesson.id} />
+                  <input name="date" type="hidden" value={params.date} />
+                  <button
+                    className="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                    type="submit"
+                  >
+                    Move here
+                  </button>
+                </form>
+              </li>
             ))}
-          </div>
+          </ul>
+        </section>
+      ) : null}
 
-          {params.error ? (
-            <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              Please check the highlighted lesson details and try again.
-            </p>
-          ) : null}
-
-          <div className="flex flex-col gap-2">
-            <button
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
-              type="submit"
-            >
-              Save lesson
-            </button>
-            <Link
-              className="rounded-md px-4 py-2 text-center text-sm font-medium text-slate-600 hover:bg-slate-100"
-              href="/lessons"
-            >
-              Cancel
-            </Link>
-          </div>
-        </aside>
-      </form>
-    </AppShell>
-  );
-}
-
-function Field({
-  label,
-  name,
-  type = "text",
-  ...inputProps
-}: {
-  defaultValue?: string;
-  label: string;
-  min?: string;
-  name: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
-      <input
-        className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-        name={name}
-        type={type}
-        {...inputProps}
+      <LessonForm
+        action={createLessonAction}
+        aiConfigured={isAiConfigured({
+          apiKey: settings.aiApiKey,
+          baseUrl: settings.aiBaseUrl,
+          model: settings.aiModel,
+        })}
+        classes={plannerData.classes}
+        error={params.error}
+        initialClassId={params.classId}
+        initialDate={params.date}
+        initialUnitId={params.unitId}
+        mode="create"
+        outcomes={plannerData.outcomes}
+        units={plannerData.units}
       />
-    </label>
+    </AppShell>
   );
 }

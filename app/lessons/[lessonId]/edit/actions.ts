@@ -13,7 +13,7 @@ import {
 const validStatuses = new Set(["planned", "taught", "delayed", "skipped"]);
 
 export async function updateLessonAction(formData: FormData) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   const id = requiredString(formData, "id");
   const title = requiredString(formData, "title");
@@ -36,7 +36,7 @@ export async function updateLessonAction(formData: FormData) {
     redirect(`/lessons/${id}/edit?error=status`);
   }
 
-  updateLesson(getClassPilotDatabase(), {
+  updateLesson(getClassPilotDatabase(), userId, {
     date,
     durationMinutes,
     id,
