@@ -15,6 +15,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const params = await searchParams;
   const hasError = params.error === "1";
+  const isLocked = params.error === "locked";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
@@ -72,6 +73,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           {hasError ? (
             <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
               That username and password did not match.
+            </p>
+          ) : null}
+
+          {isLocked ? (
+            <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              Too many failed attempts for that username. Try again in a few
+              minutes.
             </p>
           ) : null}
 

@@ -68,6 +68,18 @@ export function migrate(db: ClassPilotDatabase) {
 
     CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user ON mcp_tokens(user_id);
 
+    -- Login lockout (issue #21 Phase 5 security checklist). One row per
+    -- failed login attempt; see src/lib/auth/login-rate-limit.ts. Rows are
+    -- pruned as they age out of the lockout window rather than kept
+    -- forever -- this is a throttle, not an audit log.
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username, created_at);
+
     CREATE TABLE IF NOT EXISTS app_settings (
       id TEXT PRIMARY KEY,
       ai_api_key_encrypted TEXT NOT NULL DEFAULT '',
