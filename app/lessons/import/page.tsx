@@ -40,7 +40,16 @@ export default async function ImportLessonPage({
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
           Use the template headings so ClassPilot can read the lesson date,
-          unit, duration, outcomes, and reusable lesson sections.
+          unit, duration, outcomes, and reusable lesson sections. Full spec:{" "}
+          <a
+            className="font-medium text-blue-700 underline underline-offset-2"
+            href="https://github.com/scottwf/classpilot/wiki/Lesson-Markdown-Format"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Lesson Markdown Format
+          </a>{" "}
+          on the wiki.
         </p>
       </section>
 
