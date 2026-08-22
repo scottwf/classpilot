@@ -202,6 +202,19 @@ export function migrate(db: ClassPilotDatabase) {
       completed_at TEXT NOT NULL DEFAULT ''
     );
 
+    -- One free-text note per (school year, date), shown at the top of that
+    -- day's Dashboard schedule (issue #30). Deliberately singular per date
+    -- rather than a list -- see src/lib/db/day-notes-repository.ts.
+    CREATE TABLE IF NOT EXISTS day_notes (
+      id TEXT PRIMARY KEY,
+      school_year_id TEXT NOT NULL REFERENCES school_years(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(school_year_id, date)
+    );
+
     -- A class's own meeting time on one cycle day — no shared "period"
     -- entity; see ScheduleSlot in src/features/planner/types.ts. Existing
     -- installs get migrated off the old periods/schedule_slots(period_id)

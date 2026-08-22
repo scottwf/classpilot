@@ -7,6 +7,8 @@ import type { UpcomingBirthday } from "@/src/features/students/birthdays";
 type ClassPilotPlannerProps = {
   calendarMonth?: string;
   data: PlannerData;
+  dayNotes?: Record<string, string>;
+  saveDayNoteAction?: (formData: FormData) => void | Promise<void>;
   scheduleSlots?: ScheduleSlot[];
   selectedDate?: string;
   todayDate?: string;
@@ -18,9 +20,15 @@ function todayDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function noopDayNoteAction() {
+  // no-op default for callers (e.g. tests) that don't wire real persistence
+}
+
 export function ClassPilotPlanner({
   calendarMonth,
   data,
+  dayNotes = {},
+  saveDayNoteAction = noopDayNoteAction,
   scheduleSlots = [],
   selectedDate,
   todayDate,
@@ -41,6 +49,8 @@ export function ClassPilotPlanner({
       <PlanBookPage
         calendarMonth={calendarMonth}
         data={data}
+        dayNotes={dayNotes}
+        saveDayNoteAction={saveDayNoteAction}
         scheduleSlots={scheduleSlots}
         selectedDate={resolvedSelectedDate}
         todayDate={resolvedToday}

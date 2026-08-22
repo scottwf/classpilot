@@ -17,6 +17,8 @@ import type { UpcomingBirthday } from "@/src/features/students/birthdays";
 type PlanBookPageProps = {
   calendarMonth?: string;
   data: PlannerData;
+  dayNotes?: Record<string, string>;
+  saveDayNoteAction?: (formData: FormData) => void | Promise<void>;
   scheduleSlots: ScheduleSlot[];
   selectedDate: string;
   todayDate: string;
@@ -27,6 +29,8 @@ type PlanBookPageProps = {
 export function PlanBookPage({
   calendarMonth,
   data,
+  dayNotes = {},
+  saveDayNoteAction,
   scheduleSlots,
   selectedDate,
   todayDate,
@@ -63,7 +67,15 @@ export function PlanBookPage({
 
         <UpcomingBirthdaysCard birthdays={upcomingBirthdays} />
 
-        <DailyPlanner date={selectedDate} days={days} otherLessons={otherLessons} view={view} />
+        <DailyPlanner
+          date={selectedDate}
+          dayNotes={dayNotes}
+          days={days}
+          otherLessons={otherLessons}
+          saveDayNoteAction={saveDayNoteAction}
+          schoolYearId={data.schoolYear.id}
+          view={view}
+        />
       </div>
 
       <aside className="space-y-4">

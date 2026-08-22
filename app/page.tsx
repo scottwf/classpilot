@@ -1,10 +1,16 @@
 import { ClassPilotPlanner } from "@/src/features/planner/ClassPilotPlanner";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
+import { listDayNotes } from "@/src/lib/db/day-notes-repository";
 import { getScheduleSlots } from "@/src/lib/db/schedule-repository";
 import { listRoster } from "@/src/lib/db/students-repository";
 import { findUpcomingBirthdays } from "@/src/features/students/birthdays";
-import { getAllLessons, resolvePlanBookDefaultDate } from "@/src/features/planner/lesson-queries";
+import {
+  getAllLessons,
+  getWeekdayDates,
+  resolvePlanBookDefaultDate,
+} from "@/src/features/planner/lesson-queries";
+import { saveDayNoteAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,11 +41,15 @@ export default async function Home({ searchParams }: HomeProps) {
       getAllLessons(plannerData).map((lesson) => lesson.date),
       todayKey,
     );
+  const noteDates = view === "week" ? getWeekdayDates(selectedDate) : [selectedDate];
+  const dayNotes = listDayNotes(db, userId, plannerData.schoolYear.id, noteDates);
 
   return (
     <ClassPilotPlanner
       calendarMonth={params.month}
       data={plannerData}
+      dayNotes={dayNotes}
+      saveDayNoteAction={saveDayNoteAction}
       scheduleSlots={scheduleSlots}
       selectedDate={selectedDate}
       todayDate={todayKey}

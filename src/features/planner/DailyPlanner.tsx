@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, Clock3, Plus } from "lucide-react";
+import { CalendarDays, Clock3, NotebookPen, Plus } from "lucide-react";
 import type { AgendaEntry } from "./day-agenda";
 import type { EnrichedLesson } from "./lesson-queries";
 import type { ClassColor } from "./types";
@@ -13,6 +13,9 @@ type DailyPlannerProps = {
   date: string;
   view: "day" | "week";
   days: DayColumn[];
+  dayNotes?: Record<string, string>;
+  saveDayNoteAction?: (formData: FormData) => void | Promise<void>;
+  schoolYearId?: string;
   /** Lessons in the shown date range that aren't tied to a scheduled slot
    * (e.g. the class has no schedule set up yet, or a lesson was added on
    * an ad-hoc day) — shown separately so nothing existing gets hidden. */
@@ -30,7 +33,15 @@ const classBlockColorClass: Record<ClassColor, string> = {
   violet: "bg-violet-100 text-violet-950",
 };
 
-export function DailyPlanner({ date, view, days, otherLessons }: DailyPlannerProps) {
+export function DailyPlanner({
+  date,
+  view,
+  days,
+  dayNotes = {},
+  otherLessons,
+  saveDayNoteAction,
+  schoolYearId,
+}: DailyPlannerProps) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -51,6 +62,16 @@ export function DailyPlanner({ date, view, days, otherLessons }: DailyPlannerPro
         </Link>
       </div>
 
+      {view === "day" && saveDayNoteAction && schoolYearId ? (
+        <DayNoteForm
+          body={dayNotes[date] ?? ""}
+          date={date}
+          saveDayNoteAction={saveDayNoteAction}
+          schoolYearId={schoolYearId}
+          view={view}
+        />
+      ) : null}
+
       {view === "day" ? (
         <DayColumnView column={days[0]} />
       ) : (
@@ -60,9 +81,15 @@ export function DailyPlanner({ date, view, days, otherLessons }: DailyPlannerPro
         >
           {days.map((column) => (
             <div key={column.date}>
-              <div className="text-center text-xs font-semibold uppercase text-slate-500">
+              <Link
+                className="flex items-center justify-center gap-1 text-center text-xs font-semibold uppercase text-slate-500 hover:text-blue-700"
+                href={`/?date=${column.date}&view=day`}
+              >
                 {formatShortDate(column.date)}
-              </div>
+                {dayNotes[column.date] ? (
+                  <NotebookPen aria-label="Has a note" className="size-3" />
+                ) : null}
+              </Link>
               <div className="mt-2">
                 <DayColumnView column={column} compact />
               </div>
@@ -120,6 +147,48 @@ export function DailyPlanner({ date, view, days, otherLessons }: DailyPlannerPro
         </div>
       ) : null}
     </section>
+  );
+}
+
+function DayNoteForm({
+  body,
+  date,
+  saveDayNoteAction,
+  schoolYearId,
+  view,
+}: {
+  body: string;
+  date: string;
+  saveDayNoteAction: (formData: FormData) => void | Promise<void>;
+  schoolYearId: string;
+  view: string;
+}) {
+  return (
+    <form
+      action={saveDayNoteAction}
+      className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3"
+    >
+      <input name="date" type="hidden" value={date} />
+      <input name="schoolYearId" type="hidden" value={schoolYearId} />
+      <input name="view" type="hidden" value={view} />
+      <label className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500">
+        <NotebookPen aria-hidden="true" className="size-3.5" />
+        Note for this day
+      </label>
+      <textarea
+        className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+        defaultValue={body}
+        name="body"
+        placeholder="e.g. PD morning — shortened periods, no Block D"
+        rows={2}
+      />
+      <button
+        className="mt-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-100"
+        type="submit"
+      >
+        Save note
+      </button>
+    </form>
   );
 }
 
