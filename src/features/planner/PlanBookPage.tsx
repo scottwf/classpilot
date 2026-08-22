@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { CalendarPlus } from "lucide-react";
 import { buildDayAgenda } from "./day-agenda";
 import { DailyPlanner } from "./DailyPlanner";
 import { DashboardStats } from "./DashboardStats";
@@ -90,6 +92,13 @@ export function PlanBookPage({
           instructionalDayCount={buildInstructionalDays(data.schoolYear).length}
           unitCount={data.units.length}
         />
+        <Link
+          className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          href="/settings/calendar"
+        >
+          <CalendarPlus aria-hidden="true" className="size-4" />
+          Subscribe to calendar feeds
+        </Link>
       </aside>
     </div>
   );

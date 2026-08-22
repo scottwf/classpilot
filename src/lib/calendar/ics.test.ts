@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildIcsCalendar } from "./ics";
+import {
+  buildClassScheduleIcsCalendar,
+  buildDayCycleIcsCalendar,
+  buildIcsCalendar,
+} from "./ics";
 import type { EnrichedLesson } from "@/src/features/planner/lesson-queries";
+import type { ClassSection, ScheduleSlot } from "@/src/features/planner/types";
 
 function lesson(overrides: Partial<EnrichedLesson> = {}): EnrichedLesson {
   return {
@@ -88,5 +93,134 @@ describe("buildIcsCalendar", () => {
 
     expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(2);
     expect(ics.indexOf("lesson-1@classpilot")).toBeLessThan(ics.indexOf("lesson-2@classpilot"));
+  });
+});
+
+// 2026-09-01 is a Tuesday -- Tue/Wed/Thu/Fri that week, cycleLength 2 gives
+// cycle days A,B,A,B for Tue-Fri, then A again for the following Monday.
+const scheduleFeedSchoolYear = {
+  startDate: "2026-09-01",
+  endDate: "2026-09-08",
+  blockedDates: [],
+  cycleLength: 2,
+  dayLabelScheme: "letters" as const,
+};
+
+function classSection(overrides: Partial<ClassSection> = {}): ClassSection {
+  return {
+    id: "class-math",
+    schoolYearId: "current",
+    name: "Grade 6 Math",
+    subject: "Math",
+    grade: "6",
+    room: "",
+    meetingPattern: "",
+    cycleDays: [],
+    color: "blue",
+    isInstructional: true,
+    ...overrides,
+  };
+}
+
+function scheduleSlot(overrides: Partial<ScheduleSlot> = {}): ScheduleSlot {
+  return {
+    id: "slot-1",
+    classId: "class-math",
+    cycleDay: 1,
+    startTime: "09:00",
+    endTime: "09:45",
+    ...overrides,
+  };
+}
+
+describe("buildDayCycleIcsCalendar", () => {
+  it("emits one all-day VEVENT per instructional day, labelled by cycle day", () => {
+    const ics = buildDayCycleIcsCalendar({
+      calendarName: "ClassPilot — Day Cycle",
+      schoolYear: scheduleFeedSchoolYear,
+      now,
+    });
+
+    expect(ics).toContain("DTSTART;VALUE=DATE:20260901");
+    expect(ics).toContain("SUMMARY:Day A");
+    expect(ics).toContain("DTSTART;VALUE=DATE:20260902");
+    expect(ics).toContain("SUMMARY:Day B");
+    // Weekend (Sep 5-6) is skipped entirely.
+    expect(ics).not.toContain("DTSTART;VALUE=DATE:20260905");
+    expect(ics).not.toContain("DTSTART;VALUE=DATE:20260906");
+  });
+});
+
+describe("buildClassScheduleIcsCalendar", () => {
+  it("emits a timed VEVENT per class occurrence across the school year", () => {
+    const ics = buildClassScheduleIcsCalendar({
+      calendarName: "ClassPilot — All Classes",
+      classes: [classSection()],
+      scheduleSlots: [scheduleSlot()],
+      schoolYear: scheduleFeedSchoolYear,
+      now,
+    });
+
+    // Cycle day 1 lands on 2026-09-01 and 2026-09-03 (Tue, Thu).
+    expect(ics).toContain("DTSTART:20260901T090000");
+    expect(ics).toContain("DTEND:20260901T094500");
+    expect(ics).toContain("DTSTART:20260903T090000");
+    expect(ics).toContain("SUMMARY:Grade 6 Math");
+    expect(ics).not.toContain("VALUE=DATE");
+  });
+
+  it("filters to only non-instructional classes when instructionalOnly is false", () => {
+    const classes = [
+      classSection({ id: "class-math", isInstructional: true }),
+      classSection({ id: "class-recess", name: "Recess Supervision", isInstructional: false }),
+    ];
+    const slots = [
+      scheduleSlot({ id: "slot-math", classId: "class-math" }),
+      scheduleSlot({
+        id: "slot-recess",
+        classId: "class-recess",
+        startTime: "12:00",
+        endTime: "12:15",
+      }),
+    ];
+
+    const ics = buildClassScheduleIcsCalendar({
+      calendarName: "ClassPilot — Supervision",
+      classes,
+      instructionalOnly: false,
+      scheduleSlots: slots,
+      schoolYear: scheduleFeedSchoolYear,
+      now,
+    });
+
+    expect(ics).toContain("SUMMARY:Recess Supervision");
+    expect(ics).not.toContain("SUMMARY:Grade 6 Math");
+  });
+
+  it("includes every class when instructionalOnly is omitted", () => {
+    const classes = [
+      classSection({ id: "class-math", isInstructional: true }),
+      classSection({ id: "class-recess", name: "Recess Supervision", isInstructional: false }),
+    ];
+    const slots = [
+      scheduleSlot({ id: "slot-math", classId: "class-math" }),
+      scheduleSlot({
+        id: "slot-recess",
+        classId: "class-recess",
+        startTime: "12:00",
+        endTime: "12:15",
+      }),
+    ];
+
+    const ics = buildClassScheduleIcsCalendar({
+      calendarName: "ClassPilot — All Classes",
+      classes,
+      scheduleSlots: slots,
+      schoolYear: scheduleFeedSchoolYear,
+      now,
+    });
+
+    expect(ics).toContain("SUMMARY:Recess Supervision");
+    expect(ics).toContain("SUMMARY:Grade 6 Math");
   });
 });

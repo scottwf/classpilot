@@ -4,10 +4,17 @@ import { buildInstructionalDays } from "./timeline";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
 
+type CalendarFeedUrls = {
+  allClasses: string;
+  dayCycle: string;
+  lessons: string;
+  supervision: string;
+};
+
 type CalendarSetupPageProps = {
   schoolYear: SchoolYear;
   error?: string;
-  feedUrl: string;
+  feedUrls: CalendarFeedUrls;
   actions: {
     updateDetails: ServerAction;
     updateBlockedDates: ServerAction;
@@ -26,7 +33,7 @@ const inputClass =
 export function CalendarSetupPage({
   schoolYear,
   error,
-  feedUrl,
+  feedUrls,
   actions,
 }: CalendarSetupPageProps) {
   const instructionalDays = buildInstructionalDays(schoolYear);
@@ -186,21 +193,38 @@ export function CalendarSetupPage({
 
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-950">
-              Subscribe to lessons in your calendar
+              Subscribe in your calendar app
             </h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              Add this URL as a &quot;subscribe by URL&quot; calendar in
+              Add any of these as a &quot;subscribe by URL&quot; calendar in
               Apple/Google/Outlook Calendar for a read-only, always-current
-              view of every scheduled lesson. This link contains a private
-              token — don&apos;t share it publicly. Subscribing from Google
-              Calendar specifically requires this URL to be reachable from
-              Google&apos;s servers, not just your device.
+              view. Each link contains a private token — don&apos;t share
+              it publicly. Subscribing from Google Calendar specifically
+              requires the URL to be reachable from Google&apos;s servers,
+              not just your device.
             </p>
-            <input
-              className={`${inputClass} mt-3 font-mono text-xs`}
-              readOnly
-              value={feedUrl}
-            />
+            <div className="mt-3 space-y-3">
+              <FeedUrlField
+                description="Every scheduled lesson, one event per lesson."
+                label="Lessons"
+                value={feedUrls.lessons}
+              />
+              <FeedUrlField
+                description="One event per instructional day, showing that day's cycle-day label."
+                label="Day cycle"
+                value={feedUrls.dayCycle}
+              />
+              <FeedUrlField
+                description="Just the non-instructional blocks (recess, supervision, etc.)."
+                label="Supervision"
+                value={feedUrls.supervision}
+              />
+              <FeedUrlField
+                description="Every scheduled class block, instructional or not."
+                label="All classes"
+                value={feedUrls.allClasses}
+              />
+            </div>
           </section>
         </aside>
       </div>
@@ -235,6 +259,24 @@ export function CalendarSetupPage({
         />
       </form>
     </>
+  );
+}
+
+function FeedUrlField({
+  description,
+  label,
+  value,
+}: {
+  description: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <span className="text-xs font-semibold text-slate-700">{label}</span>
+      <p className="text-xs leading-5 text-slate-500">{description}</p>
+      <input className={`${inputClass} mt-1 font-mono text-xs`} readOnly value={value} />
+    </div>
   );
 }
 

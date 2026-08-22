@@ -17,7 +17,13 @@ export default async function CalendarSettingsRoute({ searchParams }: CalendarSe
   const plannerData = getClassPilotPlannerData(userId);
   const params = await searchParams;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3020";
-  const feedUrl = `${appUrl}/calendar/feed.ics?token=${getCalendarToken()}`;
+  const baseFeedUrl = `${appUrl}/calendar/feed.ics?token=${getCalendarToken()}`;
+  const feedUrls = {
+    lessons: baseFeedUrl,
+    dayCycle: `${baseFeedUrl}&kind=day-cycle`,
+    supervision: `${baseFeedUrl}&kind=supervision`,
+    allClasses: `${baseFeedUrl}&kind=all-classes`,
+  };
 
   return (
     <AppShell activePage="settings" data={plannerData}>
@@ -29,7 +35,7 @@ export default async function CalendarSettingsRoute({ searchParams }: CalendarSe
           cancelDay: cancelInstructionalDayAction,
         }}
         error={params.error}
-        feedUrl={feedUrl}
+        feedUrls={feedUrls}
         schoolYear={plannerData.schoolYear}
       />
     </AppShell>

@@ -1,6 +1,18 @@
+import { buildCycleDayMap, getDayLabel } from "@/src/features/planner/cycle";
+import { buildDayAgenda } from "@/src/features/planner/day-agenda";
 import type { EnrichedLesson } from "@/src/features/planner/lesson-queries";
+import type { ClassSection, ScheduleSlot, SchoolYear } from "@/src/features/planner/types";
 
 const FOLD_LIMIT = 75;
+
+type IcsEvent = {
+  uid: string;
+  summary: string;
+  description?: string;
+} & (
+  | { allDay: true; date: string }
+  | { allDay: false; date: string; startTime: string; endTime: string }
+);
 
 export type BuildIcsCalendarInput = {
   calendarName: string;
@@ -21,6 +33,110 @@ export function buildIcsCalendar({
   lessons,
   now = new Date(),
 }: BuildIcsCalendarInput): string {
+  return renderCalendar(calendarName, lessons.map(lessonToEvent), now);
+}
+
+type CalendarFeedSchoolYear = Pick<
+  SchoolYear,
+  "startDate" | "endDate" | "blockedDates" | "cycleLength" | "dayLabelScheme"
+>;
+
+export type BuildDayCycleIcsCalendarInput = {
+  calendarName: string;
+  schoolYear: CalendarFeedSchoolYear;
+  now?: Date;
+};
+
+/**
+ * One all-day VEVENT per instructional day, labelled with that day's
+ * cycle-day label (e.g. "Day 3" / "B Day") per the school year's
+ * dayLabelScheme (issue #29) — for subscribing to "what day is it" alone,
+ * without any class/lesson detail.
+ */
+export function buildDayCycleIcsCalendar({
+  calendarName,
+  schoolYear,
+  now = new Date(),
+}: BuildDayCycleIcsCalendarInput): string {
+  const cycleDayMap = buildCycleDayMap(schoolYear);
+  const events: IcsEvent[] = [...cycleDayMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, cycleDay]) => ({
+      uid: `day-cycle-${date}`,
+      summary: getDayLabel(schoolYear.dayLabelScheme, cycleDay),
+      allDay: true,
+      date,
+    }));
+
+  return renderCalendar(calendarName, events, now);
+}
+
+export type BuildClassScheduleIcsCalendarInput = {
+  calendarName: string;
+  classes: ClassSection[];
+  /** When true, only classes with isInstructional: false are included
+   * (the supervision feed); otherwise every scheduled class is (the
+   * all-classes feed). */
+  instructionalOnly?: boolean;
+  scheduleSlots: ScheduleSlot[];
+  schoolYear: CalendarFeedSchoolYear;
+  now?: Date;
+};
+
+/**
+ * One timed VEVENT per scheduled class occurrence across the whole school
+ * year, reusing buildDayAgenda's existing cycle-day/temporary-slot
+ * matching (issue #29) rather than re-deriving it. Powers both the
+ * supervision-only feed (instructionalOnly: false, since supervision
+ * blocks are the classes with isInstructional: false) and the all-classes
+ * feed (no filter).
+ */
+export function buildClassScheduleIcsCalendar({
+  calendarName,
+  classes,
+  instructionalOnly,
+  scheduleSlots,
+  schoolYear,
+  now = new Date(),
+}: BuildClassScheduleIcsCalendarInput): string {
+  const cycleDayMap = buildCycleDayMap(schoolYear);
+  const events: IcsEvent[] = [];
+
+  for (const date of [...cycleDayMap.keys()].sort()) {
+    const entries = buildDayAgenda(date, schoolYear, scheduleSlots, classes, []);
+
+    for (const { slot, classSection } of entries) {
+      if (instructionalOnly !== undefined && classSection.isInstructional !== instructionalOnly) {
+        continue;
+      }
+
+      events.push({
+        uid: `slot-${slot.id}-${date}`,
+        summary: classSection.name,
+        allDay: false,
+        date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      });
+    }
+  }
+
+  return renderCalendar(calendarName, events, now);
+}
+
+function lessonToEvent(lesson: EnrichedLesson): IcsEvent {
+  return {
+    uid: lesson.id,
+    summary: `${lesson.subject}: ${lesson.title}`,
+    description: [`Unit: ${lesson.unitTitle}`, `Status: ${lesson.status}`, "", lesson.summary].join(
+      "\n",
+    ),
+    allDay: true,
+    date: lesson.date,
+  };
+}
+
+function renderCalendar(calendarName: string, events: IcsEvent[], now: Date): string {
   const dtstamp = toIcsTimestamp(now);
 
   const lines: string[] = [
@@ -32,8 +148,8 @@ export function buildIcsCalendar({
     foldLine(`X-WR-CALNAME:${icsEscape(calendarName)}`),
   ];
 
-  for (const lesson of lessons) {
-    lines.push(...buildEvent(lesson, dtstamp));
+  for (const event of events) {
+    lines.push(...renderEvent(event, dtstamp));
   }
 
   lines.push("END:VCALENDAR");
@@ -41,26 +157,34 @@ export function buildIcsCalendar({
   return lines.join("\r\n") + "\r\n";
 }
 
-function buildEvent(lesson: EnrichedLesson, dtstamp: string): string[] {
-  const dtstart = lesson.date.replace(/-/g, "");
-  const dtend = toIcsDateKey(addDays(lesson.date, 1));
-  const description = [
-    `Unit: ${lesson.unitTitle}`,
-    `Status: ${lesson.status}`,
-    "",
-    lesson.summary,
-  ].join("\n");
+function renderEvent(event: IcsEvent, dtstamp: string): string[] {
+  const lines = ["BEGIN:VEVENT", `UID:${event.uid}@classpilot`, `DTSTAMP:${dtstamp}`];
 
-  return [
-    "BEGIN:VEVENT",
-    `UID:${lesson.id}@classpilot`,
-    `DTSTAMP:${dtstamp}`,
-    `DTSTART;VALUE=DATE:${dtstart}`,
-    `DTEND;VALUE=DATE:${dtend}`,
-    foldLine(`SUMMARY:${icsEscape(`${lesson.subject}: ${lesson.title}`)}`),
-    foldLine(`DESCRIPTION:${icsEscape(description)}`),
-    "END:VEVENT",
-  ];
+  if (event.allDay) {
+    const dtstart = event.date.replace(/-/g, "");
+    const dtend = toIcsDateKey(addDays(event.date, 1));
+    lines.push(`DTSTART;VALUE=DATE:${dtstart}`, `DTEND;VALUE=DATE:${dtend}`);
+  } else {
+    // Floating local time (no Z, no TZID) -- the app doesn't store an IANA
+    // timezone per school year, and every real client interprets a
+    // floating time as "whatever timezone I'm in," which matches how a
+    // teacher enters a class's meeting time.
+    const day = event.date.replace(/-/g, "");
+    lines.push(
+      `DTSTART:${day}T${event.startTime.replace(":", "")}00`,
+      `DTEND:${day}T${event.endTime.replace(":", "")}00`,
+    );
+  }
+
+  lines.push(foldLine(`SUMMARY:${icsEscape(event.summary)}`));
+
+  if (event.description) {
+    lines.push(foldLine(`DESCRIPTION:${icsEscape(event.description)}`));
+  }
+
+  lines.push("END:VEVENT");
+
+  return lines;
 }
 
 function icsEscape(value: string): string {
