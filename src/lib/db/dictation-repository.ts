@@ -105,7 +105,7 @@ export function listRecordings(
 
   const rows = db
     .prepare(
-      `SELECT * FROM dictation_recordings WHERE school_year_id = ? ORDER BY created_at DESC`,
+      `SELECT * FROM dictation_recordings WHERE school_year_id = ? ORDER BY created_at DESC, rowid DESC`,
     )
     .all(schoolYearId) as DictationRecordingRow[];
 
