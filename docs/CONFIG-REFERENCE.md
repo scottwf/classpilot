@@ -45,6 +45,15 @@ student records are never transmitted, regardless of provider.
 | `CLASSPILOT_AI_LOCAL_BASE_URL` | No | empty | Local, OpenAI-compatible server (Ollama, LM Studio, etc.) — no key required. Drives the assistant chat's tool-calling and is the **only** provider ever given access to student data (roster, notes) when configured, since it stays on your network. |
 | `CLASSPILOT_AI_LOCAL_MODEL` | No | empty | Local provider's model ID (e.g. `llama3.1` for Ollama). |
 
+## Voice Dictation (optional, issue #36)
+
+Turns an uploaded voice recording into draft Student CMS notes for review. Disabled until `CLASSPILOT_TRANSCRIPTION_URL` is set — no hosted transcription fallback exists.
+
+| Variable | Required | Default | Notes |
+|---|---|---|---|
+| `CLASSPILOT_TRANSCRIPTION_URL` | No | empty | Base URL of a local, OpenAI-Whisper-API-compatible transcription service (e.g. a `faster-whisper` or `whisper.cpp` server). Must stay on your LAN/Tailscale — recordings contain real student names and details. |
+| `CLASSPILOT_TRANSCRIPTION_MODEL` | No | `whisper-1` | Model name sent in the transcription request; most self-hosted servers accept or ignore this. |
+
 ## MCP Server
 
 See [MCP-SETUP.md](MCP-SETUP.md) for the full walkthrough — this is the
@@ -114,6 +123,10 @@ CLASSPILOT_AI_BASE_URL=
 CLASSPILOT_AI_MODEL=
 CLASSPILOT_AI_LOCAL_BASE_URL=
 CLASSPILOT_AI_LOCAL_MODEL=
+
+# Voice dictation -- leave blank to keep it disabled
+CLASSPILOT_TRANSCRIPTION_URL=
+CLASSPILOT_TRANSCRIPTION_MODEL=
 ```
 
 Every secret above (`CLASSPILOT_APP_PASSWORD`, `CLASSPILOT_AUTH_SECRET`,

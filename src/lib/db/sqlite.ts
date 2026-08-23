@@ -215,6 +215,27 @@ export function migrate(db: ClassPilotDatabase) {
       UNIQUE(school_year_id, date)
     );
 
+    -- A dictated voice recording (issue #36), transcribed locally then
+    -- turned into draft student_notes for review before anything saves.
+    -- The audio file itself lives on disk (src/lib/storage/dictation-
+    -- storage.ts), named by stored_filename -- never deleted (user
+    -- decision 2026-08-23: keep the audio to re-listen against a bad
+    -- transcript). status: 'pending' | 'transcribing' | 'transcribed' |
+    -- 'failed'. See src/lib/db/dictation-repository.ts.
+    CREATE TABLE IF NOT EXISTS dictation_recordings (
+      id TEXT PRIMARY KEY,
+      school_year_id TEXT NOT NULL REFERENCES school_years(id) ON DELETE CASCADE,
+      stored_filename TEXT NOT NULL,
+      original_filename TEXT NOT NULL,
+      recorded_date TEXT NOT NULL,
+      transcript TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_dictation_recordings_school_year ON dictation_recordings(school_year_id);
+
     -- A class's own meeting time on one cycle day — no shared "period"
     -- entity; see ScheduleSlot in src/features/planner/types.ts. Existing
     -- installs get migrated off the old periods/schedule_slots(period_id)

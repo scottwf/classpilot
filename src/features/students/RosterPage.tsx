@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Mic } from "lucide-react";
 import type { RosterEntry } from "./types";
 
 type RosterPageProps = {
@@ -16,6 +17,13 @@ export function RosterPage({ roster }: RosterPageProps) {
           </h2>
         </div>
         <div className="flex shrink-0 gap-2">
+          <Link
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            href="/students/dictate"
+          >
+            <Mic aria-hidden="true" className="size-4" />
+            Dictate
+          </Link>
           <Link
             className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             href="/students/import"
