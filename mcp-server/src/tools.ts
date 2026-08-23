@@ -6,6 +6,7 @@ import {
   cascadeRescheduleUnitLessons,
   createClass,
   createLesson,
+  createSchoolYear,
   createUnit,
   createUnitWithLessons,
   deleteClass,
@@ -15,8 +16,11 @@ import {
   getLessonById,
   getPlannerData,
   getUnitById,
+  listSchoolYears,
+  setActiveSchoolYear,
   updateClass,
   updateLesson,
+  updateSchoolYear,
   updateUnit,
 } from "../../src/lib/db/planner-repository.ts";
 import { parseLessonMarkdown } from "../../src/lib/lessons/markdown-import.ts";
@@ -91,6 +95,23 @@ const classColorEnum = z
   .enum(["blue", "emerald", "amber", "rose", "violet", "sky", "orange", "teal"])
   .describe("Identity color for this class on the schedule grid and timetable views.");
 
+const dayLabelSchemeEnum = z
+  .enum(["numeric", "letters", "odd-even"])
+  .describe(
+    "How cycle days are displayed: numeric ('Day 1', 'Day 2', ...), letters ('Day A', 'Day B', ...), or odd-even ('Odd Day'/'Even Day' -- only really makes sense for a 2-day cycle). Purely cosmetic; scheduling always uses plain cycle-day numbers underneath.",
+  );
+
+const blockedDateInputShape = {
+  date: z.string().describe("ISO date, e.g. 2026-10-12."),
+  label: z.string().describe("e.g. 'Thanksgiving', 'PD Day', 'Winter Break'."),
+  advancesCycle: z
+    .boolean()
+    .default(true)
+    .describe(
+      "True (typical for a planned closure like a holiday or PD day): the cycle still advances, so the next school day picks up the following cycle day. False (typical for an unplanned closure like a snow day): the cycle pauses, so the next school day repeats the cycle day this one would have had.",
+    ),
+};
+
 const classInputShape = {
   name: z.string().min(1),
   subject: z.string().min(1),
@@ -147,6 +168,104 @@ export function registerClassPilotTools(server: McpServer, userId: string) {
     async () => {
       try {
         return ok(getPlannerData(getDb(), userId));
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_school_years",
+    {
+      title: "List school years",
+      description:
+        "Lists every school year for this account, newest first, with which one is currently active. Call this before create_school_year to check whether the year already exists, and before set_active_school_year to find the target year's ID.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const db = getDb();
+        const years = listSchoolYears(db, userId);
+        const activeId = getActiveSchoolYearId(db, userId);
+        return ok(years.map((year) => ({ ...year, isActive: year.id === activeId })));
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_school_year",
+    {
+      title: "Create school year",
+      description:
+        "Creates a new school year, optionally with its full list of non-instructional days (holidays, PD days, breaks) in the same call -- the right tool when a teacher shares a whole school-division calendar and wants the year set up in one step. Does NOT create classes, schedules, or make this the active year -- use create_class / set_class_schedule / set_active_school_year afterward. Returns the new year's ID.",
+      inputSchema: {
+        title: z.string().min(1).describe("e.g. '2026-2027 Grade 6 Homeroom'."),
+        startDate: z.string().describe("ISO date, e.g. 2026-09-01."),
+        endDate: z.string().describe("ISO date, e.g. 2027-06-25."),
+        cycleLength: z
+          .number()
+          .int()
+          .positive()
+          .describe("Number of cycle days before it repeats (e.g. 2 for an odd/even alternating schedule, 5 for a standard Mon-Fri week acting as the cycle, 6 for a 6-day rotating cycle)."),
+        dayLabelScheme: dayLabelSchemeEnum.default("numeric"),
+        blockedDates: z
+          .array(z.object(blockedDateInputShape))
+          .default([])
+          .describe("Every non-instructional day known up front (holidays, PD days, breaks). Weekends are excluded automatically elsewhere -- don't include them here."),
+      },
+    },
+    async (input) => {
+      try {
+        const id = createSchoolYear(getDb(), userId, input);
+        return ok({ schoolYearId: id });
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_school_year",
+    {
+      title: "Update school year",
+      description:
+        "Updates an existing school year's details, including its blocked-dates list -- ALL fields are required and replace the current values, so call list_school_years or get_planner_data first and pass back the full existing blockedDates list plus whatever's changing (e.g. one more holiday added), not just the new entries.",
+      inputSchema: {
+        id: z.string().describe("School year ID from list_school_years."),
+        title: z.string().min(1),
+        startDate: z.string().describe("ISO date."),
+        endDate: z.string().describe("ISO date."),
+        cycleLength: z.number().int().positive(),
+        dayLabelScheme: dayLabelSchemeEnum.default("numeric"),
+        blockedDates: z.array(z.object(blockedDateInputShape)).default([]),
+      },
+    },
+    async (input) => {
+      try {
+        updateSchoolYear(getDb(), userId, input);
+        return ok({ success: true });
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "set_active_school_year",
+    {
+      title: "Set active school year",
+      description:
+        "Switches which school year is active -- the one shown in the Dashboard/Plan Book and the one get_planner_data returns by default. Creating a school year does NOT automatically activate it; call this afterward if the teacher wants to start working in the new year right away.",
+      inputSchema: {
+        id: z.string().describe("School year ID from list_school_years."),
+      },
+    },
+    async ({ id }) => {
+      try {
+        setActiveSchoolYear(getDb(), userId, id);
+        return ok({ success: true });
       } catch (error) {
         return fail(error);
       }

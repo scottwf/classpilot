@@ -21,6 +21,9 @@ Every request is scoped to **your own account's data only** — see
 | Tool | Does |
 |---|---|
 | `get_planner_data` | Read the active school year, classes, units, lessons, and curriculum outcomes |
+| `list_school_years` | List every school year, with which one is active |
+| `create_school_year` / `update_school_year` | Create or edit a school year, including its full non-instructional-days list (holidays, PD days, breaks) in one call |
+| `set_active_school_year` | Switch which year is active |
 | `get_unit` / `get_lesson` | Read one unit or lesson by ID |
 | `create_unit` / `update_unit` | Create or edit a unit |
 | `create_unit_with_lessons` | Create a unit and its lessons in one call |
