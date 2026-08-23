@@ -10,5 +10,4 @@ export class TranscriptionError extends Error {
 
 export type TranscriptionConfig = {
   baseUrl: string;
-  model: string;
 };

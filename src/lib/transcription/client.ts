@@ -5,13 +5,12 @@ type TranscriptionResponse = {
 };
 
 /**
- * Calls an OpenAI-Whisper-API-compatible `/v1/audio/transcriptions`
- * endpoint (multipart form: `file` + `model`) and returns the transcript
- * text. Most self-hosted Whisper-family servers (faster-whisper, whisper.cpp
- * server mode, LocalAI, etc.) implement this same contract, so this client
- * should work against whatever local service issue #36 stands up without
- * changes -- if the real server's shape differs once it exists, adjust this
- * one function rather than anything upstream of it.
+ * Calls the `ahmetoner/whisper-asr-webservice` `/asr` endpoint (multipart
+ * form, field name `audio_file`) with `?output=json`, and returns the
+ * transcript text. This is the specific service issue #36 deployed on
+ * xbox (faster-whisper engine, GPU-accelerated) -- confirmed against the
+ * real running instance 2026-08-23 (`{"language": "en", "segments": [],
+ * "text": "..."}`), not guessed from generic API docs.
  */
 export async function requestTranscription(
   config: TranscriptionConfig,
@@ -19,13 +18,12 @@ export async function requestTranscription(
   fileName: string,
 ): Promise<string> {
   const form = new FormData();
-  form.append("model", config.model);
-  form.append("file", new Blob([new Uint8Array(audio)]), fileName);
+  form.append("audio_file", new Blob([new Uint8Array(audio)]), fileName);
 
   let response: Response;
 
   try {
-    response = await fetch(`${config.baseUrl}/v1/audio/transcriptions`, {
+    response = await fetch(`${config.baseUrl}/asr?output=json`, {
       method: "POST",
       body: form,
     });
@@ -54,13 +52,10 @@ export async function requestTranscription(
     );
   }
 
-  const text = payload.text?.trim();
-
-  if (!text) {
-    throw new TranscriptionError("request_failed", "Transcription service returned no text.");
-  }
-
-  return text;
+  // An empty string is a legitimate result (silence/no speech detected --
+  // e.g. a test tone with no voice in it), not an error, so don't throw on
+  // it the way the AI provider client throws on an empty completion.
+  return payload.text ?? "";
 }
 
 async function safeReadText(response: Response): Promise<string> {

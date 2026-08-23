@@ -70,9 +70,15 @@ export function DictationDetailPage({
       {recording.status === "transcribed" ? (
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-950">Transcript</h3>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-            {recording.transcript}
-          </p>
+          {recording.transcript ? (
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+              {recording.transcript}
+            </p>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">
+              No speech was detected in this recording.
+            </p>
+          )}
           <p className="mt-4 text-xs text-slate-500">
             Turning this into draft student notes for review isn&apos;t built yet — coming next.
           </p>

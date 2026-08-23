@@ -51,8 +51,7 @@ Turns an uploaded voice recording into draft Student CMS notes for review. Disab
 
 | Variable | Required | Default | Notes |
 |---|---|---|---|
-| `CLASSPILOT_TRANSCRIPTION_URL` | No | empty | Base URL of a local, OpenAI-Whisper-API-compatible transcription service (e.g. a `faster-whisper` or `whisper.cpp` server). Must stay on your LAN/Tailscale — recordings contain real student names and details. |
-| `CLASSPILOT_TRANSCRIPTION_MODEL` | No | `whisper-1` | Model name sent in the transcription request; most self-hosted servers accept or ignore this. |
+| `CLASSPILOT_TRANSCRIPTION_URL` | No | empty | Base URL of a local [`ahmetoner/whisper-asr-webservice`](https://github.com/ahmetoner/whisper-asr-webservice) instance (faster-whisper engine) — the specific service this project deploys on xbox (`http://172.16.1.223:9000`). Must stay on your LAN/Tailscale — recordings contain real student names and details. The client (`src/lib/transcription/client.ts`) posts to that service's `/asr?output=json` endpoint specifically, not a generic API — swapping transcription engines means updating that one file. |
 
 ## MCP Server
 
@@ -126,7 +125,6 @@ CLASSPILOT_AI_LOCAL_MODEL=
 
 # Voice dictation -- leave blank to keep it disabled
 CLASSPILOT_TRANSCRIPTION_URL=
-CLASSPILOT_TRANSCRIPTION_MODEL=
 ```
 
 Every secret above (`CLASSPILOT_APP_PASSWORD`, `CLASSPILOT_AUTH_SECRET`,
