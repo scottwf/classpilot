@@ -377,6 +377,13 @@ export function migrate(db: ClassPilotDatabase) {
   addColumnIfMissing(db, "schedule_slots", "end_date", "TEXT");
   addColumnIfMissing(db, "unit_plans", "notes", "TEXT NOT NULL DEFAULT ''");
 
+  // Draft per-student notes proposed from a dictation transcript (issue
+  // #36 phases 3-4), pending teacher review -- never written to
+  // student_notes until explicitly saved. JSON array of {draftId,
+  // studentId, studentNameGuess, date, category, subject, body}. See
+  // src/lib/db/dictation-repository.ts.
+  addColumnIfMissing(db, "dictation_recordings", "drafts_json", "TEXT NOT NULL DEFAULT '[]'");
+
   // Multi-year scoping. These columns can't carry a NOT NULL DEFAULT in the
   // same ALTER as a REFERENCES clause (SQLite restriction, verified against
   // node:sqlite), so they land nullable and get backfilled below instead.

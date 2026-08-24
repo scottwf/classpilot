@@ -7,9 +7,12 @@ import {
   createRecording,
   deleteRecording,
   getRecordingById,
+  removeDraft,
+  saveDrafts,
   saveTranscript,
   updateRecordingStatus,
 } from "@/src/lib/db/dictation-repository";
+import { createNote, listRoster } from "@/src/lib/db/students-repository";
 import {
   deleteDictationFile,
   generateStoredDictationName,
@@ -20,7 +23,10 @@ import {
 } from "@/src/lib/storage/dictation-storage";
 import { getTranscriptionConfig } from "@/src/lib/transcription/config";
 import { requestTranscription } from "@/src/lib/transcription/client";
+import { generateDictationDrafts } from "@/src/lib/ai/dictation-draft";
+import { AiError } from "@/src/lib/ai/types";
 import type { ClassPilotDatabase } from "@/src/lib/db/sqlite";
+import type { NoteCategory } from "@/src/features/students/types";
 
 /**
  * Transcribes a recording in place if the service is configured; a no-op
@@ -132,4 +138,65 @@ export async function transcribeRecordingAction(formData: FormData) {
   }
 
   redirect(`/students/dictate/${id}`);
+}
+
+export async function generateDraftsAction(formData: FormData) {
+  const userId = await requireAuth();
+  const db = getClassPilotDatabase();
+  const id = String(formData.get("recordingId") ?? "");
+  const recording = getRecordingById(db, userId, id);
+
+  if (!recording) {
+    redirect("/students/dictate");
+  }
+
+  if (!recording.transcript) {
+    redirect(`/students/dictate/${id}?error=no_transcript`);
+  }
+
+  const roster = listRoster(db, userId, recording.schoolYearId);
+
+  try {
+    const drafts = await generateDictationDrafts(recording.transcript, roster, recording.recordedDate);
+    saveDrafts(db, userId, id, drafts);
+  } catch (error) {
+    const code = error instanceof AiError && error.code === "not_configured"
+      ? "local_ai_not_configured"
+      : "draft_generation_failed";
+    redirect(`/students/dictate/${id}?error=${code}`);
+  }
+
+  redirect(`/students/dictate/${id}`);
+}
+
+export async function saveDraftNoteAction(formData: FormData) {
+  const userId = await requireAuth();
+  const db = getClassPilotDatabase();
+  const recordingId = String(formData.get("recordingId") ?? "");
+  const draftId = String(formData.get("draftId") ?? "");
+  const studentId = String(formData.get("studentId") ?? "");
+  const date = String(formData.get("date") ?? "");
+  const category = String(formData.get("category") ?? "other") as NoteCategory;
+  const subject = String(formData.get("subject") ?? "");
+  const body = String(formData.get("body") ?? "").trim();
+
+  if (!studentId || !date || !body) {
+    redirect(`/students/dictate/${recordingId}?error=incomplete_draft`);
+  }
+
+  createNote(db, userId, { body, category, date, studentId, subject });
+  removeDraft(db, userId, recordingId, draftId);
+
+  redirect(`/students/dictate/${recordingId}`);
+}
+
+export async function dismissDraftAction(formData: FormData) {
+  const userId = await requireAuth();
+  const db = getClassPilotDatabase();
+  const recordingId = String(formData.get("recordingId") ?? "");
+  const draftId = String(formData.get("draftId") ?? "");
+
+  removeDraft(db, userId, recordingId, draftId);
+
+  redirect(`/students/dictate/${recordingId}`);
 }

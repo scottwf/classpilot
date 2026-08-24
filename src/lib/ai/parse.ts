@@ -1,5 +1,23 @@
 import type { LessonSections } from "@/src/features/planner/types";
+import type { NoteCategory } from "@/src/features/students/types";
 import { AiError, type UnitOutlineDraft, type UnitOutlineLesson } from "./types";
+
+const validNoteCategories = new Set<NoteCategory>([
+  "academic",
+  "behavior",
+  "attendance",
+  "social_emotional",
+  "family",
+  "medical",
+  "other",
+]);
+
+export type ParsedDictationDraft = {
+  studentName: string;
+  category: NoteCategory;
+  subject: string;
+  body: string;
+};
 
 /**
  * Defensively parses a model response into a {@link UnitOutlineDraft}. Models
@@ -127,4 +145,66 @@ function toLessonArray(value: unknown): UnitOutlineLesson[] {
       };
     })
     .filter((lesson): lesson is UnitOutlineLesson => lesson !== null);
+}
+
+/**
+ * Defensively parses a model response into a list of draft dictation
+ * notes (issue #36 phase 3). Same JSON-recovery approach as the other
+ * parsers here, but for a top-level array rather than an object. An
+ * entry with no student name or no body is dropped -- there's nothing
+ * useful to review for it.
+ */
+export function parseDictationDraftsRaw(raw: string): ParsedDictationDraft[] {
+  const json = extractJsonArray(raw);
+
+  if (!json) {
+    throw new AiError("parse_failed", "The assistant did not return a JSON array.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new AiError("parse_failed", "The assistant returned invalid JSON.");
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new AiError("parse_failed", "The assistant returned an unexpected shape.");
+  }
+
+  return parsed
+    .map((entry): ParsedDictationDraft | null => {
+      if (typeof entry !== "object" || entry === null) {
+        return null;
+      }
+
+      const record = entry as Record<string, unknown>;
+      const studentName = toStringValue(record.studentName);
+      const body = toStringValue(record.body);
+
+      if (!studentName || !body) {
+        return null;
+      }
+
+      const categoryValue = toStringValue(record.category) as NoteCategory;
+
+      return {
+        studentName,
+        body,
+        subject: toStringValue(record.subject),
+        category: validNoteCategories.has(categoryValue) ? categoryValue : "other",
+      };
+    })
+    .filter((draft): draft is ParsedDictationDraft => draft !== null);
+}
+
+function extractJsonArray(raw: string): string | null {
+  const start = raw.indexOf("[");
+  const end = raw.lastIndexOf("]");
+
+  if (start === -1 || end === -1 || end <= start) {
+    return null;
+  }
+
+  return raw.slice(start, end + 1);
 }

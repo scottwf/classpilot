@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { DictationRecording, DictationStatus } from "@/src/features/dictation/types";
+import type {
+  DictationDraftNote,
+  DictationRecording,
+  DictationStatus,
+} from "@/src/features/dictation/types";
 import type { ClassPilotDatabase } from "./sqlite";
 
 type DictationRecordingRow = {
@@ -10,9 +14,19 @@ type DictationRecordingRow = {
   recorded_date: string;
   transcript: string;
   status: DictationStatus;
+  drafts_json: string;
   created_at: string;
   updated_at: string;
 };
+
+function parseDrafts(json: string): DictationDraftNote[] {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 function mapRecording(row: DictationRecordingRow): DictationRecording {
   return {
@@ -23,6 +37,7 @@ function mapRecording(row: DictationRecordingRow): DictationRecording {
     recordedDate: row.recorded_date,
     transcript: row.transcript,
     status: row.status,
+    drafts: parseDrafts(row.drafts_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -166,4 +181,46 @@ export function deleteRecording(db: ClassPilotDatabase, userId: string, id: stri
   }
 
   db.prepare(`DELETE FROM dictation_recordings WHERE id = ?`).run(id);
+}
+
+/** Replaces a recording's whole draft-notes list (issue #36 phase 3-4) --
+ * generation replaces [] with the model's proposals; saving or dismissing
+ * one draft replaces the list with that entry removed. */
+export function saveDrafts(
+  db: ClassPilotDatabase,
+  userId: string,
+  id: string,
+  drafts: DictationDraftNote[],
+): void {
+  if (!recordingOwnedByUser(db, id, userId)) {
+    throw notFound("Recording", id);
+  }
+
+  db.prepare(`UPDATE dictation_recordings SET drafts_json = ?, updated_at = ? WHERE id = ?`).run(
+    JSON.stringify(drafts),
+    now(),
+    id,
+  );
+}
+
+/** Removes one draft (after saving it as a real note, or dismissing it) by
+ * draftId, leaving the rest of the list untouched. */
+export function removeDraft(
+  db: ClassPilotDatabase,
+  userId: string,
+  id: string,
+  draftId: string,
+): void {
+  const recording = getRecordingById(db, userId, id);
+
+  if (!recording) {
+    throw notFound("Recording", id);
+  }
+
+  saveDrafts(
+    db,
+    userId,
+    id,
+    recording.drafts.filter((draft) => draft.draftId !== draftId),
+  );
 }

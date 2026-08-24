@@ -6,6 +6,16 @@ import type {
   UnitOutlineRequest,
 } from "./types";
 
+const noteCategoryList = [
+  "academic",
+  "behavior",
+  "attendance",
+  "social_emotional",
+  "family",
+  "medical",
+  "other",
+];
+
 const unitOutlineSystemPrompt = [
   "You are a planning assistant for an elementary homeroom teacher.",
   "You draft unit outlines that are practical, age-appropriate, and paced to",
@@ -179,4 +189,62 @@ function buildOutcomeLines(
   return outcomes.length > 0
     ? outcomes.map((outcome) => `- ${outcome.code}: ${outcome.description}`).join("\n")
     : "- (No specific outcomes selected; suggest grade-appropriate focuses.)";
+}
+
+/**
+ * Builds the messages for turning a dictated transcript into draft
+ * per-student notes (issue #36 phase 3). This is the one prompt in this
+ * file that handles real student data (names, whatever the teacher said
+ * about them) -- the caller MUST resolve the local-only model config
+ * (getLocalAiConfig), never the hosted one, before using this. Student-ID
+ * matching happens in code afterward (matchStudentName), not here -- the
+ * model returns a plain name string per entry, never asked to invent or
+ * guess a database ID.
+ */
+export function buildDictationDraftMessages(
+  transcript: string,
+  rosterNames: string[],
+  recordedDate: string,
+): ChatMessage[] {
+  const systemPrompt = [
+    "You are helping a teacher turn a dictated voice memo about their day",
+    "into draft notes for their student records. Read the transcript and",
+    "identify every distinct student it mentions by name. For each one,",
+    "write ONE note capturing what was said about them -- academic",
+    "progress, behavior, attendance, a social/emotional observation, a",
+    "family update, a medical note, or something else.",
+    "",
+    "Only include students actually named in the transcript. Never invent",
+    "a student, never combine two different students into one entry, and",
+    "never fabricate details that weren't said. If the transcript has no",
+    "identifiable student content at all, return an empty list.",
+    "",
+    `Known students this year: ${rosterNames.join(", ") || "(none on the roster yet)"}.`,
+    "Use a name exactly as it appears in that list when you can match one;",
+    "if the transcript names someone not on that list (or you're not sure",
+    "which roster entry it is), still write the note and put the name",
+    "exactly as heard in \"studentName\" -- the app resolves the match, not you.",
+    "",
+    "Respond with ONLY a JSON array (no markdown fences, no prose) matching:",
+    "[",
+    "  {",
+    '    "studentName": string,',
+    `    "category": one of ${JSON.stringify(noteCategoryList)},`,
+    '    "subject": string (a short title for the note, or ""),',
+    '    "body": string',
+    "  }",
+    "]",
+  ].join("\n");
+
+  const userPrompt = [
+    `Date this was dictated: ${recordedDate}`,
+    "",
+    "Transcript:",
+    transcript,
+  ].join("\n");
+
+  return [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ];
 }
