@@ -109,6 +109,37 @@ export function createRecording(
   return id;
 }
 
+export type CreateTextRecordingInput = {
+  schoolYearId: string;
+  transcript: string;
+  recordedDate: string;
+};
+
+/** For pasted or browser-dictated text (issue #36 follow-up) -- there's no
+ * audio file, so stored_filename is empty (guard file operations on that
+ * before calling readDictationFile/deleteDictationFile) and the row starts
+ * straight at "transcribed" since there's nothing to transcribe. */
+export function createTextRecording(
+  db: ClassPilotDatabase,
+  userId: string,
+  input: CreateTextRecordingInput,
+): string {
+  if (!schoolYearOwnedByUser(db, input.schoolYearId, userId)) {
+    throw notFound("School year", input.schoolYearId);
+  }
+
+  const id = `dictation-${randomUUID()}`;
+  const timestamp = now();
+
+  db.prepare(
+    `INSERT INTO dictation_recordings
+       (id, school_year_id, stored_filename, original_filename, recorded_date, transcript, status, created_at, updated_at)
+     VALUES (?, ?, '', 'Pasted/dictated text', ?, ?, 'transcribed', ?, ?)`,
+  ).run(id, input.schoolYearId, input.recordedDate, input.transcript, timestamp, timestamp);
+
+  return id;
+}
+
 export function listRecordings(
   db: ClassPilotDatabase,
   userId: string,

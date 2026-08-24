@@ -140,8 +140,10 @@ export function DictationDetailPage({
 
               {recording.drafts.length === 0 ? (
                 <p className="mt-3 text-sm text-slate-500">
-                  Nothing saves to a student&apos;s record until you review and save it below.
-                  Generate drafts to see what the assistant picked out of the transcript.
+                  Draft notes normally generate automatically right after transcription. If none
+                  turned up here — no students were mentioned, or the local model wasn&apos;t
+                  reachable — use the button above to try again. Nothing saves to a student&apos;s
+                  record until you review and save it below.
                 </p>
               ) : (
                 <div className="mt-3 space-y-3">

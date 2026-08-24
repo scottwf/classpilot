@@ -3,7 +3,7 @@ import { DictationListPage } from "@/src/features/dictation/DictationListPage";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { listRecordings } from "@/src/lib/db/dictation-repository";
-import { uploadRecordingAction } from "./actions";
+import { submitTextDictationAction, uploadRecordingAction } from "./actions";
 
 type DictateRouteProps = {
   searchParams: Promise<{ error?: string }>;
@@ -26,6 +26,7 @@ export default async function DictateRoute({ searchParams }: DictateRouteProps) 
       <DictationListPage
         error={params.error}
         recordings={recordings}
+        submitTextAction={submitTextDictationAction}
         uploadAction={uploadRecordingAction}
       />
     </AppShell>

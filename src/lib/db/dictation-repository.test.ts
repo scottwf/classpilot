@@ -9,6 +9,7 @@ import { createClassPilotDatabase } from "./sqlite";
 import { createUser } from "./users-repository";
 import {
   createRecording,
+  createTextRecording,
   deleteRecording,
   getRecordingById,
   listRecordings,
@@ -235,5 +236,36 @@ describe("dictation repository", () => {
 
     expect(() => saveDrafts(db, otherUserId, id, [])).toThrow("not found");
     expect(() => removeDraft(db, otherUserId, id, "draft-1")).toThrow("not found");
+  });
+
+  it("creates a text/dictated entry already transcribed, with no audio file", () => {
+    const { db, userId } = setup();
+
+    const id = createTextRecording(db, userId, {
+      schoolYearId: "current",
+      transcript: "Talked to Jayden about his group project today.",
+      recordedDate: "2026-09-08",
+    });
+
+    const recording = getRecordingById(db, userId, id);
+    expect(recording).toMatchObject({
+      storedFilename: "",
+      recordedDate: "2026-09-08",
+      transcript: "Talked to Jayden about his group project today.",
+      status: "transcribed",
+    });
+  });
+
+  it("throws creating a text entry under a school year the caller doesn't own", () => {
+    const { db } = setup();
+    const otherUserId = createUser(db, { username: "other", password: "x" }).id;
+
+    expect(() =>
+      createTextRecording(db, otherUserId, {
+        schoolYearId: "current",
+        transcript: "Text",
+        recordedDate: "2026-09-08",
+      }),
+    ).toThrow("not found");
   });
 });

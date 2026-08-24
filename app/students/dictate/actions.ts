@@ -5,6 +5,7 @@ import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import {
   createRecording,
+  createTextRecording,
   deleteRecording,
   getRecordingById,
   removeDraft,
@@ -59,6 +60,38 @@ async function attemptTranscription(
   }
 }
 
+/**
+ * Generates draft notes in place, best-effort -- never throws. Used to
+ * auto-chain draft generation right after a transcript becomes available
+ * (upload, manual re-transcribe, or a pasted/dictated text entry) so a
+ * teacher normally never has to click anything between "gave it a
+ * recording/text" and "here are the drafts to review." A failure (no local
+ * model configured, the model unreachable, ...) just leaves drafts empty --
+ * the "Generate draft notes" button on the detail page remains as a manual
+ * fallback/retry, which still surfaces the real error.
+ */
+async function attemptDraftGeneration(
+  db: ClassPilotDatabase,
+  userId: string,
+  id: string,
+  transcript: string,
+  schoolYearId: string,
+  recordedDate: string,
+): Promise<void> {
+  if (!transcript) {
+    return;
+  }
+
+  const roster = listRoster(db, userId, schoolYearId);
+
+  try {
+    const drafts = await generateDictationDrafts(transcript, roster, recordedDate);
+    saveDrafts(db, userId, id, drafts);
+  } catch {
+    // Best-effort -- see doc comment above.
+  }
+}
+
 export async function uploadRecordingAction(formData: FormData) {
   const userId = await requireAuth();
   const plannerData = getClassPilotPlannerData(userId);
@@ -84,8 +117,9 @@ export async function uploadRecordingAction(formData: FormData) {
   await saveDictationFile(storedName, contents);
 
   const db = getClassPilotDatabase();
+  const schoolYearId = plannerData.schoolYear.id;
   const id = createRecording(db, userId, {
-    schoolYearId: plannerData.schoolYear.id,
+    schoolYearId,
     storedFilename: storedName,
     originalFilename: file.name,
     recordedDate,
@@ -96,6 +130,33 @@ export async function uploadRecordingAction(formData: FormData) {
   // down, this just leaves the recording "pending"/"failed" for the manual
   // Transcribe button on the detail page rather than blocking the upload.
   await attemptTranscription(db, userId, id, storedName, file.name);
+
+  const transcribed = getRecordingById(db, userId, id);
+
+  if (transcribed?.status === "transcribed") {
+    await attemptDraftGeneration(db, userId, id, transcribed.transcript, schoolYearId, recordedDate);
+  }
+
+  redirect(`/students/dictate/${id}`);
+}
+
+export async function submitTextDictationAction(formData: FormData) {
+  const userId = await requireAuth();
+  const plannerData = getClassPilotPlannerData(userId);
+
+  const transcript = String(formData.get("transcript") ?? "").trim();
+  const recordedDate =
+    String(formData.get("recordedDate") ?? "").trim() || new Date().toISOString().slice(0, 10);
+
+  if (!transcript) {
+    redirect("/students/dictate?error=empty_text");
+  }
+
+  const db = getClassPilotDatabase();
+  const schoolYearId = plannerData.schoolYear.id;
+  const id = createTextRecording(db, userId, { schoolYearId, transcript, recordedDate });
+
+  await attemptDraftGeneration(db, userId, id, transcript, schoolYearId, recordedDate);
 
   redirect(`/students/dictate/${id}`);
 }
@@ -108,7 +169,8 @@ export async function deleteRecordingAction(formData: FormData) {
 
   deleteRecording(db, userId, id);
 
-  if (recording) {
+  // Pasted/dictated text entries have no audio file (storedFilename "").
+  if (recording?.storedFilename) {
     await deleteDictationFile(recording.storedFilename);
   }
 
@@ -135,6 +197,17 @@ export async function transcribeRecordingAction(formData: FormData) {
 
   if (updated?.status === "failed") {
     redirect(`/students/dictate/${id}?error=transcription_failed`);
+  }
+
+  if (updated?.status === "transcribed") {
+    await attemptDraftGeneration(
+      db,
+      userId,
+      id,
+      updated.transcript,
+      updated.schoolYearId,
+      updated.recordedDate,
+    );
   }
 
   redirect(`/students/dictate/${id}`);
