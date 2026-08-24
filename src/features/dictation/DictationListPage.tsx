@@ -38,8 +38,9 @@ export function DictationListPage({ error, recordings, uploadAction }: Dictation
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
           Upload a voice recording — from your phone, watch, or computer — and it&apos;s
-          transcribed and turned into draft notes for the students it mentions. Nothing saves to
-          a student&apos;s record until you review and confirm it.
+          transcribed automatically. Turning a transcript into draft notes for the students it
+          mentions isn&apos;t built yet; for now, copy what you need from the transcript into a
+          student&apos;s record by hand.
         </p>
       </section>
 

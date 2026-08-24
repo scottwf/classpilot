@@ -89,7 +89,9 @@ export function DictationDetailPage({
           <p className="mt-3 text-sm text-slate-600">
             {recording.status === "transcribing"
               ? "Transcribing now — this can take a minute for a longer recording."
-              : "This recording hasn't been transcribed yet."}
+              : recording.status === "failed"
+                ? "Transcription failed. Try again below."
+                : "Transcription normally starts automatically on upload — this one hasn't run yet."}
           </p>
           {recording.status !== "transcribing" ? (
             <form action={transcribeAction} className="mt-3">
@@ -98,7 +100,7 @@ export function DictationDetailPage({
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
                 type="submit"
               >
-                Transcribe
+                {recording.status === "failed" ? "Retry transcription" : "Transcribe"}
               </button>
             </form>
           ) : null}

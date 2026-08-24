@@ -20,6 +20,38 @@ import {
 } from "@/src/lib/storage/dictation-storage";
 import { getTranscriptionConfig } from "@/src/lib/transcription/config";
 import { requestTranscription } from "@/src/lib/transcription/client";
+import type { ClassPilotDatabase } from "@/src/lib/db/sqlite";
+
+/**
+ * Transcribes a recording in place if the service is configured; a no-op
+ * (stays "pending") if it isn't, so callers don't need to branch on
+ * configuration themselves. Never throws -- a failed attempt just leaves
+ * the recording "failed" for a manual retry via transcribeRecordingAction,
+ * since this also runs inline during upload and shouldn't break that flow.
+ */
+async function attemptTranscription(
+  db: ClassPilotDatabase,
+  userId: string,
+  id: string,
+  storedFilename: string,
+  originalFilename: string,
+): Promise<void> {
+  const config = getTranscriptionConfig();
+
+  if (!config) {
+    return;
+  }
+
+  updateRecordingStatus(db, userId, id, "transcribing");
+
+  try {
+    const audio = await readDictationFile(storedFilename);
+    const transcript = await requestTranscription(config, audio, originalFilename);
+    saveTranscript(db, userId, id, transcript);
+  } catch {
+    updateRecordingStatus(db, userId, id, "failed");
+  }
+}
 
 export async function uploadRecordingAction(formData: FormData) {
   const userId = await requireAuth();
@@ -45,12 +77,19 @@ export async function uploadRecordingAction(formData: FormData) {
   const contents = Buffer.from(await file.arrayBuffer());
   await saveDictationFile(storedName, contents);
 
-  const id = createRecording(getClassPilotDatabase(), userId, {
+  const db = getClassPilotDatabase();
+  const id = createRecording(db, userId, {
     schoolYearId: plannerData.schoolYear.id,
     storedFilename: storedName,
     originalFilename: file.name,
     recordedDate,
   });
+
+  // Best-effort, inline -- transcription usually finishes in well under the
+  // request timeout for a typical recording; if the service is slow or
+  // down, this just leaves the recording "pending"/"failed" for the manual
+  // Transcribe button on the detail page rather than blocking the upload.
+  await attemptTranscription(db, userId, id, storedName, file.name);
 
   redirect(`/students/dictate/${id}`);
 }
@@ -80,20 +119,15 @@ export async function transcribeRecordingAction(formData: FormData) {
     redirect("/students/dictate");
   }
 
-  const config = getTranscriptionConfig();
-
-  if (!config) {
+  if (!getTranscriptionConfig()) {
     redirect(`/students/dictate/${id}?error=not_configured`);
   }
 
-  updateRecordingStatus(db, userId, id, "transcribing");
+  await attemptTranscription(db, userId, id, recording.storedFilename, recording.originalFilename);
 
-  try {
-    const audio = await readDictationFile(recording.storedFilename);
-    const transcript = await requestTranscription(config, audio, recording.originalFilename);
-    saveTranscript(db, userId, id, transcript);
-  } catch {
-    updateRecordingStatus(db, userId, id, "failed");
+  const updated = getRecordingById(db, userId, id);
+
+  if (updated?.status === "failed") {
     redirect(`/students/dictate/${id}?error=transcription_failed`);
   }
 

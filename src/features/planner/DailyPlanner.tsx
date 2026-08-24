@@ -64,8 +64,13 @@ export function DailyPlanner({
 
       {view === "day" && saveDayNoteAction && schoolYearId ? (
         <DayNoteForm
+          // Keyed by date so navigating to a different day remounts this
+          // form instead of reusing the same <textarea> DOM node -- without
+          // this, an uncontrolled defaultValue never re-applies, so unsaved
+          // text typed for one day would visually "follow" you to the next.
           body={dayNotes[date] ?? ""}
           date={date}
+          key={date}
           saveDayNoteAction={saveDayNoteAction}
           schoolYearId={schoolYearId}
           view={view}
@@ -171,17 +176,19 @@ function DayNoteForm({
       <input name="date" type="hidden" value={date} />
       <input name="schoolYearId" type="hidden" value={schoolYearId} />
       <input name="view" type="hidden" value={view} />
-      <label className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500">
-        <NotebookPen aria-hidden="true" className="size-3.5" />
-        Note for this day
+      <label className="block">
+        <span className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500">
+          <NotebookPen aria-hidden="true" className="size-3.5" />
+          Note for this day
+        </span>
+        <textarea
+          className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+          defaultValue={body}
+          name="body"
+          placeholder="e.g. PD morning — shortened periods, no Block D"
+          rows={2}
+        />
       </label>
-      <textarea
-        className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-        defaultValue={body}
-        name="body"
-        placeholder="e.g. PD morning — shortened periods, no Block D"
-        rows={2}
-      />
       <button
         className="mt-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-100"
         type="submit"
