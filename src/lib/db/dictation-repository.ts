@@ -12,9 +12,12 @@ type DictationRecordingRow = {
   stored_filename: string;
   original_filename: string;
   recorded_date: string;
+  duration_seconds: number | null;
   transcript: string;
   status: DictationStatus;
   drafts_json: string;
+  student_ids_json: string;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -28,6 +31,17 @@ function parseDrafts(json: string): DictationDraftNote[] {
   }
 }
 
+function parseStudentIds(json: string): string[] {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.filter((value): value is string => typeof value === "string"))]
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function mapRecording(row: DictationRecordingRow): DictationRecording {
   return {
     id: row.id,
@@ -35,9 +49,12 @@ function mapRecording(row: DictationRecordingRow): DictationRecording {
     storedFilename: row.stored_filename,
     originalFilename: row.original_filename,
     recordedDate: row.recorded_date,
+    durationSeconds: row.duration_seconds,
     transcript: row.transcript,
     status: row.status,
     drafts: parseDrafts(row.drafts_json),
+    studentIds: parseStudentIds(row.student_ids_json),
+    archivedAt: row.archived_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -78,6 +95,7 @@ export type CreateRecordingInput = {
   storedFilename: string;
   originalFilename: string;
   recordedDate: string;
+  durationSeconds?: number | null;
 };
 
 export function createRecording(
@@ -94,14 +112,15 @@ export function createRecording(
 
   db.prepare(
     `INSERT INTO dictation_recordings
-       (id, school_year_id, stored_filename, original_filename, recorded_date, transcript, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, '', 'pending', ?, ?)`,
+       (id, school_year_id, stored_filename, original_filename, recorded_date, duration_seconds, transcript, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, '', 'pending', ?, ?)`,
   ).run(
     id,
     input.schoolYearId,
     input.storedFilename,
     input.originalFilename,
     input.recordedDate,
+    input.durationSeconds ?? null,
     timestamp,
     timestamp,
   );
@@ -144,6 +163,7 @@ export function listRecordings(
   db: ClassPilotDatabase,
   userId: string,
   schoolYearId: string,
+  options: { includeArchived?: boolean } = {},
 ): DictationRecording[] {
   if (!schoolYearOwnedByUser(db, schoolYearId, userId)) {
     return [];
@@ -151,7 +171,9 @@ export function listRecordings(
 
   const rows = db
     .prepare(
-      `SELECT * FROM dictation_recordings WHERE school_year_id = ? ORDER BY created_at DESC, rowid DESC`,
+      `SELECT * FROM dictation_recordings
+       WHERE school_year_id = ? ${options.includeArchived ? "" : "AND archived_at IS NULL"}
+       ORDER BY created_at DESC, rowid DESC`,
     )
     .all(schoolYearId) as DictationRecordingRow[];
 
@@ -214,6 +236,23 @@ export function deleteRecording(db: ClassPilotDatabase, userId: string, id: stri
   db.prepare(`DELETE FROM dictation_recordings WHERE id = ?`).run(id);
 }
 
+export function archiveRecordings(
+  db: ClassPilotDatabase,
+  userId: string,
+  ids: string[],
+): void {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) return;
+
+  const placeholders = uniqueIds.map(() => "?").join(", ");
+  db.prepare(
+    `UPDATE dictation_recordings
+     SET archived_at = ?, updated_at = ?
+     WHERE id IN (${placeholders})
+       AND school_year_id IN (SELECT id FROM school_years WHERE user_id = ?)`,
+  ).run(now(), now(), ...uniqueIds, userId);
+}
+
 /** Replaces a recording's whole draft-notes list (issue #36 phase 3-4) --
  * generation replaces [] with the model's proposals; saving or dismissing
  * one draft replaces the list with that entry removed. */
@@ -229,6 +268,27 @@ export function saveDrafts(
 
   db.prepare(`UPDATE dictation_recordings SET drafts_json = ?, updated_at = ? WHERE id = ?`).run(
     JSON.stringify(drafts),
+    now(),
+    id,
+  );
+
+  addStudentTags(db, userId, id, drafts.flatMap((draft) => (draft.studentId ? [draft.studentId] : [])));
+}
+
+export function addStudentTags(
+  db: ClassPilotDatabase,
+  userId: string,
+  id: string,
+  studentIds: string[],
+): void {
+  const recording = getRecordingById(db, userId, id);
+  if (!recording) throw notFound("Recording", id);
+
+  const merged = [...new Set([...recording.studentIds, ...studentIds.filter(Boolean)])];
+  if (merged.length === recording.studentIds.length) return;
+
+  db.prepare(`UPDATE dictation_recordings SET student_ids_json = ?, updated_at = ? WHERE id = ?`).run(
+    JSON.stringify(merged),
     now(),
     id,
   );

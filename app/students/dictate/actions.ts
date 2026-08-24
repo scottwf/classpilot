@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import {
+  addStudentTags,
+  archiveRecordings,
   createRecording,
   createTextRecording,
   deleteRecording,
@@ -28,6 +30,21 @@ import { generateDictationDrafts } from "@/src/lib/ai/dictation-draft";
 import { AiError } from "@/src/lib/ai/types";
 import type { ClassPilotDatabase } from "@/src/lib/db/sqlite";
 import type { NoteCategory } from "@/src/features/students/types";
+
+function durationFromFormData(formData: FormData): number | null {
+  const value = Number(formData.get("durationSeconds"));
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : null;
+}
+
+function recordingIdsFromFormData(formData: FormData): string[] {
+  return [
+    ...new Set(
+      formData
+        .getAll("recordingId")
+        .filter((value): value is string => typeof value === "string" && value.length > 0),
+    ),
+  ];
+}
 
 /**
  * Transcribes a recording in place if the service is configured; a no-op
@@ -123,6 +140,7 @@ export async function uploadRecordingAction(formData: FormData) {
     storedFilename: storedName,
     originalFilename: file.name,
     recordedDate,
+    durationSeconds: durationFromFormData(formData),
   });
 
   // Best-effort, inline -- transcription usually finishes in well under the
@@ -172,6 +190,28 @@ export async function deleteRecordingAction(formData: FormData) {
   // Pasted/dictated text entries have no audio file (storedFilename "").
   if (recording?.storedFilename) {
     await deleteDictationFile(recording.storedFilename);
+  }
+
+  redirect("/students/dictate");
+}
+
+export async function archiveRecordingsAction(formData: FormData) {
+  const userId = await requireAuth();
+  archiveRecordings(getClassPilotDatabase(), userId, recordingIdsFromFormData(formData));
+  redirect("/students/dictate");
+}
+
+export async function deleteRecordingsAction(formData: FormData) {
+  const userId = await requireAuth();
+  const db = getClassPilotDatabase();
+
+  for (const id of recordingIdsFromFormData(formData)) {
+    const recording = getRecordingById(db, userId, id);
+    if (!recording) continue;
+    deleteRecording(db, userId, id);
+    if (recording.storedFilename) {
+      await deleteDictationFile(recording.storedFilename);
+    }
   }
 
   redirect("/students/dictate");
@@ -258,6 +298,7 @@ export async function saveDraftNoteAction(formData: FormData) {
   }
 
   createNote(db, userId, { body, category, date, studentId, subject });
+  addStudentTags(db, userId, recordingId, [studentId]);
   removeDraft(db, userId, recordingId, draftId);
 
   redirect(`/students/dictate/${recordingId}`);

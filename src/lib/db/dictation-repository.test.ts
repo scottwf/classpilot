@@ -8,6 +8,7 @@ import { seedPlannerData } from "./planner-repository";
 import { createClassPilotDatabase } from "./sqlite";
 import { createUser } from "./users-repository";
 import {
+  archiveRecordings,
   createRecording,
   createTextRecording,
   deleteRecording,
@@ -53,6 +54,9 @@ describe("dictation repository", () => {
       status: "pending",
     });
     expect(recording?.drafts).toEqual([]);
+    expect(recording?.durationSeconds).toBeNull();
+    expect(recording?.studentIds).toEqual([]);
+    expect(recording?.archivedAt).toBeNull();
   });
 
   it("lists recordings newest first", () => {
@@ -184,6 +188,7 @@ describe("dictation repository", () => {
     saveDrafts(db, userId, id, drafts);
 
     expect(getRecordingById(db, userId, id)?.drafts).toEqual(drafts);
+    expect(getRecordingById(db, userId, id)?.studentIds).toEqual(["student-1"]);
   });
 
   it("removes one draft by draftId, leaving the rest", () => {
@@ -267,5 +272,35 @@ describe("dictation repository", () => {
         recordedDate: "2026-09-08",
       }),
     ).toThrow("not found");
+  });
+
+  it("stores duration, hides archived recordings by default, and retains them when requested", () => {
+    const { db, userId } = setup();
+    const id = createRecording(db, userId, {
+      schoolYearId: "current",
+      storedFilename: "a.m4a",
+      originalFilename: "a.m4a",
+      recordedDate: "2026-09-08",
+      durationSeconds: 91,
+    });
+
+    expect(getRecordingById(db, userId, id)?.durationSeconds).toBe(91);
+    archiveRecordings(db, userId, [id]);
+    expect(listRecordings(db, userId, "current")).toEqual([]);
+    expect(listRecordings(db, userId, "current", { includeArchived: true })[0]?.archivedAt).toBeTruthy();
+  });
+
+  it("does not archive another user's recording", () => {
+    const { db, userId } = setup();
+    const otherUserId = createUser(db, { username: "other", password: "x" }).id;
+    const id = createRecording(db, userId, {
+      schoolYearId: "current",
+      storedFilename: "a.m4a",
+      originalFilename: "a.m4a",
+      recordedDate: "2026-09-08",
+    });
+
+    archiveRecordings(db, otherUserId, [id]);
+    expect(getRecordingById(db, userId, id)?.archivedAt).toBeNull();
   });
 });

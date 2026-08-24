@@ -22,9 +22,15 @@ export type DictationRecording = {
   storedFilename: string;
   originalFilename: string;
   recordedDate: string;
+  /** Audio duration captured by the browser at upload time; unavailable for
+   * pre-metadata recordings and text-only entries. */
+  durationSeconds: number | null;
   transcript: string;
   status: DictationStatus;
   drafts: DictationDraftNote[];
+  /** Resolved roster matches, retained after draft notes are reviewed. */
+  studentIds: string[];
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };

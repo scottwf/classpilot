@@ -939,6 +939,27 @@ describe("planner repository", () => {
     expect(getClassById(db, userId, classId)).toBeUndefined();
   });
 
+  it("deletes a non-active year still referenced by the retired app_state pointer", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+    const nextYearId = createSchoolYear(db, userId, {
+      title: "2027-2028",
+      startDate: "2027-09-01",
+      endDate: "2028-06-30",
+      cycleLength: 5,
+    });
+    setActiveSchoolYear(db, userId, nextYearId);
+    db.prepare(
+      "INSERT OR REPLACE INTO app_state (id, active_school_year_id) VALUES ('current', 'current')",
+    ).run();
+
+    deleteSchoolYear(db, userId, "current");
+
+    expect(() => getSchoolYearById(db, userId, "current")).toThrow("School year not found");
+    expect(db.prepare("SELECT 1 FROM app_state WHERE id = 'current'").get()).toBeUndefined();
+  });
+
   it("resetPlannerData clears school-year-scoped data but keeps curriculum outcomes", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     const userId = createUser(db, { username: "teacher", password: "x" }).id;

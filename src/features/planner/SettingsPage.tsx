@@ -19,6 +19,7 @@ const errorMessages: Record<string, string> = {
   year: "Something went wrong with that school year action. Try again.",
   "delete-active-year":
     "Can't delete the active school year. Switch to a different year first.",
+  "delete-year": "Couldn't delete this school year. Please try again.",
 };
 
 export function SettingsPage({

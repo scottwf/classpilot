@@ -232,6 +232,10 @@ export function resetPlannerData(db: ClassPilotDatabase, userId: string): void {
     // DELETE behavior -- clear it first or the DELETE below hits a FK
     // constraint violation on whichever year is currently active.
     db.prepare("UPDATE users SET active_school_year_id = NULL WHERE id = ?").run(userId);
+    // app_state is the pre-multi-user active-year pointer and is no longer
+    // read after the one-time user backfill. Its foreign key can otherwise
+    // keep an old school year from being removed.
+    db.exec("DELETE FROM app_state;");
     db.prepare("DELETE FROM school_years WHERE user_id = ?").run(userId);
 
     const placeholderYearId = `year-${crypto.randomUUID()}`;
@@ -493,7 +497,19 @@ export function deleteSchoolYear(db: ClassPilotDatabase, userId: string, id: str
     );
   }
 
-  db.prepare("DELETE FROM school_years WHERE id = ? AND user_id = ?").run(id, userId);
+  db.exec("BEGIN;");
+  try {
+    // app_state is a retired, global pointer left only for migrations. The
+    // per-user pointer checked above is the source of truth. Remove a stale
+    // legacy reference before deleting its school year so its foreign key
+    // cannot masquerade as an "active year" error.
+    db.prepare("DELETE FROM app_state WHERE active_school_year_id = ?").run(id);
+    db.prepare("DELETE FROM school_years WHERE id = ? AND user_id = ?").run(id, userId);
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  }
 }
 
 export function getSchoolYearById(

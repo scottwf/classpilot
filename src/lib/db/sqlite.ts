@@ -236,8 +236,11 @@ export function migrate(db: ClassPilotDatabase) {
       stored_filename TEXT NOT NULL,
       original_filename TEXT NOT NULL,
       recorded_date TEXT NOT NULL,
+      duration_seconds INTEGER,
       transcript TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'pending',
+      student_ids_json TEXT NOT NULL DEFAULT '[]',
+      archived_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -391,6 +394,14 @@ export function migrate(db: ClassPilotDatabase) {
   // studentId, studentNameGuess, date, category, subject, body}. See
   // src/lib/db/dictation-repository.ts.
   addColumnIfMissing(db, "dictation_recordings", "drafts_json", "TEXT NOT NULL DEFAULT '[]'");
+  addColumnIfMissing(db, "dictation_recordings", "duration_seconds", "INTEGER");
+  addColumnIfMissing(
+    db,
+    "dictation_recordings",
+    "student_ids_json",
+    "TEXT NOT NULL DEFAULT '[]'",
+  );
+  addColumnIfMissing(db, "dictation_recordings", "archived_at", "TEXT");
 
   // Undated, sequenced lessons (issue #39). date's NOT NULL constraint is
   // dropped by migrateLessonDatesNullable below (SQLite can't ALTER that

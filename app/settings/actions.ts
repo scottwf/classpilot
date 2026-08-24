@@ -136,8 +136,12 @@ export async function deleteSchoolYearAction(formData: FormData) {
 
   try {
     deleteSchoolYear(getClassPilotDatabase(), userId, id);
-  } catch {
-    redirect("/settings?error=delete-active-year");
+  } catch (error) {
+    const code =
+      error instanceof Error && error.message.startsWith("Can't delete the active school year")
+        ? "delete-active-year"
+        : "delete-year";
+    redirect(`/settings?error=${code}`);
   }
 
   redirect("/settings");
