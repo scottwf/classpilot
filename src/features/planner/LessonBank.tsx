@@ -180,7 +180,9 @@ export function LessonBank({
               >
                 {lesson.title}
               </Link>
-              <div className="mt-1 text-xs text-slate-500">{lesson.date}</div>
+              <div className="mt-1 text-xs text-slate-500">
+                {lesson.date ?? "Unscheduled"}
+              </div>
             </div>
             <div className="flex items-center gap-2 text-slate-700">
               <span

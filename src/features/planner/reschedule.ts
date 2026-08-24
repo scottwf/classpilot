@@ -40,12 +40,15 @@ export type LessonDateShift = {
  * everything that was already scheduled on/after it out of the way.
  */
 export function computeCascadeShift(
-  lessons: Array<{ id: string; date: string }>,
+  lessons: Array<{ id: string; date: string | null }>,
   fromDate: string,
   instructionalDayKeys: string[],
   shiftBy: number,
 ): LessonDateShift[] {
+  // Undated lessons (issue #39) have nothing to shift -- they're not part
+  // of the calendar cascade at all.
   return lessons
+    .filter((lesson): lesson is { id: string; date: string } => lesson.date !== null)
     .filter((lesson) => lesson.date >= fromDate)
     .map((lesson) => ({
       id: lesson.id,

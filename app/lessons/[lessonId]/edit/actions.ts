@@ -17,7 +17,7 @@ export async function updateLessonAction(formData: FormData) {
 
   const id = requiredString(formData, "id");
   const title = requiredString(formData, "title");
-  const date = requiredString(formData, "date");
+  const date = optionalString(formData, "date");
   const unitId = requiredString(formData, "unitId");
   const sections = readLessonSections(formData);
   const summary = lessonSummaryFromSections(
@@ -49,6 +49,12 @@ export async function updateLessonAction(formData: FormData) {
   });
 
   redirect("/lessons?updated=1");
+}
+
+/** Empty string means "leave unscheduled" for the date field (issue #39). */
+function optionalString(formData: FormData, key: string): string | null {
+  const value = String(formData.get(key) ?? "").trim();
+  return value || null;
 }
 
 function requiredString(formData: FormData, key: string): string {

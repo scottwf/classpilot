@@ -2,7 +2,10 @@ import type { LessonSections, LessonStatus } from "@/src/features/planner/types"
 import { emptyLessonSections } from "./lesson-sections";
 
 export type ParsedLessonMarkdown = {
-  date: string;
+  /** null when the markdown omits Date: or gives a placeholder like "TBD" --
+   * issue #39: lessons can be imported into a unit before they're scheduled,
+   * taking their place from the unit's lesson sequence instead. */
+  date: string | null;
   durationMinutes: number;
   outcomeRefs: string[];
   sections: LessonSections;
@@ -33,7 +36,7 @@ export function parseLessonMarkdown(markdown: string): ParsedLessonMarkdown {
   const lines = normalized.split("\n");
   const title = parseTitle(lines);
   const metadata = parseMetadata(lines);
-  const date = requiredMetadata(metadata, "date");
+  const date = parseDate(metadata.get("date"));
   const unitRef = requiredMetadata(metadata, "unit");
   const status = parseStatus(metadata.get("status") ?? "planned");
   const durationMinutes = parseDuration(metadata.get("duration minutes") ?? metadata.get("duration"));
@@ -111,6 +114,25 @@ function parseStatus(value: string) {
   }
 
   return status;
+}
+
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Undated placeholders ("TBD", blank, or the field just missing) parse to
+ * null rather than throwing -- issue #39. Anything else must be a real
+ * YYYY-MM-DD date so a typo doesn't silently become "unscheduled." */
+function parseDate(value: string | undefined) {
+  if (!value || value.trim().toLowerCase() === "tbd") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (!datePattern.test(trimmed)) {
+    throw new Error("Lesson date must be in YYYY-MM-DD format, or TBD to leave it unscheduled.");
+  }
+
+  return trimmed;
 }
 
 function requiredMetadata(metadata: Map<string, string>, key: string) {

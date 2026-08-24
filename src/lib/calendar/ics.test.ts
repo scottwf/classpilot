@@ -12,6 +12,7 @@ function lesson(overrides: Partial<EnrichedLesson> = {}): EnrichedLesson {
     id: "lesson-1",
     title: "Ratio Language",
     date: "2026-09-15",
+    sequence: 1,
     durationMinutes: 45,
     status: "planned",
     outcomeIds: [],

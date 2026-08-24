@@ -40,7 +40,9 @@ export function ClassPilotPlanner({
     selectedDate ??
     resolvePlanBookDefaultDate(
       data.schoolYear,
-      getAllLessons(data).map((lesson) => lesson.date),
+      getAllLessons(data)
+        .map((lesson) => lesson.date)
+        .filter((date): date is string => date !== null),
       resolvedToday,
     );
 

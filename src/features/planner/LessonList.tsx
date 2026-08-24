@@ -47,7 +47,7 @@ export function LessonList({ data, selectedUnit }: LessonListProps) {
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <ClipboardCheck aria-hidden="true" className="size-3.5" />
-                {lesson.date}
+                {lesson.date ?? "Unscheduled"}
               </span>
             </div>
           </article>

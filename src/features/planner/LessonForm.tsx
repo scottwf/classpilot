@@ -151,18 +151,20 @@ export function LessonForm({
         </label>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field
-            defaultValue={
-              lesson?.date ??
-              initialDate ??
-              unitOptions.find((unit) => unit.id === selectedUnitId)?.startDate
-            }
-            key={selectedUnitId}
-            label="Date"
-            name="date"
-            required
-            type="date"
-          />
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">Date</span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
+              Leave blank to add this lesson to the unit&apos;s sequence
+              without scheduling it yet.
+            </span>
+            <input
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              defaultValue={lesson?.date ?? initialDate ?? undefined}
+              key={selectedUnitId}
+              name="date"
+              type="date"
+            />
+          </label>
           <label className="block">
             <span className="text-sm font-medium text-slate-700">
               Duration minutes
@@ -358,29 +360,5 @@ export function LessonForm({
         </div>
       </aside>
     </form>
-  );
-}
-
-function Field({
-  label,
-  name,
-  ...inputProps
-}: {
-  defaultValue?: string;
-  label: string;
-  name: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
-      <input
-        className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-        name={name}
-        type="text"
-        {...inputProps}
-      />
-    </label>
   );
 }

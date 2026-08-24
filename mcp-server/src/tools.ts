@@ -61,7 +61,13 @@ const sectionsSchema = z
 
 const lessonInputShape = {
   title: z.string().min(1),
-  date: z.string().describe("ISO date, e.g. 2026-09-15."),
+  date: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      "ISO date, e.g. 2026-09-15. Omit or pass null to leave the lesson unscheduled -- it still gets a position in the unit's lesson sequence, just no calendar date yet. Give it a date later with update_lesson once you know when it'll actually be taught.",
+    ),
   durationMinutes: z.number().int().positive(),
   status: statusEnum.default("planned"),
   outcomeIds: z

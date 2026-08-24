@@ -5,6 +5,15 @@ Unit: Use the exact unit title or unit id
 Status: planned
 Outcomes: N6.1, N6.2
 
+<!--
+Date: is optional. Omit the line entirely, or write "Date: TBD", to import
+this lesson without a calendar date -- it still takes its place in the
+unit's lesson sequence (in the order the files are imported), and you can
+give it a real date later from the lesson editor or Plan Book. This is the
+normal way to bulk-import a unit's worth of lessons before you know exactly
+which day each one lands on.
+-->
+
 ## Learning Goals
 - I can ...
 

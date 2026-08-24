@@ -40,7 +40,15 @@ export default async function NewLessonPage({
         .flatMap((unit) =>
           unit.lessons.map((lesson) => ({ ...lesson, unitTitle: unit.title })),
         )
-        .sort((a, b) => a.date.localeCompare(b.date))
+        // Unscheduled lessons (issue #39 -- e.g. imported as a unit's next
+        // sequential lessons before they had real dates) sort last, after
+        // everything that already has a date.
+        .sort((a, b) => {
+          if (a.date === null && b.date === null) return 0;
+          if (a.date === null) return 1;
+          if (b.date === null) return -1;
+          return a.date.localeCompare(b.date);
+        })
     : [];
 
   return (
@@ -58,12 +66,13 @@ export default async function NewLessonPage({
       {params.classId && params.date && existingLessonsForClass.length > 0 ? (
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-950">
-            Or move an existing lesson here
+            Or use an existing lesson
           </h3>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Pick a lesson from this class&apos;s bank to move it to{" "}
-            {params.date} instead of creating a new one — its title,
-            sections, and outcomes come with it.
+            Pick a lesson from this class&apos;s bank — including unscheduled
+            lessons waiting for a date, like the next one imported into a
+            unit — to place it on {params.date} instead of creating a new
+            one. Its title, sections, and outcomes come with it.
           </p>
           <ul className="mt-3 max-h-64 space-y-1.5 overflow-y-auto">
             {existingLessonsForClass.map((lesson) => (
@@ -75,7 +84,7 @@ export default async function NewLessonPage({
                   <p className="truncate font-medium text-slate-950">{lesson.title}</p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
                     <CalendarDays aria-hidden="true" className="size-3.5 shrink-0" />
-                    {lesson.date} · {lesson.unitTitle}
+                    {lesson.date ?? "Unscheduled"} · {lesson.unitTitle}
                   </p>
                 </div>
                 <form action={moveLessonToDateAction}>
@@ -85,7 +94,7 @@ export default async function NewLessonPage({
                     className="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
                     type="submit"
                   >
-                    Move here
+                    {lesson.date ? "Move here" : "Schedule here"}
                   </button>
                 </form>
               </li>

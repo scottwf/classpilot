@@ -106,11 +106,19 @@ export function migrate(db: ClassPilotDatabase) {
       outcome_ids_json TEXT NOT NULL
     );
 
+    -- date is nullable (issue #39): a lesson can exist as part of a unit's
+    -- planned sequence before it's scheduled to a real calendar date.
+    -- sequence is the source of truth for a lesson's position within its
+    -- unit regardless of whether/when it's dated -- see mapLessonPlan and
+    -- the ORDER BY sequence, rowid queries in planner-repository.ts.
+    -- Calendar/schedule views (Plan Book, the ICS feed) filter to dated
+    -- lessons only; unit/lesson-bank views show both.
     CREATE TABLE IF NOT EXISTS lesson_plans (
       id TEXT PRIMARY KEY,
       unit_id TEXT NOT NULL REFERENCES unit_plans(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
-      date TEXT NOT NULL,
+      date TEXT,
+      sequence INTEGER NOT NULL DEFAULT 0,
       duration_minutes INTEGER NOT NULL,
       status TEXT NOT NULL,
       outcome_ids_json TEXT NOT NULL,
@@ -384,6 +392,11 @@ export function migrate(db: ClassPilotDatabase) {
   // src/lib/db/dictation-repository.ts.
   addColumnIfMissing(db, "dictation_recordings", "drafts_json", "TEXT NOT NULL DEFAULT '[]'");
 
+  // Undated, sequenced lessons (issue #39). date's NOT NULL constraint is
+  // dropped by migrateLessonDatesNullable below (SQLite can't ALTER that
+  // away in place); sequence is a plain additive column here.
+  addColumnIfMissing(db, "lesson_plans", "sequence", "INTEGER NOT NULL DEFAULT 0");
+
   // Multi-year scoping. These columns can't carry a NOT NULL DEFAULT in the
   // same ALTER as a REFERENCES clause (SQLite restriction, verified against
   // node:sqlite), so they land nullable and get backfilled below instead.
@@ -396,6 +409,84 @@ export function migrate(db: ClassPilotDatabase) {
 
   backfillSchoolYearScoping(db);
   migrateAwayFromPeriods(db);
+  migrateLessonDatesNullable(db);
+}
+
+// Issue #39: lesson_plans.date was NOT NULL; SQLite can't drop a NOT NULL
+// constraint via ALTER, so existing installs need a table rebuild (same
+// shape as migrateAwayFromPeriods above). Backfills `sequence` per unit
+// from each lesson's current (date, rowid) order, so nothing visually
+// reshuffles for existing data -- new lessons get sequence assigned by
+// createLesson going forward. No-ops once already migrated (date already
+// nullable) or on a brand-new install (base CREATE TABLE above is already
+// nullable).
+function migrateLessonDatesNullable(db: ClassPilotDatabase) {
+  const dateColumn = (
+    db.prepare("PRAGMA table_info(lesson_plans)").all() as Array<{
+      name: string;
+      notnull: number;
+    }>
+  ).find((column) => column.name === "date");
+
+  if (!dateColumn || dateColumn.notnull === 0) {
+    return;
+  }
+
+  // student_notes.lesson_id and attachments.lesson_id both reference
+  // lesson_plans(id) with ON DELETE actions. Verified against node:sqlite
+  // directly: DROP TABLE on a table with incoming foreign keys actually
+  // FIRES those ON DELETE actions (cascading deletes/nulls the dependent
+  // rows) when `PRAGMA foreign_keys = ON` -- `defer_foreign_keys` only
+  // defers the *violation check*, it does NOT stop the action itself, so
+  // it does not help here. The only fix is turning foreign_keys off for
+  // this whole rebuild (which SQLite only honors outside a transaction),
+  // then back on and re-verifying with foreign_key_check before trusting
+  // the result.
+  db.exec("PRAGMA foreign_keys = OFF;");
+  db.exec("BEGIN;");
+  try {
+    db.exec(`
+      CREATE TABLE lesson_plans_new (
+        id TEXT PRIMARY KEY,
+        unit_id TEXT NOT NULL REFERENCES unit_plans(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        date TEXT,
+        sequence INTEGER NOT NULL DEFAULT 0,
+        duration_minutes INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        outcome_ids_json TEXT NOT NULL,
+        sections_json TEXT NOT NULL DEFAULT '{}',
+        summary TEXT NOT NULL,
+        continues_from_lesson_id TEXT REFERENCES lesson_plans(id) ON DELETE SET NULL
+      );
+    `);
+    db.exec(`
+      INSERT INTO lesson_plans_new
+        (id, unit_id, title, date, sequence, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
+      SELECT
+        id, unit_id, title, date,
+        ROW_NUMBER() OVER (PARTITION BY unit_id ORDER BY date, rowid),
+        duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id
+      FROM lesson_plans;
+    `);
+    db.exec("DROP TABLE lesson_plans;");
+    db.exec("ALTER TABLE lesson_plans_new RENAME TO lesson_plans;");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_lesson_plans_unit ON lesson_plans(unit_id);");
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    db.exec("PRAGMA foreign_keys = ON;");
+    throw error;
+  }
+
+  db.exec("PRAGMA foreign_keys = ON;");
+
+  const violations = db.prepare("PRAGMA foreign_key_check(attachments)").all();
+  if (violations.length > 0) {
+    throw new Error(
+      "migrateLessonDatesNullable left dangling attachments.lesson_id references -- aborting.",
+    );
+  }
 }
 
 // Existing installs have a `periods` table (shared bell-schedule times) and

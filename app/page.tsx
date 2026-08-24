@@ -38,7 +38,9 @@ export default async function Home({ searchParams }: HomeProps) {
     params.date ??
     resolvePlanBookDefaultDate(
       plannerData.schoolYear,
-      getAllLessons(plannerData).map((lesson) => lesson.date),
+      getAllLessons(plannerData)
+        .map((lesson) => lesson.date)
+        .filter((date): date is string => date !== null),
       todayKey,
     );
   const noteDates = view === "week" ? getWeekdayDates(selectedDate) : [selectedDate];

@@ -13,7 +13,7 @@ const schoolYear = {
 const dailyClass = { cycleDays: [] as number[] };
 
 function lessonStub(id: string) {
-  return { id, title: id, date: "2026-09-01", durationMinutes: 45, status: "planned" as const, outcomeIds: [], summary: "" };
+  return { id, title: id, date: "2026-09-01", sequence: 1, durationMinutes: 45, status: "planned" as const, outcomeIds: [], summary: "" };
 }
 
 describe("computeUnitPacing", () => {

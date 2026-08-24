@@ -124,7 +124,7 @@ export function LessonDetailPage({
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Date" value={lesson.date} />
+        <Metric label="Date" value={lesson.date ?? "Unscheduled"} />
         <Metric label="Duration" value={`${lesson.durationMinutes} min`} />
         <Metric label="Status" value={lesson.status} />
       </section>

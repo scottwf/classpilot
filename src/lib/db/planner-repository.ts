@@ -70,7 +70,8 @@ type LessonPlanRow = {
   id: string;
   unit_id: string;
   title: string;
-  date: string;
+  date: string | null;
+  sequence: number;
   duration_minutes: number;
   status: LessonPlan["status"];
   outcome_ids_json: string;
@@ -80,7 +81,8 @@ type LessonPlanRow = {
 };
 
 export type CreateLessonInput = {
-  date: string;
+  /** null (or omitted) creates an unscheduled lesson -- issue #39. */
+  date?: string | null;
   durationMinutes: number;
   outcomeIds: string[];
   sections?: LessonSections;
@@ -317,12 +319,13 @@ export function seedPlannerData(
   `);
 
   const insertLesson = db.prepare(`
-    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO lesson_plans (id, unit_id, title, date, sequence, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       unit_id = excluded.unit_id,
       title = excluded.title,
       date = excluded.date,
+      sequence = excluded.sequence,
       duration_minutes = excluded.duration_minutes,
       status = excluded.status,
       outcome_ids_json = excluded.outcome_ids_json,
@@ -387,12 +390,13 @@ export function seedPlannerData(
         JSON.stringify(unit.outcomeIds),
       );
 
-      for (const lesson of unit.lessons) {
+      unit.lessons.forEach((lesson, index) => {
         insertLesson.run(
           lesson.id,
           unit.id,
           lesson.title,
           lesson.date,
+          index + 1,
           lesson.durationMinutes,
           lesson.status,
           JSON.stringify(lesson.outcomeIds),
@@ -400,7 +404,7 @@ export function seedPlannerData(
           lesson.summary,
           lesson.continuesFromLessonId ?? null,
         );
-      }
+      });
     }
 
     db.exec("COMMIT;");
@@ -556,6 +560,18 @@ export function updateSchoolYear(
   }
 }
 
+/** Next `sequence` value for a new lesson in this unit -- one past
+ * whatever's already there, so a fresh lesson always lands at the end of
+ * the unit's order (issue #39). Not exported: only createLesson and the
+ * other lesson-creating paths in this file need it. */
+function nextLessonSequence(db: ClassPilotDatabase, unitId: string): number {
+  const row = db
+    .prepare("SELECT COALESCE(MAX(sequence), 0) AS maxSequence FROM lesson_plans WHERE unit_id = ?")
+    .get(unitId) as { maxSequence: number };
+
+  return row.maxSequence + 1;
+}
+
 export function createLesson(
   db: ClassPilotDatabase,
   userId: string,
@@ -568,13 +584,14 @@ export function createLesson(
   const id = `lesson-${crypto.randomUUID()}`;
 
   db.prepare(`
-    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO lesson_plans (id, unit_id, title, date, sequence, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     input.unitId,
     input.title,
-    input.date,
+    input.date ?? null,
+    nextLessonSequence(db, input.unitId),
     input.durationMinutes,
     input.status,
     JSON.stringify(input.outcomeIds),
@@ -597,7 +614,7 @@ export function getLessonById(
 
   const row = db
     .prepare(
-      "SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id FROM lesson_plans WHERE id = ?",
+      "SELECT id, unit_id, title, date, sequence, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id FROM lesson_plans WHERE id = ?",
     )
     .get(id) as LessonPlanRow | undefined;
 
@@ -635,7 +652,7 @@ export function updateLesson(
   `).run(
     input.unitId,
     input.title,
-    input.date,
+    input.date ?? null,
     input.durationMinutes,
     input.status,
     JSON.stringify(input.outcomeIds),
@@ -704,8 +721,8 @@ export function createUnitWithLessons(
   `);
 
   const insertLesson = db.prepare(`
-    INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO lesson_plans (id, unit_id, title, date, sequence, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   db.exec("BEGIN;");
@@ -721,12 +738,13 @@ export function createUnitWithLessons(
       input.unit.notes ?? "",
     );
 
-    for (const lesson of input.lessons) {
+    input.lessons.forEach((lesson, index) => {
       insertLesson.run(
         `lesson-${crypto.randomUUID()}`,
         unitId,
         lesson.title,
-        lesson.date,
+        lesson.date ?? null,
+        index + 1,
         lesson.durationMinutes,
         lesson.status,
         JSON.stringify(lesson.outcomeIds),
@@ -734,7 +752,7 @@ export function createUnitWithLessons(
         lesson.summary,
         null,
       );
-    }
+    });
 
     db.exec("COMMIT;");
   } catch (error) {
@@ -766,7 +784,7 @@ export function getUnitById(
 
   const lessons = db
     .prepare(
-      "SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id FROM lesson_plans WHERE unit_id = ? ORDER BY date, rowid",
+      "SELECT id, unit_id, title, date, sequence, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id FROM lesson_plans WHERE unit_id = ? ORDER BY sequence, rowid",
     )
     .all(id) as LessonPlanRow[];
 
@@ -1084,6 +1102,12 @@ export function duplicateLessonAsContinuation(
     throw notFound("Lesson", sourceLessonId);
   }
 
+  if (!source.date) {
+    throw new Error(
+      "Can't extend an unscheduled lesson to another day -- give it a date first.",
+    );
+  }
+
   const unit = getUnitById(db, userId, source.unitId);
 
   if (!unit) {
@@ -1147,10 +1171,10 @@ export function getPlannerData(db: ClassPilotDatabase, userId: string): PlannerD
 
   const lessons = db
     .prepare(
-      `SELECT id, unit_id, title, date, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id
+      `SELECT id, unit_id, title, date, sequence, duration_minutes, status, outcome_ids_json, sections_json, summary, continues_from_lesson_id
        FROM lesson_plans
        WHERE unit_id IN (SELECT id FROM unit_plans WHERE class_id IN (SELECT id FROM class_sections WHERE school_year_id = ?))
-       ORDER BY date, rowid`,
+       ORDER BY sequence, rowid`,
     )
     .all(activeYearId) as LessonPlanRow[];
 
@@ -1245,6 +1269,7 @@ function mapLessonPlan(row: LessonPlanRow): LessonPlan {
     id: row.id,
     title: row.title,
     date: row.date,
+    sequence: row.sequence,
     durationMinutes: row.duration_minutes,
     status: row.status,
     outcomeIds: JSON.parse(row.outcome_ids_json) as string[],

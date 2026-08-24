@@ -105,3 +105,116 @@ describe("migrateAwayFromPeriods (via migrate())", () => {
     expect(() => migrate(db)).not.toThrow();
   });
 });
+
+describe("migrateLessonDatesNullable (via migrate())", () => {
+  function buildPreMigrationSchema(db: DatabaseSync) {
+    // Hand-built pre-#39 shape: date NOT NULL, no sequence column, plus
+    // dependents (student_notes.lesson_id, attachments.lesson_id) that
+    // reference lesson_plans(id) -- exactly what a real production
+    // install has, and the reason the migration needs defer_foreign_keys.
+    db.exec(`
+      CREATE TABLE school_years (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        blocked_dates_json TEXT NOT NULL
+      );
+      CREATE TABLE class_sections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL
+      );
+      CREATE TABLE unit_plans (
+        id TEXT PRIMARY KEY,
+        class_id TEXT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        color TEXT NOT NULL,
+        outcome_ids_json TEXT NOT NULL
+      );
+      CREATE TABLE lesson_plans (
+        id TEXT PRIMARY KEY,
+        unit_id TEXT NOT NULL REFERENCES unit_plans(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        date TEXT NOT NULL,
+        duration_minutes INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        outcome_ids_json TEXT NOT NULL,
+        sections_json TEXT NOT NULL DEFAULT '{}',
+        summary TEXT NOT NULL
+      );
+      CREATE TABLE attachments (
+        id TEXT PRIMARY KEY,
+        unit_id TEXT REFERENCES unit_plans(id) ON DELETE CASCADE,
+        lesson_id TEXT REFERENCES lesson_plans(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,
+        label TEXT NOT NULL
+      );
+    `);
+
+    db.prepare(
+      "INSERT INTO class_sections (id, name) VALUES ('class-1', 'Math 6')",
+    ).run();
+    db.prepare(
+      "INSERT INTO unit_plans (id, class_id, title, start_date, end_date, color, outcome_ids_json) VALUES ('unit-1', 'class-1', 'Fractions', '2026-09-01', '2026-09-30', 'blue', '[]')",
+    ).run();
+    db.prepare(
+      "INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, summary) VALUES (?, 'unit-1', ?, ?, 50, 'planned', '[]', '')",
+    ).run("lesson-2", "Second", "2026-09-08");
+    db.prepare(
+      "INSERT INTO lesson_plans (id, unit_id, title, date, duration_minutes, status, outcome_ids_json, summary) VALUES (?, 'unit-1', ?, ?, 50, 'planned', '[]', '')",
+    ).run("lesson-1", "First", "2026-09-01");
+    db.prepare(
+      "INSERT INTO attachments (id, lesson_id, kind, label) VALUES ('att-1', 'lesson-1', 'link', 'Reference')",
+    ).run();
+  }
+
+  it("drops the NOT NULL constraint on date and backfills sequence from existing (date, rowid) order per unit", () => {
+    const db = new DatabaseSync(temporaryDatabasePath());
+    db.exec("PRAGMA foreign_keys = ON;");
+    buildPreMigrationSchema(db);
+
+    migrate(db);
+
+    const lessons = db
+      .prepare("SELECT id, date, sequence FROM lesson_plans ORDER BY sequence")
+      .all() as Array<{ id: string; date: string; sequence: number }>;
+
+    expect(lessons).toEqual([
+      { id: "lesson-1", date: "2026-09-01", sequence: 1 },
+      { id: "lesson-2", date: "2026-09-08", sequence: 2 },
+    ]);
+
+    // The dropped-NOT-NULL constraint actually works now.
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO lesson_plans (id, unit_id, title, date, sequence, duration_minutes, status, outcome_ids_json, summary) VALUES ('lesson-3', 'unit-1', 'Third', NULL, 3, 50, 'planned', '[]', '')",
+        )
+        .run(),
+    ).not.toThrow();
+  });
+
+  it("preserves rows in tables that reference lesson_plans(id)", () => {
+    const db = new DatabaseSync(temporaryDatabasePath());
+    db.exec("PRAGMA foreign_keys = ON;");
+    buildPreMigrationSchema(db);
+
+    migrate(db);
+
+    const attachment = db
+      .prepare("SELECT lesson_id FROM attachments WHERE id = 'att-1'")
+      .get() as { lesson_id: string } | undefined;
+    expect(attachment?.lesson_id).toBe("lesson-1");
+  });
+
+  it("is idempotent — running migrate() again after migration doesn't throw", () => {
+    const db = new DatabaseSync(temporaryDatabasePath());
+    db.exec("PRAGMA foreign_keys = ON;");
+    buildPreMigrationSchema(db);
+    migrate(db);
+
+    expect(() => migrate(db)).not.toThrow();
+  });
+});

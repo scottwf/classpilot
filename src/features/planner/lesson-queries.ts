@@ -73,7 +73,7 @@ export function getLessonsForWeek(
 
   return sortByDate(
     getAllLessons(data).filter(
-      (lesson) => lesson.date >= start && lesson.date <= end,
+      (lesson) => lesson.date !== null && lesson.date >= start && lesson.date <= end,
     ),
   );
 }
@@ -260,7 +260,11 @@ function sortByDate(lessons: EnrichedLesson[]): EnrichedLesson[] {
   );
 }
 
-function compareStrings(left: string, right: string): number {
+/** Nulls (unscheduled lessons) sort last. */
+function compareStrings(left: string | null, right: string | null): number {
+  if (left === right) return 0;
+  if (left === null) return 1;
+  if (right === null) return -1;
   return left.localeCompare(right, "en-CA");
 }
 

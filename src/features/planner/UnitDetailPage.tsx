@@ -200,7 +200,7 @@ export function UnitDetailPage({
                   <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
                     <span className="inline-flex items-center gap-1.5">
                       <CalendarDays aria-hidden="true" className="size-3.5" />
-                      {lesson.date}
+                      {lesson.date ?? "Unscheduled"}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Clock3 aria-hidden="true" className="size-3.5" />

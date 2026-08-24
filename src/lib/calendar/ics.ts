@@ -33,7 +33,12 @@ export function buildIcsCalendar({
   lessons,
   now = new Date(),
 }: BuildIcsCalendarInput): string {
-  return renderCalendar(calendarName, lessons.map(lessonToEvent), now);
+  // Undated lessons (issue #39) have nothing to put on a calendar.
+  const datedLessons = lessons.filter(
+    (lesson): lesson is EnrichedLesson & { date: string } => lesson.date !== null,
+  );
+
+  return renderCalendar(calendarName, datedLessons.map(lessonToEvent), now);
 }
 
 type CalendarFeedSchoolYear = Pick<
@@ -124,7 +129,7 @@ export function buildClassScheduleIcsCalendar({
   return renderCalendar(calendarName, events, now);
 }
 
-function lessonToEvent(lesson: EnrichedLesson): IcsEvent {
+function lessonToEvent(lesson: EnrichedLesson & { date: string }): IcsEvent {
   return {
     uid: lesson.id,
     summary: `${lesson.subject}: ${lesson.title}`,

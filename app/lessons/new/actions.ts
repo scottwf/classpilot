@@ -93,7 +93,7 @@ export async function createLessonAction(formData: FormData) {
   const userId = await requireAuth();
 
   const title = requiredString(formData, "title");
-  const date = requiredString(formData, "date");
+  const date = optionalString(formData, "date");
   const unitId = requiredString(formData, "unitId");
   const sections = readLessonSections(formData);
   const summary = lessonSummaryFromSections(
@@ -135,6 +135,12 @@ export async function moveLessonToDateAction(formData: FormData) {
   updateLessonDate(getClassPilotDatabase(), userId, { date, id: lessonId });
 
   redirect(`/?date=${date}`);
+}
+
+/** Empty string means "leave unscheduled" for the date field (issue #39). */
+function optionalString(formData: FormData, key: string): string | null {
+  const value = String(formData.get(key) ?? "").trim();
+  return value || null;
 }
 
 function requiredString(formData: FormData, key: string): string {

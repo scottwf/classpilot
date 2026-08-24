@@ -23,7 +23,16 @@ export type CurriculumOutcome = {
 export type LessonPlan = {
   id: string;
   title: string;
-  date: string;
+  /** null means unscheduled -- a planned lesson in its unit's sequence with
+   * no calendar date assigned yet (issue #39). Calendar/schedule views
+   * (Plan Book, the ICS feed) only ever show dated lessons; unit/lesson-
+   * bank views show both, ordered by `sequence`. */
+  date: string | null;
+  /** This lesson's position within its unit, independent of whether/when
+   * it's dated -- the source of truth for unit order (issue #39). Assigned
+   * automatically at creation (next available in the unit); no manual
+   * reordering yet. */
+  sequence: number;
   durationMinutes: number;
   status: LessonStatus;
   outcomeIds: string[];

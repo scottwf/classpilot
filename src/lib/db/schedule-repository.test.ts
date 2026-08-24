@@ -361,7 +361,7 @@ describe("schedule repository", () => {
     const movedLesson = unit?.lessons.find((lesson) => lesson.id === lessonId);
     expect(movedLesson?.date).not.toBe(displacedDate);
     expect(movedLesson?.date).toBeDefined();
-    if (movedLesson) {
+    if (movedLesson?.date) {
       expect(movedLesson.date > windowEnd).toBe(true);
     }
   });
