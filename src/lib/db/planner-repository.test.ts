@@ -242,6 +242,49 @@ describe("planner repository", () => {
     });
   });
 
+  it("creates undated lessons and assigns sequence in creation order per unit (#39)", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+
+    seedPlannerData(db, userId, plannerData);
+
+    const firstId = createLesson(db, userId, {
+      date: null,
+      durationMinutes: 45,
+      outcomeIds: [],
+      status: "planned",
+      summary: "First unscheduled lesson.",
+      title: "Unscheduled A",
+      unitId: "unit-ratios",
+    });
+    const secondId = createLesson(db, userId, {
+      // Omitted entirely, not just null -- both must behave the same.
+      durationMinutes: 45,
+      outcomeIds: [],
+      status: "planned",
+      summary: "Second unscheduled lesson.",
+      title: "Unscheduled B",
+      unitId: "unit-ratios",
+    });
+
+    const first = getLessonById(db, userId, firstId);
+    const second = getLessonById(db, userId, secondId);
+
+    expect(first?.date).toBeNull();
+    expect(second?.date).toBeNull();
+    // unit-ratios already has 2 seeded lessons (sequence 1 and 2).
+    expect(first?.sequence).toBe(3);
+    expect(second?.sequence).toBe(4);
+
+    const unit = getUnitById(db, userId, "unit-ratios");
+    expect(unit?.lessons.map((lesson) => lesson.id)).toEqual([
+      "lesson-ratio-language",
+      "lesson-percent-benchmarks",
+      firstId,
+      secondId,
+    ]);
+  });
+
   it("updates an existing lesson and returns the edited values", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     const userId = createUser(db, { username: "teacher", password: "x" }).id;
