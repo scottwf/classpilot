@@ -2,12 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
-import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { getClassPilotDatabase, getClassPilotDatabasePath } from "@/src/lib/db/classpilot-db";
 import {
   deleteSchoolYear,
   resetPlannerData,
   setActiveSchoolYear,
 } from "@/src/lib/db/planner-repository";
+import { backupBeforeSchoolYearDelete } from "@/src/lib/db/school-year-backup";
 import { getAppSettings, updateAppSettings } from "@/src/lib/db/settings-repository";
 import { listProviderModels } from "@/src/lib/ai/provider";
 import { AiError } from "@/src/lib/ai/types";
@@ -134,8 +135,19 @@ export async function deleteSchoolYearAction(formData: FormData) {
     redirect("/settings?error=year");
   }
 
+  const db = getClassPilotDatabase();
+
+  // Confirmation happens client-side (DeleteSchoolYearButton); this backup
+  // is the actual safety net (issue #37) -- if it fails, nothing is
+  // deleted, since a snapshot is the whole point of doing this first.
   try {
-    deleteSchoolYear(getClassPilotDatabase(), userId, id);
+    await backupBeforeSchoolYearDelete(db, getClassPilotDatabasePath(), id);
+  } catch {
+    redirect("/settings?error=delete-backup-failed");
+  }
+
+  try {
+    deleteSchoolYear(db, userId, id);
   } catch (error) {
     const code =
       error instanceof Error && error.message.startsWith("Can't delete the active school year")
@@ -144,7 +156,7 @@ export async function deleteSchoolYearAction(formData: FormData) {
     redirect(`/settings?error=${code}`);
   }
 
-  redirect("/settings");
+  redirect("/settings?saved=deleted");
 }
 
 /**

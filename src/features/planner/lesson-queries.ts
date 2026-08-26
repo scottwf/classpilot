@@ -202,9 +202,33 @@ export function getWeekdayDates(dateKey: string): string[] {
 }
 
 /** Plain calendar-day shift (not instructional-day aware) — for the Plan
- * Book's prev/next day and prev/next week navigation. */
+ * Book's prev/next week navigation. */
 export function shiftDateKey(dateKey: string, days: number): string {
   return toDateKey(addDays(parseDate(dateKey), days));
+}
+
+/**
+ * Shifts by `days` weekdays, skipping Saturdays and Sundays entirely --
+ * for the Plan Book's day-view prev/next (issue #40: a teacher never has
+ * anything scheduled on a weekend, so landing on one is never useful).
+ * Always steps forward at least once before checking, so starting from a
+ * weekend itself (e.g. after a manual jump-to-date) still lands on the
+ * next real weekday in the requested direction rather than getting stuck.
+ */
+export function shiftToWeekday(dateKey: string, days: number): string {
+  let date = parseDate(dateKey);
+  const step = days < 0 ? -1 : 1;
+  let remaining = Math.abs(days);
+
+  while (remaining > 0) {
+    date = addDays(date, step);
+    const day = date.getUTCDay();
+    if (day !== 0 && day !== 6) {
+      remaining -= 1;
+    }
+  }
+
+  return toDateKey(date);
 }
 
 /**

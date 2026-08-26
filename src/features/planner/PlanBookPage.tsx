@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarPlus } from "lucide-react";
 import { buildDayAgenda } from "./day-agenda";
+import { getDayInfo } from "./cycle";
 import { DailyPlanner } from "./DailyPlanner";
 import { DashboardStats } from "./DashboardStats";
 import {
@@ -58,6 +59,9 @@ export function PlanBookPage({
     days.flatMap((day) => day.entries.flatMap((entry) => (entry.lesson ? [entry.lesson.id] : []))),
   );
   const otherLessons = lessonsInRange.filter((lesson) => !scheduledLessonIds.has(lesson.id));
+  const dayInfoByDate = Object.fromEntries(
+    dates.map((date) => [date, getDayInfo(data.schoolYear, date)]),
+  );
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
@@ -71,6 +75,7 @@ export function PlanBookPage({
 
         <DailyPlanner
           date={selectedDate}
+          dayInfoByDate={dayInfoByDate}
           dayNotes={dayNotes}
           days={days}
           otherLessons={otherLessons}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { shiftDateKey } from "./lesson-queries";
+import { shiftDateKey, shiftToWeekday } from "./lesson-queries";
 
 type PlanBookNavProps = {
   date: string;
@@ -15,9 +15,11 @@ const navButtonClass =
  * day view steps by 1 calendar day, week view by 7. Plain links/form (no
  * client JS) so this stays a server component. */
 export function PlanBookNav({ date, todayDate, view }: PlanBookNavProps) {
-  const stepDays = view === "week" ? 7 : 1;
-  const prevDate = shiftDateKey(date, -stepDays);
-  const nextDate = shiftDateKey(date, stepDays);
+  // Week view always steps by 7 calendar days (same weekday every time, so
+  // weekends never come up as a *target*); day view skips weekends outright
+  // since a teacher never has anything scheduled on one (issue #40).
+  const prevDate = view === "week" ? shiftDateKey(date, -7) : shiftToWeekday(date, -1);
+  const nextDate = view === "week" ? shiftDateKey(date, 7) : shiftToWeekday(date, 1);
 
   return (
     <div className="flex flex-wrap items-center gap-2">

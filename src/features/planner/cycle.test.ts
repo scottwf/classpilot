@@ -3,6 +3,7 @@ import {
   buildCycleDayMap,
   getClassMeetingDates,
   getCycleDayForDate,
+  getDayInfo,
   getDayLabel,
   getNextClassMeetingDate,
 } from "./cycle";
@@ -169,5 +170,32 @@ describe("getDayLabel", () => {
 
   it("falls back to numeric for odd-even beyond a 2-day cycle", () => {
     expect(getDayLabel("odd-even", 3)).toBe("Day 3");
+  });
+});
+
+describe("getDayInfo", () => {
+  const numericSchoolYear = { ...schoolYear, dayLabelScheme: "numeric" as const };
+
+  it("labels an instructional day with its cycle day", () => {
+    expect(getDayInfo(numericSchoolYear, "2026-09-01")).toEqual({
+      kind: "instructional",
+      cycleDay: 1,
+      label: "Day 1",
+    });
+  });
+
+  it("labels a blocked day with its own label, not a cycle day", () => {
+    expect(getDayInfo(numericSchoolYear, "2026-09-04")).toEqual({
+      kind: "blocked",
+      label: "PD Day",
+    });
+  });
+
+  it("labels a weekend distinctly, even one with no blocked-date entry", () => {
+    expect(getDayInfo(numericSchoolYear, "2026-09-05")).toEqual({ kind: "weekend" });
+  });
+
+  it("returns undefined outside the school year's range", () => {
+    expect(getDayInfo(numericSchoolYear, "2026-10-01")).toBeUndefined();
   });
 });

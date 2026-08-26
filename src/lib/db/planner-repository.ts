@@ -10,7 +10,7 @@ import type {
   UnitPlan,
 } from "@/src/features/planner/types";
 import { getClassMeetingDates, getNextClassMeetingDate } from "@/src/features/planner/cycle";
-import { computeCascadeShift } from "@/src/features/planner/reschedule";
+import { assignSequentialMeetingDates, computeCascadeShift } from "@/src/features/planner/reschedule";
 import type { ClassPilotDatabase } from "./sqlite";
 
 // The id of the first ever school year (seeded on a fresh install). Not a
@@ -1094,6 +1094,73 @@ export function cascadeRescheduleUnitLessons(
   }
 
   return { shiftedLessonIds: shifts.map((shift) => shift.id) };
+}
+
+export type AutoScheduleResult = {
+  scheduledLessonIds: string[];
+};
+
+/**
+ * Fills in every undated lesson in a unit onto the class's next available
+ * actual meeting days, in sequence order (issue #44) -- the fix for a
+ * bulk-imported unit's lessons landing entirely unscheduled, needing to be
+ * placed one at a time via the lesson editor's "use an existing lesson"
+ * picker. Starts the day after the unit's latest already-dated lesson (if
+ * it has one) so newly-scheduled lessons continue the sequence rather than
+ * potentially landing before/on top of it; otherwise starts at the unit's
+ * own startDate. A no-op (returns an empty result) if the unit has no
+ * undated lessons.
+ */
+export function autoScheduleUnitLessons(
+  db: ClassPilotDatabase,
+  userId: string,
+  unitId: string,
+): AutoScheduleResult {
+  const unit = getUnitById(db, userId, unitId);
+
+  if (!unit) {
+    throw notFound("Unit", unitId);
+  }
+
+  const classSection = getClassById(db, userId, unit.classId);
+
+  if (!classSection) {
+    throw new Error(`Class not found for unit: ${unitId}`);
+  }
+
+  const schoolYear = getSchoolYearById(db, userId, classSection.schoolYearId);
+  const scheduleSlots = getScheduleSlotRowsForClass(db, classSection.id);
+  const meetingDates = getClassMeetingDates(schoolYear, classSection, scheduleSlots);
+
+  const latestDatedDate = unit.lessons
+    .map((lesson) => lesson.date)
+    .filter((date): date is string => date !== null)
+    .sort()
+    .at(-1);
+  const fromDate = latestDatedDate
+    ? (meetingDates.find((date) => date > latestDatedDate) ?? unit.startDate)
+    : unit.startDate;
+
+  const assignments = assignSequentialMeetingDates(unit.lessons, meetingDates, fromDate);
+
+  if (assignments.length === 0) {
+    return { scheduledLessonIds: [] };
+  }
+
+  const updateLessonDateStmt = db.prepare("UPDATE lesson_plans SET date = ? WHERE id = ?");
+
+  db.exec("BEGIN;");
+  try {
+    for (const assignment of assignments) {
+      updateLessonDateStmt.run(assignment.date, assignment.id);
+    }
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  }
+
+  return { scheduledLessonIds: assignments.map((assignment) => assignment.id) };
 }
 
 export type DuplicateLessonResult = {

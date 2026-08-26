@@ -56,6 +56,51 @@ export function computeCascadeShift(
     }));
 }
 
+export type LessonDateAssignment = {
+  id: string;
+  date: string;
+};
+
+/**
+ * Assigns the next available *class meeting* dates (in order) to every
+ * undated lesson in a unit, in sequence order -- issue #44: a bulk-imported
+ * unit's lessons land unscheduled, and this fills them onto the calendar
+ * automatically instead of one at a time via the lesson editor's picker.
+ * Already-dated lessons in the unit are left untouched, and their dates
+ * are excluded as candidates so two lessons never land on the same day.
+ * If there aren't enough meeting dates left in the year, the remaining
+ * lessons stack onto the last available date rather than being dropped --
+ * same overflow behavior as scheduleLessonDates/shiftDateByInstructionalDays
+ * elsewhere in this file.
+ */
+export function assignSequentialMeetingDates(
+  lessons: Array<{ id: string; date: string | null }>,
+  meetingDates: string[],
+  fromDate: string,
+): LessonDateAssignment[] {
+  const undated = lessons.filter((lesson) => lesson.date === null);
+
+  if (undated.length === 0) {
+    return [];
+  }
+
+  const usedDates = new Set(
+    lessons.map((lesson) => lesson.date).filter((date): date is string => date !== null),
+  );
+  const candidates = meetingDates.filter((date) => date >= fromDate && !usedDates.has(date));
+  const overflowDate = candidates.at(-1) ?? meetingDates.at(-1);
+
+  if (!overflowDate) {
+    // The class has no meeting dates at all this year -- nothing to assign.
+    return [];
+  }
+
+  return undated.map((lesson, index) => ({
+    id: lesson.id,
+    date: index < candidates.length ? candidates[index] : overflowDate,
+  }));
+}
+
 function findAnchorIndex(dateKey: string, days: string[]): number {
   const exact = days.indexOf(dateKey);
 
