@@ -18,12 +18,16 @@ import {
   createStudent,
   createSupportPlan,
   deleteStudent,
+  getPrimaryContactMap,
   getStudentProfile,
   isRosterSeeded,
   listRoster,
   setNoteFollowUpStatus,
+  setPrimaryContactField,
   setReminderStatus,
+  updateContact,
   updateStudent,
+  updateStudentField,
 } from "./students-repository";
 
 function freshDatabase() {
@@ -105,6 +109,94 @@ describe("students repository", () => {
     const profile = getStudentProfile(db, userId, studentId);
     expect(profile?.pronouns).toBe("they/them");
     expect(profile?.status).toBe("transferred");
+  });
+
+  it("patches a single field via updateStudentField without touching the rest", () => {
+    const { db, userId } = freshDatabase();
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
+      firstName: "Jordan",
+      lastName: "Bear",
+      pronouns: "they/them",
+    });
+
+    updateStudentField(db, userId, studentId, "birthdate", "2016-04-02");
+
+    const profile = getStudentProfile(db, userId, studentId);
+    expect(profile?.birthdate).toBe("2016-04-02");
+    expect(profile?.pronouns).toBe("they/them");
+    expect(profile?.firstName).toBe("Jordan");
+  });
+
+  it("rejects updateStudentField for a student owned by another user (IDOR check)", () => {
+    const { db, userId } = freshDatabase();
+    const otherUserId = createUser(db, { username: "other", password: "x" }).id;
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
+      firstName: "Jordan",
+      lastName: "Bear",
+    });
+
+    expect(() =>
+      updateStudentField(db, otherUserId, studentId, "birthdate", "2016-04-02"),
+    ).toThrow("not found");
+  });
+
+  it("updates an existing contact in place", () => {
+    const { db, userId } = freshDatabase();
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
+      firstName: "Jordan",
+      lastName: "Bear",
+    });
+    const contactId = createContact(db, userId, {
+      studentId,
+      name: "Sam Bear",
+      email: "sam@example.com",
+      isPrimary: true,
+    });
+
+    updateContact(db, userId, {
+      id: contactId,
+      studentId,
+      name: "Sam Bear",
+      email: "sam@example.com",
+      phone: "555-0100",
+      isPrimary: true,
+    });
+
+    const profile = getStudentProfile(db, userId, studentId);
+    expect(profile?.contacts).toHaveLength(1);
+    expect(profile?.contacts[0].phone).toBe("555-0100");
+  });
+
+  it("sets a primary contact field, creating the contact if none exists", () => {
+    const { db, userId } = freshDatabase();
+    const studentId = createStudent(db, userId, {
+      schoolYearId: "current",
+      firstName: "Jordan",
+      lastName: "Bear",
+    });
+
+    setPrimaryContactField(db, userId, studentId, "phone", "555-0100");
+
+    expect(getPrimaryContactMap(db, userId, "current")).toEqual({
+      [studentId]: { id: expect.any(String), name: "", email: "", phone: "555-0100" },
+    });
+
+    setPrimaryContactField(db, userId, studentId, "email", "sam@example.com");
+
+    expect(getPrimaryContactMap(db, userId, "current")).toEqual({
+      [studentId]: {
+        id: expect.any(String),
+        name: "",
+        email: "sam@example.com",
+        phone: "555-0100",
+      },
+    });
+
+    const profile = getStudentProfile(db, userId, studentId);
+    expect(profile?.contacts).toHaveLength(1);
   });
 
   it("summarizes open follow-ups and reminders on the roster", () => {

@@ -303,8 +303,23 @@ export function migrate(db: ClassPilotDatabase) {
       UNIQUE(field_id, student_id)
     );
 
+    -- A named, saved column-visibility set for the roster grid (e.g.
+    -- "Textbook check": name + status + the textbook custom field only),
+    -- so a teacher doesn't have to re-pick columns every time. columns_json
+    -- is a plain string array mixing built-in column keys ("birthdate",
+    -- "contactPhone", ...) and custom field keys ("field:<roster_field id>")
+    -- -- see COLUMN_KEYS in RosterGrid.tsx for the built-in key list.
+    CREATE TABLE IF NOT EXISTS roster_views (
+      id TEXT PRIMARY KEY,
+      school_year_id TEXT NOT NULL REFERENCES school_years(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      columns_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_roster_fields_year ON roster_fields(school_year_id, position);
     CREATE INDEX IF NOT EXISTS idx_roster_field_values_student ON roster_field_values(student_id);
+    CREATE INDEX IF NOT EXISTS idx_roster_views_year ON roster_views(school_year_id);
 
     CREATE INDEX IF NOT EXISTS idx_students_year ON students(school_year_id, last_name);
     CREATE INDEX IF NOT EXISTS idx_contacts_student ON student_contacts(student_id);
