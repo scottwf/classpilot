@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, Mic, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Download, Mic, Pencil, Plus, Printer, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { calculateAge } from "./age";
 import type { PrimaryContact, RosterEntry, RosterField, RosterView, StudentStatus } from "./types";
@@ -101,6 +101,8 @@ export function RosterGrid({
   const [search, setSearch] = useState("");
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [cellStatus, setCellStatus] = useState<Record<string, "error" | undefined>>({});
+  const [sortColumn, setSortColumn] = useState<string>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const filteredRoster = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -111,6 +113,28 @@ export function RosterGrid({
       return true;
     });
   }, [roster, statusFilter, search]);
+
+  function sortValue(column: string, student: RosterEntry): string {
+    return column === "name" ? studentName(student) : initialValue(column, student);
+  }
+
+  const sortedRoster = useMemo(() => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+
+    return [...filteredRoster].sort(
+      (left, right) => direction * sortValue(sortColumn, left).localeCompare(sortValue(sortColumn, right)),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sortValue closes over fieldValues/primaryContacts, already deps of filteredRoster's inputs
+  }, [filteredRoster, sortColumn, sortDirection]);
+
+  function toggleSort(column: string) {
+    if (sortColumn === column) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  }
 
   function initialValue(column: string, student: RosterEntry): string {
     if (column.startsWith("field:")) {
@@ -420,6 +444,23 @@ export function RosterGrid({
             </div>
 
             <button
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              onClick={() => window.print()}
+              type="button"
+            >
+              <Printer aria-hidden="true" className="size-3.5" />
+              Print
+            </button>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              onClick={() => downloadCsv(sortedRoster, orderedVisibleColumns, fields, initialValue)}
+              type="button"
+            >
+              <Download aria-hidden="true" className="size-3.5" />
+              Download CSV
+            </button>
+
+            <button
               className={`ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium shadow-sm ${
                 editMode
                   ? "border-blue-600 bg-blue-600 text-white"
@@ -437,16 +478,27 @@ export function RosterGrid({
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
-                  <th className="whitespace-nowrap px-3 py-2">Student</th>
+                  <SortableHeader
+                    column="name"
+                    label="Student"
+                    onSort={toggleSort}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                  />
                   {orderedVisibleColumns.map((column) => (
-                    <th className="whitespace-nowrap px-3 py-2" key={column}>
-                      {columnLabel(column, fields)}
-                    </th>
+                    <SortableHeader
+                      column={column}
+                      key={column}
+                      label={columnLabel(column, fields)}
+                      onSort={toggleSort}
+                      sortColumn={sortColumn}
+                      sortDirection={sortDirection}
+                    />
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filteredRoster.map((student) => (
+                {sortedRoster.map((student) => (
                   <tr className="border-b border-slate-100 last:border-0" key={student.id}>
                     <td className="whitespace-nowrap px-3 py-1.5 font-medium text-slate-950">
                       <Link className="hover:text-blue-700" href={`/students/${student.id}`}>
@@ -525,10 +577,110 @@ export function RosterGrid({
               </tbody>
             </table>
           </div>
+
+          <div className="print-only hidden">
+            <h2 className="text-lg font-semibold text-slate-950">Class list</h2>
+            <p className="mb-3 text-xs text-slate-500">
+              Printed {new Date().toLocaleDateString()} · {sortedRoster.length} student
+              {sortedRoster.length === 1 ? "" : "s"}
+            </p>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b-2 border-slate-950 text-left text-xs font-semibold uppercase">
+                  <th className="py-1 pr-3">Student</th>
+                  {orderedVisibleColumns.map((column) => (
+                    <th className="py-1 pr-3" key={column}>
+                      {columnLabel(column, fields)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRoster.map((student) => (
+                  <tr className="border-b border-slate-300" key={student.id}>
+                    <td className="py-1 pr-3">{studentName(student)}</td>
+                    {orderedVisibleColumns.map((column) => (
+                      <td className="py-1 pr-3" key={column}>
+                        {initialValue(column, student) || "—"}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </>
   );
+}
+
+function SortableHeader({
+  column,
+  label,
+  onSort,
+  sortColumn,
+  sortDirection,
+}: {
+  column: string;
+  label: string;
+  onSort: (column: string) => void;
+  sortColumn: string;
+  sortDirection: "asc" | "desc";
+}) {
+  const isActive = sortColumn === column;
+
+  return (
+    <th className="whitespace-nowrap px-3 py-2">
+      <button
+        className="inline-flex items-center gap-1 hover:text-slate-950"
+        onClick={() => onSort(column)}
+        type="button"
+      >
+        {label}
+        {isActive ? (
+          sortDirection === "asc" ? (
+            <ArrowUp aria-hidden="true" className="size-3" />
+          ) : (
+            <ArrowDown aria-hidden="true" className="size-3" />
+          )
+        ) : null}
+      </button>
+    </th>
+  );
+}
+
+function downloadCsv(
+  roster: RosterEntry[],
+  columns: string[],
+  fields: RosterField[],
+  getValue: (column: string, student: RosterEntry) => string,
+) {
+  const headers = ["Student", ...columns.map((column) => columnLabel(column, fields))];
+  const rows = roster.map((student) => [
+    studentName(student),
+    ...columns.map((column) => getValue(column, student)),
+  ]);
+
+  const csv = [headers, ...rows]
+    .map((row) => row.map(escapeCsvValue).join(","))
+    .join("\r\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `class-list-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsvValue(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  return value;
 }
 
 function columnLabel(column: string, fields: RosterField[]): string {

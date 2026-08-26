@@ -26,3 +26,25 @@ textarea,
 select {
   font: inherit;
 }
+
+/* Print-only content (e.g. the roster's "Print class list" view, issue
+   #41) -- hides everything else (nav, sidebar, interactive grid chrome)
+   and prints only the element with .print-only, regardless of where it
+   sits in the page's markup. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .print-only,
+  .print-only * {
+    visibility: visible;
+  }
+
+  .print-only {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+}

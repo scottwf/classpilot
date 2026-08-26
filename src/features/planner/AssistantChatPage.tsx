@@ -5,6 +5,7 @@ import { AlertTriangle, Bot, Send, Wrench } from "lucide-react";
 import { useState } from "react";
 import { sendChatMessageAction } from "@/app/assistant/chat-actions";
 import type { OrchestratorMessage, ToolCallRecord } from "@/src/lib/assistant/chat";
+import { parseAssistantMessage, type InlineSegment } from "@/src/lib/assistant/format-message";
 
 type ChatTurn =
   | { role: "user"; content: string }
@@ -35,6 +36,7 @@ const toolLabels: Record<string, (record: ToolCallRecord) => string> = {
   create_student: (record) =>
     `Added student: ${record.arguments.firstName ?? ""} ${record.arguments.lastName ?? ""}`.trim(),
   create_student_note: () => "Added a student note",
+  create_contact: (record) => `Added contact: ${record.arguments.name ?? ""}`.trim(),
 };
 
 function summarizeToolCall(record: ToolCallRecord): string {
@@ -51,8 +53,7 @@ export function AssistantChatPage({ aiConfigured, aiLocalConfigured }: Assistant
   const [error, setError] = useState<string>();
   const [lastDriver, setLastDriver] = useState<"local" | "hosted">();
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function sendMessage() {
     const text = input.trim();
     if (!text || isSending) return;
 
@@ -76,6 +77,20 @@ export function AssistantChatPage({ aiConfigured, aiLocalConfigured }: Assistant
       ...previous,
       { content: result.reply, role: "assistant", toolCalls: result.toolCalls },
     ]);
+  }
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    void sendMessage();
+  }
+
+  function handleInputKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter sends the message; Shift+Enter inserts a newline (the textarea's
+    // own default behavior, so just don't intercept it) -- issue #43.
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void sendMessage();
+    }
   }
 
   return (
@@ -146,7 +161,11 @@ export function AssistantChatPage({ aiConfigured, aiLocalConfigured }: Assistant
                     Assistant
                   </div>
                 ) : null}
-                <p className="whitespace-pre-wrap">{turn.content}</p>
+                {turn.role === "assistant" ? (
+                  <AssistantMessageContent content={turn.content} />
+                ) : (
+                  <p className="whitespace-pre-wrap">{turn.content}</p>
+                )}
                 {turn.role === "assistant" && turn.toolCalls.length > 0 ? (
                   <ul className="mt-2 space-y-1 border-t border-slate-200 pt-2">
                     {turn.toolCalls.map((record, callIndex) => (
@@ -190,11 +209,13 @@ export function AssistantChatPage({ aiConfigured, aiLocalConfigured }: Assistant
         ) : null}
 
         <form className="flex gap-2 border-t border-slate-200 p-3" onSubmit={handleSubmit}>
-          <input
-            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+          <textarea
+            className="max-h-32 min-h-[2.5rem] flex-1 resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
             disabled={!configured || isSending}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask the assistant to do something…"
+            onKeyDown={handleInputKeyDown}
+            placeholder="Ask the assistant to do something… (Shift+Enter for a new line)"
+            rows={1}
             value={input}
           />
           <button
@@ -208,5 +229,48 @@ export function AssistantChatPage({ aiConfigured, aiLocalConfigured }: Assistant
         </form>
       </div>
     </>
+  );
+}
+
+/** Renders an assistant reply's lightweight Markdown (bold, bullet/numbered
+ * lists, paragraphs) instead of showing it as raw text with literal `**`
+ * and `-` characters (issue #43). */
+function AssistantMessageContent({ content }: { content: string }) {
+  const blocks = parseAssistantMessage(content);
+
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, blockIndex) =>
+        block.type === "list" ? (
+          block.ordered ? (
+            <ol className="list-decimal space-y-0.5 pl-5" key={blockIndex}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderSegments(item, `${blockIndex}-${itemIndex}`)}</li>
+              ))}
+            </ol>
+          ) : (
+            <ul className="list-disc space-y-0.5 pl-5" key={blockIndex}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderSegments(item, `${blockIndex}-${itemIndex}`)}</li>
+              ))}
+            </ul>
+          )
+        ) : (
+          <p className="whitespace-pre-wrap" key={blockIndex}>
+            {renderSegments(block.segments, `${blockIndex}`)}
+          </p>
+        ),
+      )}
+    </div>
+  );
+}
+
+function renderSegments(segments: InlineSegment[], keyPrefix: string) {
+  return segments.map((segment, index) =>
+    segment.bold ? (
+      <strong key={`${keyPrefix}-${index}`}>{segment.text}</strong>
+    ) : (
+      <span key={`${keyPrefix}-${index}`}>{segment.text}</span>
+    ),
   );
 }

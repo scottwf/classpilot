@@ -354,12 +354,53 @@ describe("student-data tools", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("create_contact attaches a contact to the student's profile", async () => {
+    const { db, userId } = seededDb();
+    const created = await tool("create_student").execute(db, userId, {
+      firstName: "Hannah",
+      lastName: "Kasel",
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const { studentId } = created.data as { studentId: string };
+
+    const contactResult = await tool("create_contact").execute(db, userId, {
+      studentId,
+      name: "Scott Kasel",
+      relationship: "Father",
+      phone: "306-555-1212",
+    });
+
+    expect(contactResult.ok).toBe(true);
+
+    const profile = getStudentProfile(db, userId, studentId);
+    expect(profile?.contacts).toHaveLength(1);
+    expect(profile?.contacts[0]).toMatchObject({
+      name: "Scott Kasel",
+      relationship: "Father",
+      phone: "306-555-1212",
+    });
+    // The bug this tool fixes: this must land in contacts, not notes.
+    expect(profile?.notes).toHaveLength(0);
+  });
+
+  it("fails create_contact for an unknown student", async () => {
+    const { db, userId } = seededDb();
+    const result = await tool("create_contact").execute(db, userId, {
+      studentId: "student-does-not-exist",
+      name: "Scott Kasel",
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
   it("every student-data tool is flagged touchesStudentData", () => {
     for (const name of [
       "list_students",
       "get_student_profile",
       "create_student",
       "create_student_note",
+      "create_contact",
     ]) {
       expect(tool(name).touchesStudentData).toBe(true);
     }
