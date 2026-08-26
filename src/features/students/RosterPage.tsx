@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mic } from "lucide-react";
+import { Mic, Table2 } from "lucide-react";
 import type { RosterEntry } from "./types";
 
 type RosterPageProps = {
@@ -16,7 +16,14 @@ export function RosterPage({ roster }: RosterPageProps) {
             Your private homeroom roster.
           </h2>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Link
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            href="/students/fields"
+          >
+            <Table2 aria-hidden="true" className="size-4" />
+            Quick entry grid
+          </Link>
           <Link
             className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             href="/students/dictate"

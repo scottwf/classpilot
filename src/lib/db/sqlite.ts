@@ -279,6 +279,33 @@ export function migrate(db: ClassPilotDatabase) {
       CHECK ((unit_id IS NOT NULL) != (lesson_id IS NOT NULL))
     );
 
+    -- A teacher-defined column for the roster quick-entry grid (e.g. "Math
+    -- Textbook #"), scoped per school year. position controls column order
+    -- (assigned as "one past whatever's already there," same pattern as
+    -- lesson_plans.sequence). See src/lib/db/roster-fields-repository.ts.
+    CREATE TABLE IF NOT EXISTS roster_fields (
+      id TEXT PRIMARY KEY,
+      school_year_id TEXT NOT NULL REFERENCES school_years(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+
+    -- One cell of the roster quick-entry grid. A missing row means "blank"
+    -- for that student/field pair -- saveRosterFieldValue deletes the row
+    -- entirely on an empty value rather than storing ''.
+    CREATE TABLE IF NOT EXISTS roster_field_values (
+      id TEXT PRIMARY KEY,
+      field_id TEXT NOT NULL REFERENCES roster_fields(id) ON DELETE CASCADE,
+      student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+      value TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      UNIQUE(field_id, student_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_roster_fields_year ON roster_fields(school_year_id, position);
+    CREATE INDEX IF NOT EXISTS idx_roster_field_values_student ON roster_field_values(student_id);
+
     CREATE INDEX IF NOT EXISTS idx_students_year ON students(school_year_id, last_name);
     CREATE INDEX IF NOT EXISTS idx_contacts_student ON student_contacts(student_id);
     CREATE INDEX IF NOT EXISTS idx_comm_student ON communication_log(student_id, date);

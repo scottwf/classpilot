@@ -111,3 +111,13 @@ export type RosterEntry = Student & {
   openReminderCount: number;
   openFollowUpCount: number;
 };
+
+/** A teacher-defined column on the roster quick-entry grid, e.g. "Math
+ * Textbook #" -- see src/features/students/RosterFieldsGrid.tsx. */
+export type RosterField = {
+  id: string;
+  schoolYearId: string;
+  label: string;
+  position: number;
+  createdAt: string;
+};
