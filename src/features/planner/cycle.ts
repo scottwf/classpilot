@@ -163,3 +163,39 @@ export function getNextClassMeetingDate(
     (date) => date > afterDate,
   );
 }
+
+export type DayInfo =
+  | { kind: "instructional"; cycleDay: number; label: string }
+  | { kind: "blocked"; label: string }
+  | { kind: "weekend" };
+
+/**
+ * What kind of day `dateKey` is within the school year, for showing a small
+ * label next to a date on the Plan Book (issue #40) -- "Day 3" on an
+ * instructional day, the blocked-date's own label ("Thanksgiving", "PD
+ * Day") on a non-instructional weekday, or nothing distinguishing for a
+ * weekend. Returns undefined for a date outside the school year's
+ * start/end range entirely (no cycle tracking applies there).
+ */
+export function getDayInfo(
+  schoolYear: CycleSchoolYear & Pick<SchoolYear, "dayLabelScheme">,
+  dateKey: string,
+): DayInfo | undefined {
+  if (isWeekend(parseDate(dateKey))) {
+    return { kind: "weekend" };
+  }
+
+  const blocked = schoolYear.blockedDates.find((day) => day.date === dateKey);
+
+  if (blocked) {
+    return { kind: "blocked", label: blocked.label };
+  }
+
+  const cycleDay = buildCycleDayMap(schoolYear).get(dateKey);
+
+  if (cycleDay === undefined) {
+    return undefined;
+  }
+
+  return { kind: "instructional", cycleDay, label: getDayLabel(schoolYear.dayLabelScheme, cycleDay) };
+}

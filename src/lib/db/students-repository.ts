@@ -13,6 +13,7 @@ import type {
   SupportPlanStatus,
   SupportPlanType,
   NoteCategory,
+  PrimaryContact,
 } from "@/src/features/students/types";
 import { decryptField, encryptField } from "@/src/lib/crypto/field-cipher";
 import type { ClassPilotDatabase } from "./sqlite";
@@ -405,6 +406,31 @@ export function updateStudent(
   }
 }
 
+export type EditableStudentField = "pronouns" | "birthdate" | "studentNumber" | "status";
+
+/**
+ * Patches a single field on an existing student -- for the roster grid's
+ * one-cell-at-a-time editing, which only ever knows about the field it just
+ * changed. Reads the current row and calls the full-replace updateStudent
+ * above with everything else unchanged, rather than adding a second SQL
+ * UPDATE path to keep in sync with it.
+ */
+export function updateStudentField(
+  db: ClassPilotDatabase,
+  userId: string,
+  id: string,
+  field: EditableStudentField,
+  value: string,
+): void {
+  const current = getStudentById(db, userId, id);
+
+  if (!current) {
+    throw notFound("Student", id);
+  }
+
+  updateStudent(db, userId, { ...current, [field]: value });
+}
+
 export function deleteStudent(db: ClassPilotDatabase, userId: string, id: string) {
   if (!studentOwnedByUser(db, id, userId)) {
     throw notFound("Student", id);
@@ -455,6 +481,110 @@ export function deleteContact(db: ClassPilotDatabase, userId: string, id: string
   }
 
   db.prepare(`DELETE FROM student_contacts WHERE id = ?`).run(id);
+}
+
+export type UpdateContactInput = CreateContactInput & { id: string };
+
+export function updateContact(
+  db: ClassPilotDatabase,
+  userId: string,
+  input: UpdateContactInput,
+): void {
+  if (!contactOwnedByUser(db, input.id, userId)) {
+    throw notFound("Contact", input.id);
+  }
+
+  db.prepare(
+    `UPDATE student_contacts
+     SET name = ?, relationship = ?, email = ?, phone = ?, is_primary = ?, is_emergency = ?, notes = ?, updated_at = ?
+     WHERE id = ?`,
+  ).run(
+    input.name,
+    input.relationship ?? "",
+    encryptField(input.email ?? ""),
+    encryptField(input.phone ?? ""),
+    input.isPrimary ? 1 : 0,
+    input.isEmergency ? 1 : 0,
+    encryptField(input.notes ?? ""),
+    now(),
+    input.id,
+  );
+}
+
+/** Every student's primary contact (name/email/phone only), keyed by
+ * student ID -- for the roster grid's "Contact name/phone/email" columns.
+ * A student with no primary contact simply has no entry. */
+export function getPrimaryContactMap(
+  db: ClassPilotDatabase,
+  userId: string,
+  schoolYearId: string,
+): Record<string, PrimaryContact> {
+  if (!schoolYearOwnedByUser(db, schoolYearId, userId)) {
+    return {};
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT student_contacts.id AS id,
+              student_contacts.student_id AS student_id,
+              student_contacts.name AS name,
+              student_contacts.email AS email,
+              student_contacts.phone AS phone
+       FROM student_contacts
+       JOIN students ON students.id = student_contacts.student_id
+       WHERE students.school_year_id = ? AND student_contacts.is_primary = 1`,
+    )
+    .all(schoolYearId) as Array<{
+    id: string;
+    student_id: string;
+    name: string;
+    email: string;
+    phone: string;
+  }>;
+
+  return Object.fromEntries(
+    rows.map((row) => [
+      row.student_id,
+      { id: row.id, name: row.name, email: decryptField(row.email), phone: decryptField(row.phone) },
+    ]),
+  );
+}
+
+export type EditablePrimaryContactField = "name" | "email" | "phone";
+
+/**
+ * Patches one field of a student's primary contact, creating a new primary
+ * contact (blank name/relationship, isPrimary: true) if none exists yet --
+ * the roster grid's "type a phone number into an empty cell" case. Reads
+ * the existing contact and calls the full-replace updateContact above with
+ * everything else unchanged, same pattern as updateStudentField.
+ */
+export function setPrimaryContactField(
+  db: ClassPilotDatabase,
+  userId: string,
+  studentId: string,
+  field: EditablePrimaryContactField,
+  value: string,
+): void {
+  if (!studentOwnedByUser(db, studentId, userId)) {
+    throw notFound("Student", studentId);
+  }
+
+  const existing = db
+    .prepare(`SELECT * FROM student_contacts WHERE student_id = ? AND is_primary = 1 LIMIT 1`)
+    .get(studentId) as StudentContactRow | undefined;
+
+  if (!existing) {
+    const newContact: CreateContactInput = { studentId, name: "", isPrimary: true };
+    newContact[field] = value;
+    createContact(db, userId, newContact);
+    return;
+  }
+
+  const current = mapContact(existing);
+  const patched: UpdateContactInput = { ...current, studentId };
+  patched[field] = value;
+  updateContact(db, userId, patched);
 }
 
 export function createNote(

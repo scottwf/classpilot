@@ -10,6 +10,7 @@ import {
   getLessonsForWeek,
   resolvePlanBookDefaultDate,
   shiftDateKey,
+  shiftToWeekday,
   sortLessonBank,
 } from "./lesson-queries";
 
@@ -106,6 +107,29 @@ describe("shiftDateKey", () => {
   it("rolls over month and year boundaries", () => {
     expect(shiftDateKey("2026-09-30", 1)).toBe("2026-10-01");
     expect(shiftDateKey("2026-12-31", 1)).toBe("2027-01-01");
+  });
+});
+
+describe("shiftToWeekday", () => {
+  it("skips the weekend when stepping forward from a Friday", () => {
+    // 2026-09-11 is a Friday.
+    expect(shiftToWeekday("2026-09-11", 1)).toBe("2026-09-14");
+  });
+
+  it("skips the weekend when stepping backward from a Monday", () => {
+    // 2026-09-14 is a Monday.
+    expect(shiftToWeekday("2026-09-14", -1)).toBe("2026-09-11");
+  });
+
+  it("lands on a real weekday even when starting from a weekend itself", () => {
+    // 2026-09-12 is a Saturday.
+    expect(shiftToWeekday("2026-09-12", 1)).toBe("2026-09-14");
+    expect(shiftToWeekday("2026-09-12", -1)).toBe("2026-09-11");
+  });
+
+  it("steps by more than one weekday, still skipping weekends", () => {
+    // Friday + 2 weekdays -> skip the weekend, then Mon, Tue.
+    expect(shiftToWeekday("2026-09-11", 2)).toBe("2026-09-15");
   });
 });
 

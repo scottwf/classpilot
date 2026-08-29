@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { createClassPilotDatabase } from "./sqlite";
 import { createUser } from "./users-repository";
 import {
+  autoScheduleUnitLessons,
   cascadeRescheduleUnitLessons,
   createClass,
   createLesson,
@@ -719,6 +720,127 @@ describe("planner repository", () => {
         shiftByDays: 1,
       }),
     ).toThrow("Unit not found");
+  });
+
+  it("auto-schedules undated lessons onto the class's next meeting days (#44)", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    // Instructional days for grade-6-math from 09-08: 09-08, 09-09, 09-10, 09-11, 09-14...
+    const unitId = createUnit(db, userId, {
+      classId: "grade-6-math",
+      endDate: "2026-09-18",
+      outcomeIds: [],
+      startDate: "2026-09-08",
+      title: "Bulk Import Test Unit",
+    });
+
+    const lessonAId = createLesson(db, userId, {
+      durationMinutes: 45,
+      outcomeIds: [],
+      status: "planned",
+      summary: "Imported lesson A",
+      title: "Lesson A",
+      unitId,
+    });
+    const lessonBId = createLesson(db, userId, {
+      durationMinutes: 45,
+      outcomeIds: [],
+      status: "planned",
+      summary: "Imported lesson B",
+      title: "Lesson B",
+      unitId,
+    });
+
+    const result = autoScheduleUnitLessons(db, userId, unitId);
+
+    expect(result.scheduledLessonIds.sort()).toEqual([lessonAId, lessonBId].sort());
+
+    const unit = getUnitById(db, userId, unitId)!;
+    expect(unit.lessons.find((lesson) => lesson.id === lessonAId)?.date).toBe("2026-09-08");
+    expect(unit.lessons.find((lesson) => lesson.id === lessonBId)?.date).toBe("2026-09-09");
+  });
+
+  it("continues after the unit's latest dated lesson instead of overlapping it", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    const unitId = createUnitWithLessons(db, userId, {
+      unit: {
+        classId: "grade-6-math",
+        endDate: "2026-09-18",
+        outcomeIds: [],
+        startDate: "2026-09-08",
+        title: "Mixed Dated Unit",
+      },
+      lessons: [
+        {
+          date: "2026-09-08",
+          durationMinutes: 45,
+          outcomeIds: [],
+          status: "planned",
+          summary: "Already scheduled",
+          title: "Lesson 1",
+        },
+      ],
+    });
+
+    const undatedLessonId = createLesson(db, userId, {
+      durationMinutes: 45,
+      outcomeIds: [],
+      status: "planned",
+      summary: "Needs a date",
+      title: "Lesson 2",
+      unitId,
+    });
+
+    const result = autoScheduleUnitLessons(db, userId, unitId);
+
+    expect(result.scheduledLessonIds).toEqual([undatedLessonId]);
+
+    const unit = getUnitById(db, userId, unitId)!;
+    // Next grade-6-math meeting date strictly after 09-08 is 09-09.
+    expect(unit.lessons.find((lesson) => lesson.id === undatedLessonId)?.date).toBe("2026-09-09");
+  });
+
+  it("is a no-op when the unit has no undated lessons", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    const unitId = createUnitWithLessons(db, userId, {
+      unit: {
+        classId: "grade-6-math",
+        endDate: "2026-09-18",
+        outcomeIds: [],
+        startDate: "2026-09-08",
+        title: "Fully Dated Unit",
+      },
+      lessons: [
+        {
+          date: "2026-09-08",
+          durationMinutes: 45,
+          outcomeIds: [],
+          status: "planned",
+          summary: "Already scheduled",
+          title: "Lesson 1",
+        },
+      ],
+    });
+
+    expect(autoScheduleUnitLessons(db, userId, unitId)).toEqual({ scheduledLessonIds: [] });
+  });
+
+  it("throws when auto-scheduling a nonexistent unit", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    expect(() => autoScheduleUnitLessons(db, userId, "unit-does-not-exist")).toThrow(
+      "Unit not found",
+    );
   });
 
   it("cascades by the class's actual cycle-day meeting dates, not every instructional day", () => {

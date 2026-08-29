@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { parseLessonMarkdown } from "@/src/lib/lessons/markdown-import";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
-import { createLesson } from "@/src/lib/db/planner-repository";
+import { autoScheduleUnitLessons, createLesson } from "@/src/lib/db/planner-repository";
 
 export async function importLessonMarkdownAction(formData: FormData) {
   const userId = await requireAuth();
@@ -109,7 +109,20 @@ export async function importLessonMarkdownBatchAction(formData: FormData) {
     }
   }
 
+  // issue #44: a batch import's lessons land unscheduled (per issue #39,
+  // Date: is optional in the format); auto-place them onto the class's
+  // next actual meeting days instead of leaving the teacher to assign 20
+  // dates one at a time via the lesson editor's picker.
+  let scheduled = 0;
+  if (imported > 0) {
+    scheduled = autoScheduleUnitLessons(db, userId, unitId).scheduledLessonIds.length;
+  }
+
   const params = new URLSearchParams({ imported: String(imported) });
+
+  if (scheduled > 0) {
+    params.set("scheduled", String(scheduled));
+  }
 
   if (failed.length > 0) {
     params.set("importFailed", failed.join(", "));

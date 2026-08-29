@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeleteSchoolYearButton } from "./DeleteSchoolYearButton";
 import { ResetPlannerDataButton } from "./ResetPlannerDataButton";
 import { SettingsTabs } from "./SettingsTabs";
 import type { SchoolYear } from "./types";
@@ -20,6 +21,8 @@ const errorMessages: Record<string, string> = {
   "delete-active-year":
     "Can't delete the active school year. Switch to a different year first.",
   "delete-year": "Couldn't delete this school year. Please try again.",
+  "delete-backup-failed":
+    "Couldn't create a safety backup before deleting, so nothing was deleted. Please try again.",
 };
 
 export function SettingsPage({
@@ -46,7 +49,9 @@ export function SettingsPage({
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           {saved === "reset"
             ? "Planner data reset. Curriculum outcomes and AI settings were kept."
-            : "Settings saved."}
+            : saved === "deleted"
+              ? "School year deleted. A safety backup was saved on the server first."
+              : "Settings saved."}
         </div>
       ) : null}
 
@@ -108,15 +113,11 @@ export function SettingsPage({
                         Switch to this year
                       </button>
                     </form>
-                    <form action={deleteYearAction}>
-                      <input name="id" type="hidden" value={year.id} />
-                      <button
-                        className="text-xs font-medium text-slate-400 hover:text-rose-600"
-                        type="submit"
-                      >
-                        Delete year
-                      </button>
-                    </form>
+                    <DeleteSchoolYearButton
+                      action={deleteYearAction}
+                      yearId={year.id}
+                      yearTitle={year.title}
+                    />
                   </div>
                 )}
               </li>

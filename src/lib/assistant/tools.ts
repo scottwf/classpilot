@@ -9,6 +9,7 @@ import {
 import { setClassSchedule } from "@/src/lib/db/schedule-repository";
 import type { ClassPilotDatabase } from "@/src/lib/db/sqlite";
 import {
+  createContact,
   createNote,
   createStudent,
   getStudentProfile,
@@ -80,6 +81,10 @@ function num(args: Record<string, unknown>, key: string): number | undefined {
 
 function strArray(args: Record<string, unknown>, key: string): string[] {
   return Array.isArray(args[key]) ? (args[key] as unknown[]).map(String) : [];
+}
+
+function bool(args: Record<string, unknown>, key: string): boolean {
+  return args[key] === true;
 }
 
 const listClassesTool: AssistantTool = {
@@ -821,6 +826,53 @@ const createStudentNoteTool: AssistantTool = {
   touchesStudentData: true,
 };
 
+const createContactTool: AssistantTool = {
+  contentGeneration: false,
+  description:
+    "Adds a parent/guardian or other contact to a student's record — name, relationship, phone, and/or email. Call list_students first to find the studentId. Use this (not create_student_note) whenever the request is about adding or recording someone's contact information, even if phrased as a note.",
+  execute: async (db, userId, args) => {
+    const studentId = str(args, "studentId");
+    const name = str(args, "name");
+
+    if (!studentId || !name) {
+      return fail("studentId and name are required.");
+    }
+
+    if (!getStudentProfile(db, userId, studentId)) {
+      return fail(`No student found with id ${studentId}.`);
+    }
+
+    const contactId = createContact(db, userId, {
+      studentId,
+      name,
+      relationship: str(args, "relationship") || undefined,
+      email: str(args, "email") || undefined,
+      phone: str(args, "phone") || undefined,
+      isPrimary: bool(args, "isPrimary"),
+      isEmergency: bool(args, "isEmergency"),
+      notes: str(args, "notes") || undefined,
+    });
+
+    return ok({ contactId });
+  },
+  name: "create_contact",
+  parameters: {
+    properties: {
+      studentId: { type: "string" },
+      name: { type: "string" },
+      relationship: { type: "string", description: "e.g. Mother, Father, Guardian, Emergency contact" },
+      phone: { type: "string" },
+      email: { type: "string" },
+      isPrimary: { type: "boolean" },
+      isEmergency: { type: "boolean" },
+      notes: { type: "string" },
+    },
+    required: ["studentId", "name"],
+    type: "object",
+  },
+  touchesStudentData: true,
+};
+
 export const assistantTools: AssistantTool[] = [
   listClassesTool,
   createClassTool,
@@ -837,6 +889,7 @@ export const assistantTools: AssistantTool[] = [
   getStudentProfileTool,
   createStudentTool,
   createStudentNoteTool,
+  createContactTool,
 ];
 
 export function findTool(name: string): AssistantTool | undefined {

@@ -5,7 +5,7 @@ import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
 import { getUnitById } from "@/src/lib/db/planner-repository";
 import { listAttachments } from "@/src/lib/db/attachments-repository";
-import { cascadeRescheduleAction } from "./reschedule/actions";
+import { autoScheduleUnitLessonsAction, cascadeRescheduleAction } from "./reschedule/actions";
 import {
   createFileAttachmentAction,
   createLinkAttachmentAction,
@@ -25,6 +25,7 @@ type UnitPageProps = {
     importError?: string;
     importFailed?: string;
     rescheduled?: string;
+    scheduled?: string;
   }>;
 };
 
@@ -50,6 +51,7 @@ export default async function UnitRoute({ params, searchParams }: UnitPageProps)
       <UnitDetailPage
         attachmentError={query.attachmentError}
         attachments={attachments}
+        autoScheduleAction={autoScheduleUnitLessonsAction}
         createFileAttachmentAction={createFileAttachmentAction}
         createLinkAttachmentAction={createLinkAttachmentAction}
         data={plannerData}
@@ -62,6 +64,7 @@ export default async function UnitRoute({ params, searchParams }: UnitPageProps)
         importFailed={query.importFailed}
         rescheduleAction={cascadeRescheduleAction}
         rescheduled={query.rescheduled}
+        scheduled={query.scheduled}
         unit={unit}
       />
     </AppShell>

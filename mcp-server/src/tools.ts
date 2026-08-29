@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getDb } from "./db.ts";
 import {
+  autoScheduleUnitLessons,
   cascadeRescheduleUnitLessons,
   createClass,
   createLesson,
@@ -464,6 +465,26 @@ export function registerClassPilotTools(server: McpServer, userId: string) {
     async (input) => {
       try {
         const result = cascadeRescheduleUnitLessons(getDb(), userId, input);
+        return ok(result);
+      } catch (error) {
+        return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "auto_schedule_unit_lessons",
+    {
+      title: "Auto-schedule unit lessons",
+      description:
+        "Fills in a date for every undated lesson in a unit (created via create_lesson/create_unit_with_lessons with no date, or imported from Markdown with no Date: line), assigning them the class's next available actual meeting days in sequence order. Starts after the unit's latest already-dated lesson if it has one, otherwise at the unit's own start date. A no-op if the unit has no undated lessons.",
+      inputSchema: {
+        unitId: z.string().describe("Unit ID from get_planner_data."),
+      },
+    },
+    async ({ unitId }) => {
+      try {
+        const result = autoScheduleUnitLessons(getDb(), userId, unitId);
         return ok(result);
       } catch (error) {
         return fail(error);

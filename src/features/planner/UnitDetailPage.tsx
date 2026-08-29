@@ -7,6 +7,7 @@ import type { Attachment, CurriculumOutcome, PlannerData, UnitPlan } from "./typ
 type UnitDetailPageProps = {
   attachmentError?: string;
   attachments: Attachment[];
+  autoScheduleAction: (formData: FormData) => void | Promise<void>;
   createFileAttachmentAction: (formData: FormData) => void | Promise<void>;
   createLinkAttachmentAction: (formData: FormData) => void | Promise<void>;
   data: PlannerData;
@@ -19,12 +20,14 @@ type UnitDetailPageProps = {
   importFailed?: string;
   rescheduleAction: (formData: FormData) => void | Promise<void>;
   rescheduled?: string;
+  scheduled?: string;
   unit: UnitPlan;
 };
 
 export function UnitDetailPage({
   attachmentError,
   attachments,
+  autoScheduleAction,
   createFileAttachmentAction,
   createLinkAttachmentAction,
   data,
@@ -37,6 +40,7 @@ export function UnitDetailPage({
   importFailed,
   rescheduleAction,
   rescheduled,
+  scheduled,
   unit,
 }: UnitDetailPageProps) {
   const classSection = data.classes.find((candidate) => candidate.id === unit.classId);
@@ -55,6 +59,7 @@ export function UnitDetailPage({
     ? computeUnitPacing(unit, classSection, data.schoolYear)
     : undefined;
   const isOverlapping = findOverlappingUnitIds(data.units).has(unit.id);
+  const undatedLessonCount = unit.lessons.filter((lesson) => lesson.date === null).length;
 
   return (
     <>
@@ -111,6 +116,26 @@ export function UnitDetailPage({
         </p>
       ) : null}
 
+      {undatedLessonCount > 0 ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <span>
+            {undatedLessonCount} lesson{undatedLessonCount === 1 ? "" : "s"} in
+            this unit {undatedLessonCount === 1 ? "isn't" : "aren't"} scheduled
+            yet.
+          </span>
+          <form action={autoScheduleAction}>
+            <input name="unitId" type="hidden" value={unit.id} />
+            <button
+              className="inline-flex items-center justify-center rounded-md border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-800 shadow-sm hover:bg-blue-100"
+              type="submit"
+            >
+              Schedule onto {classSection?.name ?? "the class"}&apos;s next
+              meeting days
+            </button>
+          </form>
+        </section>
+      ) : null}
+
       {rescheduled !== undefined && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           {rescheduled === "0"
@@ -121,6 +146,14 @@ export function UnitDetailPage({
       {error === "shift" && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
           Enter a non-zero whole number of instructional days to shift by.
+        </div>
+      )}
+
+      {scheduled !== undefined && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {scheduled === "0"
+            ? "No unscheduled lessons needed a date."
+            : `Scheduled ${scheduled} lesson${scheduled === "1" ? "" : "s"} onto the class's next meeting days.`}
         </div>
       )}
 

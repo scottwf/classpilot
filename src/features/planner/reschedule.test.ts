@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeCascadeShift, shiftDateByInstructionalDays } from "./reschedule";
+import {
+  assignSequentialMeetingDates,
+  computeCascadeShift,
+  shiftDateByInstructionalDays,
+} from "./reschedule";
 
 // Two school weeks, Mon-Fri (weekends already excluded).
 const days = [
@@ -82,5 +86,73 @@ describe("computeCascadeShift", () => {
       { id: "lesson-3", date: "2026-09-10" },
       { id: "lesson-4", date: "2026-09-14" },
     ]);
+  });
+});
+
+describe("assignSequentialMeetingDates", () => {
+  it("assigns consecutive meeting dates to undated lessons in order", () => {
+    const lessons = [
+      { id: "lesson-1", date: null },
+      { id: "lesson-2", date: null },
+      { id: "lesson-3", date: null },
+    ];
+
+    expect(assignSequentialMeetingDates(lessons, days, "2026-09-07")).toEqual([
+      { id: "lesson-1", date: "2026-09-07" },
+      { id: "lesson-2", date: "2026-09-08" },
+      { id: "lesson-3", date: "2026-09-09" },
+    ]);
+  });
+
+  it("leaves already-dated lessons alone and skips their dates as candidates", () => {
+    const lessons = [
+      { id: "lesson-1", date: "2026-09-07" },
+      { id: "lesson-2", date: null },
+      { id: "lesson-3", date: null },
+    ];
+
+    const result = assignSequentialMeetingDates(lessons, days, "2026-09-07");
+
+    expect(result).toEqual([
+      { id: "lesson-2", date: "2026-09-08" },
+      { id: "lesson-3", date: "2026-09-09" },
+    ]);
+  });
+
+  it("only considers dates on/after fromDate", () => {
+    const lessons = [
+      { id: "lesson-1", date: null },
+      { id: "lesson-2", date: null },
+    ];
+
+    expect(assignSequentialMeetingDates(lessons, days, "2026-09-15")).toEqual([
+      { id: "lesson-1", date: "2026-09-15" },
+      { id: "lesson-2", date: "2026-09-16" },
+    ]);
+  });
+
+  it("stacks overflow lessons on the last available meeting date", () => {
+    const shortDays = days.slice(0, 2); // only 2026-09-07 and 2026-09-08
+    const lessons = [
+      { id: "lesson-1", date: null },
+      { id: "lesson-2", date: null },
+      { id: "lesson-3", date: null },
+    ];
+
+    expect(assignSequentialMeetingDates(lessons, shortDays, "2026-09-07")).toEqual([
+      { id: "lesson-1", date: "2026-09-07" },
+      { id: "lesson-2", date: "2026-09-08" },
+      { id: "lesson-3", date: "2026-09-08" },
+    ]);
+  });
+
+  it("returns nothing when there are no undated lessons", () => {
+    const lessons = [{ id: "lesson-1", date: "2026-09-07" }];
+    expect(assignSequentialMeetingDates(lessons, days, "2026-09-07")).toEqual([]);
+  });
+
+  it("returns nothing when the class has no meeting dates at all", () => {
+    const lessons = [{ id: "lesson-1", date: null }];
+    expect(assignSequentialMeetingDates(lessons, [], "2026-09-07")).toEqual([]);
   });
 });

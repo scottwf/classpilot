@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CalendarDays, CalendarX, Clock3, NotebookPen, Plus, Undo2 } from "lucide-react";
+import type { DayInfo } from "./cycle";
 import type { AgendaEntry } from "./day-agenda";
 import type { EnrichedLesson } from "./lesson-queries";
 import type { ClassColor, ClassSection } from "./types";
@@ -17,6 +18,7 @@ type DailyPlannerProps = {
   date: string;
   view: "day" | "week";
   days: DayColumn[];
+  dayInfoByDate?: Record<string, DayInfo | undefined>;
   dayNotes?: Record<string, string>;
   restoreClassMeetingAction?: (formData: FormData) => void | Promise<void>;
   saveDayNoteAction?: (formData: FormData) => void | Promise<void>;
@@ -26,6 +28,24 @@ type DailyPlannerProps = {
    * an ad-hoc day) — shown separately so nothing existing gets hidden. */
   otherLessons: EnrichedLesson[];
 };
+
+const dayInfoBadgeClass: Record<DayInfo["kind"], string> = {
+  instructional: "bg-blue-100 text-blue-800",
+  blocked: "bg-amber-100 text-amber-800",
+  weekend: "bg-slate-100 text-slate-500",
+};
+
+function DayInfoBadge({ info }: { info: DayInfo | undefined }) {
+  if (!info || info.kind === "weekend") {
+    return null;
+  }
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${dayInfoBadgeClass[info.kind]}`}>
+      {info.label}
+    </span>
+  );
+}
 
 const classBlockColorClass: Record<ClassColor, string> = {
   amber: "bg-amber-100 text-amber-950",
@@ -44,6 +64,7 @@ export function DailyPlanner({
   date,
   view,
   days,
+  dayInfoByDate = {},
   dayNotes = {},
   otherLessons,
   restoreClassMeetingAction,
@@ -57,8 +78,9 @@ export function DailyPlanner({
           <p className="text-sm font-medium text-blue-700">
             {view === "day" ? "Today's schedule" : "This week's schedule"}
           </p>
-          <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+          <h2 className="mt-1 flex items-center gap-2 text-2xl font-semibold text-slate-950">
             {view === "day" ? formatDate(date) : `Week of ${formatWeekOf(days[0]?.date ?? date)}`}
+            {view === "day" ? <DayInfoBadge info={dayInfoByDate[date]} /> : null}
           </h2>
         </div>
         <Link
@@ -109,6 +131,9 @@ export function DailyPlanner({
                   <NotebookPen aria-label="Has a note" className="size-3" />
                 ) : null}
               </Link>
+              <div className="mt-1 flex justify-center">
+                <DayInfoBadge info={dayInfoByDate[column.date]} />
+              </div>
               <div className="mt-2">
                 <DayColumnView
                   cancelClassMeetingAction={cancelClassMeetingAction}

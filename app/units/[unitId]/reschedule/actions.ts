@@ -3,7 +3,16 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
-import { cascadeRescheduleUnitLessons } from "@/src/lib/db/planner-repository";
+import { autoScheduleUnitLessons, cascadeRescheduleUnitLessons } from "@/src/lib/db/planner-repository";
+
+export async function autoScheduleUnitLessonsAction(formData: FormData) {
+  const userId = await requireAuth();
+
+  const unitId = requiredString(formData, "unitId");
+  const result = autoScheduleUnitLessons(getClassPilotDatabase(), userId, unitId);
+
+  redirect(`/units/${unitId}?scheduled=${result.scheduledLessonIds.length}`);
+}
 
 export async function cascadeRescheduleAction(formData: FormData) {
   const userId = await requireAuth();

@@ -111,3 +111,33 @@ export type RosterEntry = Student & {
   openReminderCount: number;
   openFollowUpCount: number;
 };
+
+/** A teacher-defined column on the roster grid, e.g. "Math Textbook #" --
+ * see src/features/students/RosterGrid.tsx. */
+export type RosterField = {
+  id: string;
+  schoolYearId: string;
+  label: string;
+  position: number;
+  createdAt: string;
+};
+
+/** A saved column-visibility preset for the roster grid, e.g. "Textbook
+ * check" -- see src/features/students/RosterGrid.tsx. */
+export type RosterView = {
+  id: string;
+  schoolYearId: string;
+  name: string;
+  columns: string[];
+  createdAt: string;
+};
+
+/** A student's primary guardian/contact, flattened for the roster grid's
+ * "Contact name/phone/email" columns -- undefined when no primary contact
+ * exists yet. */
+export type PrimaryContact = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+};

@@ -86,3 +86,7 @@ export function getClassPilotDatabase() {
 export function getClassPilotPlannerData(userId: string): PlannerData {
   return getPlannerData(getClassPilotDatabase(), userId);
 }
+
+export function getClassPilotDatabasePath(): string {
+  return databasePath;
+}
