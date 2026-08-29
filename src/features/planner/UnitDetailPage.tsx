@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, CalendarDays, Clock3, Pencil, Upload } from "lucide-react";
 import { AttachmentList } from "./AttachmentList";
+import { DeleteUnitButton } from "./DeleteUnitButton";
 import { computeUnitPacing, findOverlappingUnitIds } from "./unit-pacing";
 import type { Attachment, CurriculumOutcome, PlannerData, UnitPlan } from "./types";
 
@@ -96,15 +97,12 @@ export function UnitDetailPage({
           >
             Add lesson to unit
           </Link>
-          <form action={deleteUnitAction}>
-            <input name="id" type="hidden" value={unit.id} />
-            <button
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-400 shadow-sm hover:border-rose-300 hover:text-rose-600"
-              type="submit"
-            >
-              Delete unit
-            </button>
-          </form>
+          <DeleteUnitButton
+            action={deleteUnitAction}
+            lessonCount={unit.lessons.length}
+            unitId={unit.id}
+            unitTitle={unit.title}
+          />
         </div>
       </section>
 
