@@ -236,23 +236,31 @@ export function shiftToWeekday(dateKey: string, days: number): string {
  * `?date=`. Today, if today falls within the school year; the school
  * year's first day with an actual lesson planned if today is still
  * before the year starts (so the dashboard isn't just an empty day);
- * the school year's last day if today is after it ends.
+ * the school year's last day if today is after it ends. Never lands on a
+ * weekend (issue #46) -- same weekday-only rule the prev/next nav already
+ * enforces via shiftToWeekday (issue #40), just applied to the initial
+ * landing date too.
  */
 export function resolvePlanBookDefaultDate(
   schoolYear: { startDate: string; endDate: string },
   lessonDates: string[],
   todayKey: string,
 ): string {
-  if (todayKey >= schoolYear.startDate && todayKey <= schoolYear.endDate) {
-    return todayKey;
-  }
+  const candidate = ((): string => {
+    if (todayKey >= schoolYear.startDate && todayKey <= schoolYear.endDate) {
+      return todayKey;
+    }
 
-  if (todayKey > schoolYear.endDate) {
-    return schoolYear.endDate;
-  }
+    if (todayKey > schoolYear.endDate) {
+      return schoolYear.endDate;
+    }
 
-  const firstLessonDate = lessonDates.filter((date) => date >= schoolYear.startDate).sort()[0];
-  return firstLessonDate ?? schoolYear.startDate;
+    const firstLessonDate = lessonDates.filter((date) => date >= schoolYear.startDate).sort()[0];
+    return firstLessonDate ?? schoolYear.startDate;
+  })();
+
+  const day = parseDate(candidate).getUTCDay();
+  return day === 0 || day === 6 ? shiftToWeekday(candidate, 1) : candidate;
 }
 
 function enrichLesson(

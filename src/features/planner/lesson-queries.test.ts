@@ -159,4 +159,14 @@ describe("resolvePlanBookDefaultDate", () => {
   it("defaults to the school year's end date when today is after the school year ends", () => {
     expect(resolvePlanBookDefaultDate(schoolYear, [], "2027-01-15")).toBe("2026-12-18");
   });
+
+  it("jumps to the next Monday when today is a Saturday within the school year (#46)", () => {
+    // 2026-09-05 is a Saturday.
+    expect(resolvePlanBookDefaultDate(schoolYear, [], "2026-09-05")).toBe("2026-09-07");
+  });
+
+  it("jumps to the next Monday when today is a Sunday within the school year (#46)", () => {
+    // 2026-09-06 is a Sunday.
+    expect(resolvePlanBookDefaultDate(schoolYear, [], "2026-09-06")).toBe("2026-09-07");
+  });
 });
