@@ -11,6 +11,7 @@ import {
 import type { PlannerData } from "./types";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { PlannerHeader } from "./PlannerHeader";
+import { getBuildInfo } from "@/src/lib/build-info";
 
 type AppShellProps = {
   activePage:
@@ -52,7 +53,22 @@ const mobileNavItems = navItems.map(({ href, label, page }) => ({ href, label, p
 const primaryMobileItems = mobileNavItems.filter((item) => primaryMobilePages.has(item.page));
 const moreMobileItems = mobileNavItems.filter((item) => !primaryMobilePages.has(item.page));
 
+function formatBuiltAt(builtAt: string | null): string | null {
+  if (!builtAt) {
+    return null;
+  }
+
+  return `${new Intl.DateTimeFormat("en-CA", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(new Date(builtAt))} UTC`;
+}
+
 export function AppShell({ activePage, children, data }: AppShellProps) {
+  const buildInfo = getBuildInfo();
+  const builtAtLabel = formatBuiltAt(buildInfo.builtAt);
+
   return (
     <main className="min-h-screen bg-slate-100">
       <PlannerHeader data={data} />
@@ -93,6 +109,12 @@ export function AppShell({ activePage, children, data }: AppShellProps) {
 
       <div className="mx-auto max-w-7xl space-y-5 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-4 lg:px-8">
         {children}
+
+        <footer className="pt-4 text-center text-xs text-slate-400">
+          {buildInfo.commitShort === "dev"
+            ? "Local dev build"
+            : `Build ${buildInfo.commitShort} (${buildInfo.branch})${builtAtLabel ? ` — built ${builtAtLabel}` : ""}`}
+        </footer>
       </div>
 
       <MobileBottomNav

@@ -8,6 +8,9 @@ node_modules/
 .next/
 out/
 
+# Generated at Docker build time (see Dockerfile) -- never hand-written or committed.
+public/build-info.json
+
 # local environment and secrets
 .env
 .env*.local

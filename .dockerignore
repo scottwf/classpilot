@@ -1,6 +1,5 @@
 .DS_Store
 .env
-.git
 .next
 coverage
 data
