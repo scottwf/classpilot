@@ -1,3 +1,4 @@
+import { CalendarPlus } from "lucide-react";
 import { CalendarGrid } from "./CalendarGrid";
 import type { SchoolYear } from "./types";
 import { buildInstructionalDays } from "./timeline";
@@ -271,9 +272,26 @@ function FeedUrlField({
   label: string;
   value: string;
 }) {
+  // webcal:// is what makes Apple Calendar/Outlook open their native
+  // "subscribe" flow directly on click, instead of downloading/displaying
+  // the raw .ics text -- same feed, just a scheme swap. Google Calendar
+  // doesn't honor webcal:// as a click target the same way, hence the
+  // existing copy-the-URL fallback stays (see the section note above about
+  // Google needing the URL pasted in rather than clicked).
+  const webcalHref = value.replace(/^https?:\/\//, "webcal://");
+
   return (
     <div>
-      <span className="text-xs font-semibold text-slate-700">{label}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-slate-700">{label}</span>
+        <a
+          className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline"
+          href={webcalHref}
+        >
+          <CalendarPlus aria-hidden="true" className="size-3.5" />
+          Add to calendar
+        </a>
+      </div>
       <p className="text-xs leading-5 text-slate-500">{description}</p>
       <input className={`${inputClass} mt-1 font-mono text-xs`} readOnly value={value} />
     </div>
