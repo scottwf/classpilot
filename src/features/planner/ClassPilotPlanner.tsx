@@ -1,14 +1,18 @@
 import { AppShell } from "./AppShell";
 import { getAllLessons, resolvePlanBookDefaultDate } from "./lesson-queries";
 import { PlanBookPage } from "./PlanBookPage";
-import type { PlannerData, ScheduleSlot } from "./types";
+import type { PlannerData, ScheduleException, ScheduleSlot } from "./types";
 import type { UpcomingBirthday } from "@/src/features/students/birthdays";
 
 type ClassPilotPlannerProps = {
   calendarMonth?: string;
+  cancelClassMeetingAction?: (formData: FormData) => void | Promise<void>;
   data: PlannerData;
   dayNotes?: Record<string, string>;
+  notice?: string;
+  restoreClassMeetingAction?: (formData: FormData) => void | Promise<void>;
   saveDayNoteAction?: (formData: FormData) => void | Promise<void>;
+  scheduleExceptions?: ScheduleException[];
   scheduleSlots?: ScheduleSlot[];
   selectedDate?: string;
   todayDate?: string;
@@ -26,9 +30,13 @@ function noopDayNoteAction() {
 
 export function ClassPilotPlanner({
   calendarMonth,
+  cancelClassMeetingAction,
   data,
   dayNotes = {},
+  notice,
+  restoreClassMeetingAction,
   saveDayNoteAction = noopDayNoteAction,
+  scheduleExceptions = [],
   scheduleSlots = [],
   selectedDate,
   todayDate,
@@ -50,9 +58,13 @@ export function ClassPilotPlanner({
     <AppShell activePage="planbook" data={data}>
       <PlanBookPage
         calendarMonth={calendarMonth}
+        cancelClassMeetingAction={cancelClassMeetingAction}
         data={data}
         dayNotes={dayNotes}
+        notice={notice}
+        restoreClassMeetingAction={restoreClassMeetingAction}
         saveDayNoteAction={saveDayNoteAction}
+        scheduleExceptions={scheduleExceptions}
         scheduleSlots={scheduleSlots}
         selectedDate={resolvedSelectedDate}
         todayDate={resolvedToday}

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { isAuthenticated } from "@/src/lib/auth/server";
-import { loginAction } from "./actions";
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -34,7 +33,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
         </div>
 
-        <form action={loginAction} className="mt-6 space-y-4">
+        {/* Plain POST navigation, not a Server Action -- see
+            app/login/submit/route.ts for why. */}
+        <form action="/login/submit" className="mt-6 space-y-4" method="post">
           <div>
             <label
               className="text-sm font-medium text-slate-700"

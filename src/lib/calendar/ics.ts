@@ -1,7 +1,12 @@
 import { buildCycleDayMap, getDayLabel } from "@/src/features/planner/cycle";
 import { buildDayAgenda } from "@/src/features/planner/day-agenda";
 import type { EnrichedLesson } from "@/src/features/planner/lesson-queries";
-import type { ClassSection, ScheduleSlot, SchoolYear } from "@/src/features/planner/types";
+import type {
+  ClassSection,
+  ScheduleException,
+  ScheduleSlot,
+  SchoolYear,
+} from "@/src/features/planner/types";
 
 const FOLD_LIMIT = 75;
 
@@ -83,6 +88,7 @@ export type BuildClassScheduleIcsCalendarInput = {
    * (the supervision feed); otherwise every scheduled class is (the
    * all-classes feed). */
   instructionalOnly?: boolean;
+  scheduleExceptions?: ScheduleException[];
   scheduleSlots: ScheduleSlot[];
   schoolYear: CalendarFeedSchoolYear;
   now?: Date;
@@ -100,6 +106,7 @@ export function buildClassScheduleIcsCalendar({
   calendarName,
   classes,
   instructionalOnly,
+  scheduleExceptions = [],
   scheduleSlots,
   schoolYear,
   now = new Date(),
@@ -108,10 +115,16 @@ export function buildClassScheduleIcsCalendar({
   const events: IcsEvent[] = [];
 
   for (const date of [...cycleDayMap.keys()].sort()) {
-    const entries = buildDayAgenda(date, schoolYear, scheduleSlots, classes, []);
+    const entries = buildDayAgenda(date, schoolYear, scheduleSlots, classes, [], [], scheduleExceptions);
 
-    for (const { slot, classSection } of entries) {
+    for (const { slot, classSection, exception } of entries) {
       if (instructionalOnly !== undefined && classSection.isInstructional !== instructionalOnly) {
+        continue;
+      }
+
+      // Cancelled and replaced by a non-academic event -- don't show the
+      // normal class occurrence in a subscribed calendar.
+      if (exception) {
         continue;
       }
 

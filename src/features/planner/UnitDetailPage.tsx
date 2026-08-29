@@ -11,6 +11,7 @@ type UnitDetailPageProps = {
   createLinkAttachmentAction: (formData: FormData) => void | Promise<void>;
   data: PlannerData;
   deleteAttachmentAction: (formData: FormData) => void | Promise<void>;
+  deleteUnitAction: (formData: FormData) => void | Promise<void>;
   error?: string;
   importBatchAction: (formData: FormData) => void | Promise<void>;
   imported?: string;
@@ -28,6 +29,7 @@ export function UnitDetailPage({
   createLinkAttachmentAction,
   data,
   deleteAttachmentAction,
+  deleteUnitAction,
   error,
   importBatchAction,
   imported,
@@ -89,8 +91,25 @@ export function UnitDetailPage({
           >
             Add lesson to unit
           </Link>
+          <form action={deleteUnitAction}>
+            <input name="id" type="hidden" value={unit.id} />
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-400 shadow-sm hover:border-rose-300 hover:text-rose-600"
+              type="submit"
+            >
+              Delete unit
+            </button>
+          </form>
         </div>
       </section>
+
+      {unit.lessons.length > 0 ? (
+        <p className="-mt-2 text-xs text-slate-500">
+          Deleting this unit also removes its {unit.lessons.length} lesson
+          {unit.lessons.length === 1 ? "" : "s"}, including any that are
+          scheduled on the plan book.
+        </p>
+      ) : null}
 
       {rescheduled !== undefined && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">

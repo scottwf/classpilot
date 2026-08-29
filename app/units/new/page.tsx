@@ -6,6 +6,7 @@ import { createUnitAction } from "./actions";
 
 type NewUnitPageProps = {
   searchParams: Promise<{
+    classId?: string;
     error?: string;
   }>;
 };
@@ -34,6 +35,7 @@ export default async function NewUnitPage({ searchParams }: NewUnitPageProps) {
         action={createUnitAction}
         classes={plannerData.classes}
         error={params.error}
+        initialClassId={params.classId}
         mode="create"
         outcomes={plannerData.outcomes}
         schoolYear={plannerData.schoolYear}

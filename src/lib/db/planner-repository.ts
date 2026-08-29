@@ -864,6 +864,20 @@ export function updateUnitDates(
   }
 }
 
+// Lessons (and therefore their dated slots in the plan book) cascade-delete
+// via the unit_plans FK, same as deleteClass -- see the comment there.
+// Attachment rows cascade too, but (matching deleteClass's existing
+// behavior) their on-disk files under attachment-storage.ts are not
+// unlinked here; only the single-attachment deleteAttachment flow does
+// that cleanup today.
+export function deleteUnit(db: ClassPilotDatabase, userId: string, id: string) {
+  if (!unitOwnedByUser(db, id, userId)) {
+    throw notFound("Unit", id);
+  }
+
+  db.prepare("DELETE FROM unit_plans WHERE id = ?").run(id);
+}
+
 /**
  * Patches only a lesson's date — used to "move" an existing lesson from
  * the bank onto a clicked schedule slot, without touching its title,
@@ -1094,6 +1108,81 @@ export function cascadeRescheduleUnitLessons(
   }
 
   return { shiftedLessonIds: shifts.map((shift) => shift.id) };
+}
+
+export type InsertLessonInput = {
+  lessonId: string;
+  unitId: string;
+  date: string;
+};
+
+export type InsertLessonResult = {
+  shiftedLessonIds: string[];
+};
+
+/**
+ * Places an existing bank lesson (scheduled or not) onto `date` within its
+ * unit -- the "insert lesson" picker's action. If another lesson in the
+ * unit already occupies that date, that lesson and everything already
+ * scheduled after it are cascade-shifted forward by one meeting day first
+ * (same computeCascadeShift call `cascadeRescheduleUnitLessons` makes),
+ * so inserting never silently overwrites another lesson's date. Everything
+ * happens in one transaction.
+ */
+export function insertLessonAtDate(
+  db: ClassPilotDatabase,
+  userId: string,
+  input: InsertLessonInput,
+): InsertLessonResult {
+  const unit = getUnitById(db, userId, input.unitId);
+
+  if (!unit) {
+    throw notFound("Unit", input.unitId);
+  }
+
+  const lesson = unit.lessons.find((candidate) => candidate.id === input.lessonId);
+
+  if (!lesson) {
+    throw notFound("Lesson", input.lessonId);
+  }
+
+  const occupant = unit.lessons.find(
+    (candidate) => candidate.id !== input.lessonId && candidate.date === input.date,
+  );
+
+  const updateLessonDateStmt = db.prepare("UPDATE lesson_plans SET date = ? WHERE id = ?");
+  let shiftedLessonIds: string[] = [];
+
+  db.exec("BEGIN;");
+  try {
+    if (occupant) {
+      const classSection = getClassById(db, userId, unit.classId);
+
+      if (!classSection) {
+        throw new Error(`Class not found for unit: ${input.unitId}`);
+      }
+
+      const schoolYear = getSchoolYearById(db, userId, classSection.schoolYearId);
+      const scheduleSlots = getScheduleSlotRowsForClass(db, classSection.id);
+      const meetingDates = getClassMeetingDates(schoolYear, classSection, scheduleSlots);
+      const otherLessons = unit.lessons.filter((candidate) => candidate.id !== input.lessonId);
+      const shifts = computeCascadeShift(otherLessons, input.date, meetingDates, 1);
+
+      for (const shift of shifts) {
+        updateLessonDateStmt.run(shift.date, shift.id);
+      }
+
+      shiftedLessonIds = shifts.map((shift) => shift.id);
+    }
+
+    updateLessonDateStmt.run(input.date, input.lessonId);
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  }
+
+  return { shiftedLessonIds };
 }
 
 export type DuplicateLessonResult = {

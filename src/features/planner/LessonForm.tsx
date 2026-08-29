@@ -232,6 +232,21 @@ export function LessonForm({
           </label>
         </div>
 
+        {unitOptions.length === 0 ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {selectedClass?.name ?? "This class"} doesn&apos;t have any units
+            yet, so there&apos;s nowhere to save this lesson or draft with
+            AI —{" "}
+            <Link
+              className="underline"
+              href={`/units/new?classId=${selectedClassId ?? ""}`}
+            >
+              create a unit for it
+            </Link>{" "}
+            first, then come back and add the lesson.
+          </p>
+        ) : null}
+
         <label className="block" key={`summary-${formVersion}`}>
           <span className="text-sm font-medium text-slate-700">Summary</span>
           <span className="mt-1 block text-xs leading-5 text-slate-500">

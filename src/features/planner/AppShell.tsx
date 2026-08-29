@@ -8,7 +8,6 @@ import {
   Target,
   Users,
 } from "lucide-react";
-import { logoutAction } from "@/app/login/actions";
 import type { PlannerData } from "./types";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { PlannerHeader } from "./PlannerHeader";
@@ -78,7 +77,9 @@ export function AppShell({ activePage, children, data }: AppShellProps) {
                 </Link>
               ))}
             </nav>
-            <form action={logoutAction}>
+            {/* Plain POST navigation, not a Server Action -- see
+                app/logout/route.ts for why. */}
+            <form action="/logout" method="post">
               <button
                 className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
                 type="submit"

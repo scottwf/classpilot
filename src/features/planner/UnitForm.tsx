@@ -12,6 +12,7 @@ type UnitFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   classes: ClassSection[];
   error?: string;
+  initialClassId?: string;
   mode: "create" | "edit";
   outcomes: CurriculumOutcome[];
   schoolYear: SchoolYear;
@@ -26,6 +27,7 @@ export function UnitForm({
   action,
   classes,
   error,
+  initialClassId,
   mode,
   outcomes,
   schoolYear,
@@ -33,7 +35,7 @@ export function UnitForm({
   units,
 }: UnitFormProps) {
   const [selectedClassId, setSelectedClassId] = useState(
-    unit?.classId ?? classes[0]?.id,
+    unit?.classId ?? initialClassId ?? classes[0]?.id,
   );
   const selectedClass = classes.find((classSection) => classSection.id === selectedClassId);
   const selectedClassGrades = selectedClass

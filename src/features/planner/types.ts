@@ -180,6 +180,22 @@ export type ScheduleSlot = {
   endDate?: string;
 };
 
+/** One class's meeting on one specific date replaced by a non-academic
+ * event (assembly, fire drill, field trip) -- distinct from
+ * NonInstructionalDay (a whole school day) and ClassSection.isInstructional
+ * (a permanent property of a whole recurring block). See
+ * schedule-exceptions-repository.ts. */
+export type ScheduleException = {
+  id: string;
+  classId: string;
+  date: string;
+  label: string;
+  /** The class whose lesson fills this slot instead (e.g. Math's period
+   * swapped for a Science lesson that day). Undefined means "just
+   * cancelled," no substitute. */
+  substituteClassId?: string;
+};
+
 export type InstructionalDay = {
   date: Date;
   key: string;

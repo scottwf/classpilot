@@ -66,6 +66,8 @@ describe("ClassPilotPlanner", () => {
         createLinkAttachmentAction={() => {}}
         data={plannerData}
         deleteAttachmentAction={() => {}}
+        deleteUnitAction={() => {}}
+        importBatchAction={() => {}}
         rescheduleAction={() => {}}
         unit={unit}
       />,

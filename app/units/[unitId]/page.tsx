@@ -12,6 +12,7 @@ import {
   deleteAttachmentAction,
 } from "@/app/attachments/actions";
 import { importLessonMarkdownBatchAction } from "@/app/lessons/import/actions";
+import { deleteUnitAction } from "@/app/units/actions";
 
 type UnitPageProps = {
   params: Promise<{
@@ -53,6 +54,7 @@ export default async function UnitRoute({ params, searchParams }: UnitPageProps)
         createLinkAttachmentAction={createLinkAttachmentAction}
         data={plannerData}
         deleteAttachmentAction={deleteAttachmentAction}
+        deleteUnitAction={deleteUnitAction}
         error={query.error}
         importBatchAction={importLessonMarkdownBatchAction}
         imported={query.imported}

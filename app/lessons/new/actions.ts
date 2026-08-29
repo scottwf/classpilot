@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
-import { createLesson, updateLessonDate } from "@/src/lib/db/planner-repository";
+import { createLesson, insertLessonAtDate } from "@/src/lib/db/planner-repository";
 import {
   lessonSummaryFromSections,
   readLessonSections,
@@ -122,17 +122,21 @@ export async function createLessonAction(formData: FormData) {
 }
 
 /**
- * Moves an existing lesson (picked from the bank) onto a clicked schedule
+ * Inserts an existing lesson (picked from the bank) onto a clicked schedule
  * slot's date, instead of creating a new lesson — everything else about
- * the lesson (title, sections, outcomes, unit) stays as-is.
+ * the lesson (title, sections, outcomes) stays as-is. If another lesson in
+ * the unit already occupies that date, insertLessonAtDate cascade-shifts it
+ * (and everything after it) forward by one meeting day first, rather than
+ * silently overwriting it.
  */
-export async function moveLessonToDateAction(formData: FormData) {
+export async function insertLessonAction(formData: FormData) {
   const userId = await requireAuth();
 
   const lessonId = requiredString(formData, "lessonId");
+  const unitId = requiredString(formData, "unitId");
   const date = requiredString(formData, "date");
 
-  updateLessonDate(getClassPilotDatabase(), userId, { date, id: lessonId });
+  insertLessonAtDate(getClassPilotDatabase(), userId, { date, lessonId, unitId });
 
   redirect(`/?date=${date}`);
 }

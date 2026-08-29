@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDayAgenda } from "./day-agenda";
 import type { EnrichedLesson } from "./lesson-queries";
-import type { ClassSection, ScheduleSlot } from "./types";
+import type { ClassSection, ScheduleException, ScheduleSlot, UnitPlan } from "./types";
 
 // 2026-09-01 is a Tuesday -> cycle day 1; 2026-09-02 Wednesday -> cycle day 2.
 const schoolYear = {
@@ -123,5 +123,67 @@ describe("buildDayAgenda", () => {
       [],
     );
     expect(insideWindow.some((entry) => entry.classSection.id === "class-art")).toBe(true);
+  });
+
+  it("resolves the substitute class, its lesson, and its active unit when a swap exception applies", () => {
+    const scienceUnit = {
+      id: "unit-science",
+      classId: "class-science",
+      startDate: "2026-08-25",
+      endDate: "2026-09-05",
+    } as UnitPlan;
+    const scienceLesson = {
+      id: "lesson-science-1",
+      classId: "class-science",
+      date: "2026-09-01",
+    } as EnrichedLesson;
+    const exception: ScheduleException = {
+      id: "exception-1",
+      classId: "class-math",
+      date: "2026-09-01",
+      label: "Science",
+      substituteClassId: "class-science",
+    };
+
+    const agenda = buildDayAgenda(
+      "2026-09-01",
+      schoolYear,
+      scheduleSlots,
+      [mathClass, scienceClass],
+      [scienceLesson],
+      [scienceUnit],
+      [exception],
+    );
+
+    const mathEntry = agenda.find((entry) => entry.classSection.id === "class-math");
+    expect(mathEntry?.exception).toBe(exception);
+    expect(mathEntry?.substituteClassSection).toBe(scienceClass);
+    expect(mathEntry?.substituteLesson).toBe(scienceLesson);
+    expect(mathEntry?.substituteActiveUnitId).toBe("unit-science");
+  });
+
+  it("leaves substitute fields undefined when the exception has no substitute class", () => {
+    const exception: ScheduleException = {
+      id: "exception-1",
+      classId: "class-math",
+      date: "2026-09-01",
+      label: "Assembly",
+    };
+
+    const agenda = buildDayAgenda(
+      "2026-09-01",
+      schoolYear,
+      scheduleSlots,
+      [mathClass, scienceClass],
+      [],
+      [],
+      [exception],
+    );
+
+    const mathEntry = agenda.find((entry) => entry.classSection.id === "class-math");
+    expect(mathEntry?.exception).toBe(exception);
+    expect(mathEntry?.substituteClassSection).toBeUndefined();
+    expect(mathEntry?.substituteLesson).toBeUndefined();
+    expect(mathEntry?.substituteActiveUnitId).toBeUndefined();
   });
 });

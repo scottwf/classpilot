@@ -16,8 +16,6 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { logoutAction } from "@/app/login/actions";
-
 type NavItem = { href: string; label: string; page: string };
 
 // Icon components can't cross the server/client boundary as props (React
@@ -82,7 +80,9 @@ export function MobileBottomNav({ activePage, primaryItems, moreItems }: MobileB
               </Link>
             );
           })}
-          <form action={logoutAction}>
+          {/* Plain POST navigation, not a Server Action -- see
+              app/logout/route.ts for why. */}
+          <form action="/logout" method="post">
             <button
               className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-100"
               type="submit"

@@ -259,6 +259,21 @@ export function migrate(db: ClassPilotDatabase) {
       end_time TEXT NOT NULL
     );
 
+    -- One class's meeting on one specific date replaced by a non-academic
+    -- event (assembly, fire drill, field trip) -- distinct from
+    -- school_years.blocked_dates_json (a whole day, e.g. a holiday) and
+    -- from class_sections.is_instructional (a permanent property of a
+    -- whole recurring block, e.g. "Recess"). One row per (class_id, date);
+    -- see schedule-exceptions-repository.ts.
+    CREATE TABLE IF NOT EXISTS schedule_exceptions (
+      id TEXT PRIMARY KEY,
+      class_id TEXT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      label TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_exceptions_unique ON schedule_exceptions(class_id, date);
+
     -- Links and uploaded files attached to a unit or a lesson. Exactly one
     -- of unit_id/lesson_id is set. Uploaded files are stored on disk (see
     -- src/lib/storage/attachment-storage.ts) under stored_name, which is a
@@ -387,6 +402,12 @@ export function migrate(db: ClassPilotDatabase) {
   addColumnIfMissing(db, "schedule_slots", "start_date", "TEXT");
   addColumnIfMissing(db, "schedule_slots", "end_date", "TEXT");
   addColumnIfMissing(db, "unit_plans", "notes", "TEXT NOT NULL DEFAULT ''");
+
+  // The class whose lesson fills a cancelled slot instead (e.g. Math's
+  // period swapped for a Science lesson that day) -- see
+  // schedule-exceptions-repository.ts. Null means "just cancelled," no
+  // substitute.
+  addColumnIfMissing(db, "schedule_exceptions", "substitute_class_id", "TEXT");
 
   // Draft per-student notes proposed from a dictation transcript (issue
   // #36 phases 3-4), pending teacher review -- never written to

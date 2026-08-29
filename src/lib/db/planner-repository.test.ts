@@ -17,6 +17,7 @@ import {
   createUnit,
   createUnitWithLessons,
   deleteClass,
+  deleteUnit,
   deleteSchoolYear,
   duplicateLessonAsContinuation,
   getActiveSchoolYearId,
@@ -27,6 +28,7 @@ import {
   getSchoolYearById,
   getUnitById,
   hasCurriculumOutcomes,
+  insertLessonAtDate,
   listSchoolYears,
   resetPlannerData,
   seedPlannerData,
@@ -631,6 +633,39 @@ describe("planner repository", () => {
     ).toThrow("Unit not found");
   });
 
+  it("deletes a unit and its lessons", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    const unitId = createUnitWithLessons(db, userId, {
+      unit: {
+        classId: "grade-6-math",
+        endDate: "2026-09-11",
+        outcomeIds: [],
+        startDate: "2026-09-08",
+        title: "Delete Test Unit",
+      },
+      lessons: [
+        { title: "Lesson 1", date: "2026-09-08", durationMinutes: 45, outcomeIds: [], status: "planned", summary: "" },
+      ],
+    });
+    const lessonId = getUnitById(db, userId, unitId)!.lessons[0].id;
+
+    deleteUnit(db, userId, unitId);
+
+    expect(getUnitById(db, userId, unitId)).toBeUndefined();
+    expect(getLessonById(db, userId, lessonId)).toBeUndefined();
+  });
+
+  it("throws when deleting a unit that doesn't exist", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    expect(() => deleteUnit(db, userId, "unit-does-not-exist")).toThrow("Unit not found");
+  });
+
   it("cascades a lesson date shift across the rest of the unit", () => {
     const db = createClassPilotDatabase(temporaryDatabasePath());
     const userId = createUser(db, { username: "teacher", password: "x" }).id;
@@ -732,6 +767,97 @@ describe("planner repository", () => {
     const after = getUnitById(db, userId, unitId)!;
     expect(after.lessons.find((lesson) => lesson.id === first.id)?.date).toBe("2026-09-10");
     expect(after.lessons.find((lesson) => lesson.id === second.id)?.date).toBe("2026-09-17");
+  });
+
+  it("inserts an unscheduled lesson onto an empty date without shifting anything else", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    // Instructional days: ...09-08, 09-09, 09-10, 09-11, 09-14, 09-15...
+    const unitId = createUnitWithLessons(db, userId, {
+      unit: {
+        classId: "grade-6-math",
+        endDate: "2026-09-14",
+        outcomeIds: [],
+        startDate: "2026-09-08",
+        title: "Insert Test Unit",
+      },
+      lessons: [
+        { title: "Lesson 1", date: "2026-09-08", durationMinutes: 45, outcomeIds: [], status: "planned", summary: "" },
+        { title: "Lesson 2", date: null, durationMinutes: 45, outcomeIds: [], status: "planned", summary: "" },
+      ],
+    });
+
+    const before = getUnitById(db, userId, unitId)!;
+    const lesson1 = before.lessons.find((lesson) => lesson.title === "Lesson 1")!;
+    const lesson2 = before.lessons.find((lesson) => lesson.title === "Lesson 2")!;
+
+    const result = insertLessonAtDate(db, userId, {
+      date: "2026-09-10",
+      lessonId: lesson2.id,
+      unitId,
+    });
+
+    expect(result.shiftedLessonIds).toEqual([]);
+
+    const after = getUnitById(db, userId, unitId)!;
+    expect(after.lessons.find((lesson) => lesson.id === lesson1.id)?.date).toBe("2026-09-08");
+    expect(after.lessons.find((lesson) => lesson.id === lesson2.id)?.date).toBe("2026-09-10");
+  });
+
+  it("inserting a lesson onto an occupied date pushes the occupant (and later lessons) forward instead of overwriting them", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    // Instructional days: ...09-08, 09-09, 09-10, 09-11, 09-14, 09-15...
+    const unitId = createUnitWithLessons(db, userId, {
+      unit: {
+        classId: "grade-6-math",
+        endDate: "2026-09-15",
+        outcomeIds: [],
+        startDate: "2026-09-08",
+        title: "Insert Cascade Test Unit",
+      },
+      lessons: [
+        { title: "Lesson 1", date: "2026-09-08", durationMinutes: 45, outcomeIds: [], status: "planned", summary: "" },
+        { title: "Lesson 2", date: "2026-09-09", durationMinutes: 45, outcomeIds: [], status: "planned", summary: "" },
+        { title: "Lesson 3", date: null, durationMinutes: 45, outcomeIds: [], status: "planned", summary: "" },
+      ],
+    });
+
+    const before = getUnitById(db, userId, unitId)!;
+    const lesson1 = before.lessons.find((lesson) => lesson.title === "Lesson 1")!;
+    const lesson2 = before.lessons.find((lesson) => lesson.title === "Lesson 2")!;
+    const lesson3 = before.lessons.find((lesson) => lesson.title === "Lesson 3")!;
+
+    const result = insertLessonAtDate(db, userId, {
+      date: "2026-09-09",
+      lessonId: lesson3.id,
+      unitId,
+    });
+
+    expect(result.shiftedLessonIds).toEqual([lesson2.id]);
+
+    const after = getUnitById(db, userId, unitId)!;
+    expect(after.lessons.find((lesson) => lesson.id === lesson1.id)?.date).toBe("2026-09-08");
+    expect(after.lessons.find((lesson) => lesson.id === lesson3.id)?.date).toBe("2026-09-09");
+    expect(after.lessons.find((lesson) => lesson.id === lesson2.id)?.date).toBe("2026-09-10");
+  });
+
+  it("throws when inserting into a nonexistent unit", () => {
+    const db = createClassPilotDatabase(temporaryDatabasePath());
+    const userId = createUser(db, { username: "teacher", password: "x" }).id;
+    seedPlannerData(db, userId, plannerData);
+
+    expect(() =>
+      insertLessonAtDate(db, userId, {
+        date: "2026-09-09",
+        lessonId: "lesson-does-not-exist",
+        unitId: "unit-does-not-exist",
+      }),
+    ).toThrow("Unit not found");
   });
 
   it("duplicates a lesson onto the class's next meeting date, linked back to the source", () => {

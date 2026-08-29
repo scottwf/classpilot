@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { CalendarDays, Clock3, NotebookPen, Plus } from "lucide-react";
+import { CalendarDays, CalendarX, Clock3, NotebookPen, Plus, Undo2 } from "lucide-react";
 import type { AgendaEntry } from "./day-agenda";
 import type { EnrichedLesson } from "./lesson-queries";
-import type { ClassColor } from "./types";
+import type { ClassColor, ClassSection } from "./types";
 
 type DayColumn = {
   date: string;
@@ -10,10 +10,15 @@ type DayColumn = {
 };
 
 type DailyPlannerProps = {
+  cancelClassMeetingAction?: (formData: FormData) => void | Promise<void>;
+  /** Every class, for the "cancel and swap in" dropdown -- not just the
+   * ones scheduled today. */
+  classes?: ClassSection[];
   date: string;
   view: "day" | "week";
   days: DayColumn[];
   dayNotes?: Record<string, string>;
+  restoreClassMeetingAction?: (formData: FormData) => void | Promise<void>;
   saveDayNoteAction?: (formData: FormData) => void | Promise<void>;
   schoolYearId?: string;
   /** Lessons in the shown date range that aren't tied to a scheduled slot
@@ -34,11 +39,14 @@ const classBlockColorClass: Record<ClassColor, string> = {
 };
 
 export function DailyPlanner({
+  cancelClassMeetingAction,
+  classes = [],
   date,
   view,
   days,
   dayNotes = {},
   otherLessons,
+  restoreClassMeetingAction,
   saveDayNoteAction,
   schoolYearId,
 }: DailyPlannerProps) {
@@ -78,7 +86,13 @@ export function DailyPlanner({
       ) : null}
 
       {view === "day" ? (
-        <DayColumnView column={days[0]} />
+        <DayColumnView
+          cancelClassMeetingAction={cancelClassMeetingAction}
+          classes={classes}
+          column={days[0]}
+          restoreClassMeetingAction={restoreClassMeetingAction}
+          view={view}
+        />
       ) : (
         <div
           className="mt-4 grid gap-3"
@@ -96,7 +110,14 @@ export function DailyPlanner({
                 ) : null}
               </Link>
               <div className="mt-2">
-                <DayColumnView column={column} compact />
+                <DayColumnView
+                  cancelClassMeetingAction={cancelClassMeetingAction}
+                  classes={classes}
+                  column={column}
+                  compact
+                  restoreClassMeetingAction={restoreClassMeetingAction}
+                  view={view}
+                />
               </div>
             </div>
           ))}
@@ -199,7 +220,21 @@ function DayNoteForm({
   );
 }
 
-function DayColumnView({ column, compact }: { column?: DayColumn; compact?: boolean }) {
+function DayColumnView({
+  cancelClassMeetingAction,
+  classes = [],
+  column,
+  compact,
+  restoreClassMeetingAction,
+  view = "day",
+}: {
+  cancelClassMeetingAction?: (formData: FormData) => void | Promise<void>;
+  classes?: ClassSection[];
+  column?: DayColumn;
+  compact?: boolean;
+  restoreClassMeetingAction?: (formData: FormData) => void | Promise<void>;
+  view?: string;
+}) {
   if (!column || column.entries.length === 0) {
     return (
       <div
@@ -212,35 +247,141 @@ function DayColumnView({ column, compact }: { column?: DayColumn; compact?: bool
 
   return (
     <div className={compact ? "space-y-1.5" : "mt-4 space-y-2"}>
-      {column.entries.map(({ slot, classSection, lesson }) => (
+      {column.entries.map(
+        ({
+          slot,
+          classSection,
+          lesson,
+          activeUnitId,
+          exception,
+          substituteClassSection,
+          substituteLesson,
+          substituteActiveUnitId,
+        }) => {
+        // A class swap keeps the original slot time, but it should look
+        // like the class now teaching it. This makes the timetable read in
+        // the same order a teacher experiences the day.
+        const displayedClass = substituteClassSection ?? classSection;
+        const isClassSwap = Boolean(exception && substituteClassSection);
+
+        return (
         <div
-          className={`rounded-md ${classBlockColorClass[classSection.color]} ${compact ? "p-2 text-xs" : "p-3 text-sm"}`}
+          className={`rounded-md ${classBlockColorClass[displayedClass.color]} ${compact ? "p-2 text-xs" : "p-3 text-sm"}`}
           key={slot.id}
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="font-medium">{classSection.name}</span>
+            <span className="font-medium">{displayedClass.name}</span>
             <span className="opacity-70">
               {slot.startTime}–{slot.endTime}
             </span>
           </div>
-          {lesson ? (
-            <Link
-              className="mt-1 block truncate underline hover:opacity-75"
-              href={`/lessons/${lesson.id}`}
-            >
-              {lesson.title}
-            </Link>
+
+          {exception ? (
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {isClassSwap ? (
+                substituteLesson ? (
+                  <Link
+                    className="block truncate underline hover:opacity-75"
+                    href={`/lessons/${substituteLesson.id}`}
+                  >
+                    {substituteLesson.title}
+                  </Link>
+                ) : (
+                  <Link
+                    className="inline-flex items-center gap-1 underline hover:opacity-75"
+                    href={`/lessons/new?date=${column.date}&classId=${exception.substituteClassId}${substituteActiveUnitId ? `&unitId=${substituteActiveUnitId}` : ""}`}
+                  >
+                    <Plus aria-hidden="true" className="size-3" />
+                    Insert lesson
+                  </Link>
+                )
+              ) : (
+                <span className="inline-flex items-center gap-1 font-medium">
+                  <CalendarX aria-hidden="true" className="size-3" />
+                  {exception.label}
+                </span>
+              )}
+
+              {isClassSwap && exception.label !== displayedClass.name ? (
+                <span className="text-xs opacity-70">{exception.label}</span>
+              ) : null}
+
+              {restoreClassMeetingAction ? (
+                <form action={restoreClassMeetingAction}>
+                  <input name="exceptionId" type="hidden" value={exception.id} />
+                  <input name="date" type="hidden" value={column.date} />
+                  <input name="view" type="hidden" value={view} />
+                  <button
+                    className="inline-flex items-center gap-1 underline hover:opacity-75"
+                    type="submit"
+                  >
+                    <Undo2 aria-hidden="true" className="size-3" />
+                    Restore class
+                  </button>
+                </form>
+              ) : null}
+            </div>
           ) : (
-            <Link
-              className="mt-1 inline-flex items-center gap-1 underline hover:opacity-75"
-              href={`/lessons/new?date=${column.date}&classId=${classSection.id}`}
-            >
-              <Plus aria-hidden="true" className="size-3" />
-              Add lesson
-            </Link>
+            <>
+              {lesson ? (
+                <Link
+                  className="mt-1 block truncate underline hover:opacity-75"
+                  href={`/lessons/${lesson.id}`}
+                >
+                  {lesson.title}
+                </Link>
+              ) : (
+                <Link
+                  className="mt-1 inline-flex items-center gap-1 underline hover:opacity-75"
+                  href={`/lessons/new?date=${column.date}&classId=${classSection.id}${activeUnitId ? `&unitId=${activeUnitId}` : ""}`}
+                >
+                  <Plus aria-hidden="true" className="size-3" />
+                  Add lesson
+                </Link>
+              )}
+
+              {cancelClassMeetingAction ? (
+                <form
+                  action={cancelClassMeetingAction}
+                  className="mt-1 flex flex-wrap items-center gap-1"
+                >
+                  <input name="classId" type="hidden" value={classSection.id} />
+                  <input name="date" type="hidden" value={column.date} />
+                  <input name="view" type="hidden" value={view} />
+                  <CalendarX aria-hidden="true" className="size-3 shrink-0 opacity-70" />
+                  <select
+                    aria-label="Swap in another class instead"
+                    className="min-w-0 rounded border border-transparent bg-white/60 px-1 py-0.5 text-xs outline-none focus:border-current"
+                    defaultValue=""
+                    name="substituteClassId"
+                  >
+                    <option value="">No substitute</option>
+                    {classes
+                      .filter((otherClass) => otherClass.id !== classSection.id)
+                      .map((otherClass) => (
+                        <option key={otherClass.id} value={otherClass.id}>
+                          {otherClass.name}
+                        </option>
+                      ))}
+                  </select>
+                  <input
+                    aria-label="Custom label (optional)"
+                    className="min-w-0 flex-1 rounded border border-transparent bg-white/60 px-1 py-0.5 text-xs outline-none placeholder:opacity-60 focus:border-current"
+                    name="label"
+                    placeholder="Optional label"
+                    type="text"
+                  />
+                  <button className="shrink-0 underline hover:opacity-75" type="submit">
+                    Cancel
+                  </button>
+                </form>
+              ) : null}
+            </>
           )}
         </div>
-      ))}
+        );
+      },
+      )}
     </div>
   );
 }

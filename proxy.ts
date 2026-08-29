@@ -18,7 +18,17 @@ import { verifySessionToken } from "@/src/lib/auth/session";
 // precache it regardless of session state, and so it renders correctly when
 // served from cache with no network round-trip at all (auth can't run then
 // anyway — it's a static, DB-free page with no sensitive content).
-const publicPaths = new Set(["/login", "/calendar/feed.ics", "/offline"]);
+//
+// /login/submit is exempt because it's the login POST itself -- by
+// definition there's no session cookie yet. It's a plain Route Handler
+// (not a Server Action) so iOS standalone PWAs reliably persist the
+// resulting Set-Cookie -- see app/login/submit/route.ts.
+const publicPaths = new Set([
+  "/login",
+  "/login/submit",
+  "/calendar/feed.ics",
+  "/offline",
+]);
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

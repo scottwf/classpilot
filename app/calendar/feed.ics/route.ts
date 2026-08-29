@@ -7,6 +7,7 @@ import {
   buildIcsCalendar,
 } from "@/src/lib/calendar/ics";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
+import { getScheduleExceptions } from "@/src/lib/db/schedule-exceptions-repository";
 import { getScheduleSlots } from "@/src/lib/db/schedule-repository";
 import { getSoleUser } from "@/src/lib/db/users-repository";
 
@@ -81,12 +82,14 @@ function buildFeed(
   }
 
   const scheduleSlots = getScheduleSlots(db, userId, plannerData.schoolYear.id);
+  const scheduleExceptions = getScheduleExceptions(db, userId, plannerData.schoolYear.id);
 
   if (kind === "supervision") {
     return buildClassScheduleIcsCalendar({
       calendarName: `ClassPilot Supervision — ${yearTitle}`,
       classes: plannerData.classes,
       instructionalOnly: false,
+      scheduleExceptions,
       scheduleSlots,
       schoolYear: plannerData.schoolYear,
     });
@@ -95,6 +98,7 @@ function buildFeed(
   return buildClassScheduleIcsCalendar({
     calendarName: `ClassPilot All Classes — ${yearTitle}`,
     classes: plannerData.classes,
+    scheduleExceptions,
     scheduleSlots,
     schoolYear: plannerData.schoolYear,
   });
