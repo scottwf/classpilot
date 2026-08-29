@@ -62,6 +62,7 @@ describe("ClassPilotPlanner", () => {
     render(
       <UnitDetailPage
         attachments={[]}
+        autoScheduleAction={() => {}}
         createFileAttachmentAction={() => {}}
         createLinkAttachmentAction={() => {}}
         data={plannerData}
