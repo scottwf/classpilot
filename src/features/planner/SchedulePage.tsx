@@ -95,6 +95,13 @@ export function SchedulePage({
           a class below to set which days it meets and at what times —
           saving replaces that class&apos;s whole schedule.
         </p>
+        <a
+          className="mt-2 inline-block text-sm font-medium text-blue-700 underline"
+          href="/settings/schedule/timetable.csv"
+        >
+          Download timetable (CSV) — for carrying it across a &quot;Reset
+          all planner data&quot;
+        </a>
       </section>
 
       {wizardMode ? (

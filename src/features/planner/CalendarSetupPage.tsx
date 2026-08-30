@@ -227,6 +227,32 @@ export function CalendarSetupPage({
               />
             </div>
           </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-950">
+              Export for a fresh start
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Before running &quot;Reset all planner data&quot; (Settings),
+              download these so you don&apos;t have to re-enter your
+              calendar setup for the new year by hand — hand the files to
+              an AI assistant connected over MCP to recreate them.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              <a
+                className="text-sm font-medium text-blue-700 underline"
+                href="/settings/calendar/school-year.csv"
+              >
+                Download school year (CSV)
+              </a>
+              <a
+                className="text-sm font-medium text-blue-700 underline"
+                href="/settings/calendar/blocked-dates.csv"
+              >
+                Download blocked/non-instructional days (CSV)
+              </a>
+            </div>
+          </section>
         </aside>
       </div>
 
