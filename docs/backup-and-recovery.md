@@ -76,11 +76,22 @@ rm -f "/tmp/classpilot-$ts.sqlite"
 - **Retention:** 30 days, pruned automatically by the script (`find -mtime +30 -delete`).
 - **Public key only** lives on echo, inside the script — encryption doesn't
   need the private key, so there's nothing sensitive to protect on the host
-  itself if the script or repo leaks.
+  itself if the script or repo leaks. Current public key:
+  `age15l3rdz2umzsrz6z095atuqfjq08z0wm74c0dwtnk98dtun7v4f9sucxp8s`.
 - **Private key** (`AGE-SECRET-KEY-1...`) was generated once, shown to Scott
   in chat, and is **not** stored anywhere on echo or in this repo — it must
   live in a password manager only. Without it, none of these backups are
   recoverable.
+- **2026-08-30: keypair regenerated.** The original private key (paired with
+  public key `age1xefl7wnq5ye34ewyv3pmqn97xp5f8vrj56dvyd6dwtpa0avr25fqjpvpkn`)
+  was never actually saved anywhere, discovered the day before real student
+  data was scheduled to start going in. Regenerated while everything was
+  still test data, so nothing real was at risk. Backups made before this date
+  (encrypted under the old public key) are permanently undecryptable and were
+  left in place in `/mnt/media-chitek/Backup/Echo/classpilot/` — harmless,
+  they're just test data, and will age out via the normal 30-day retention.
+  A full restore drill (real key succeeds, wrong key correctly refused) was
+  re-run against the new key before trusting it.
 
 ## Restore procedure
 
@@ -106,6 +117,11 @@ Full dry run completed 2026-08-21:
 
 Re-run this drill (steps 2-3 at least) periodically, and any time the backup
 script or key changes.
+
+**Re-run 2026-08-30** after the keypair regeneration above: same three steps,
+against a fresh backup taken under the new key. Real key decrypted and
+showed correct row counts; a freshly-generated wrong key was correctly
+refused.
 
 ## Pre-real-data checklist
 
