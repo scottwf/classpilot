@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { outcomeIdFor } from "@/src/lib/curriculum/sk-outcomes";
 import { plannerData } from "./seed-data";
+import type { LessonPlan, UnitPlan } from "./types";
 import {
+  buildCourseOutline,
   buildLessonBankFilterOptions,
   buildOutcomeCoverage,
   filterLessonBank,
@@ -168,5 +170,82 @@ describe("resolvePlanBookDefaultDate", () => {
   it("jumps to the next Monday when today is a Sunday within the school year (#46)", () => {
     // 2026-09-06 is a Sunday.
     expect(resolvePlanBookDefaultDate(schoolYear, [], "2026-09-06")).toBe("2026-09-07");
+  });
+});
+
+describe("buildCourseOutline", () => {
+  const lesson = (id: string): LessonPlan => ({
+    id,
+    title: id,
+    date: null,
+    sequence: 1,
+    durationMinutes: 45,
+    status: "planned",
+    outcomeIds: [],
+    summary: "",
+  });
+
+  it("scopes to the given class and sorts units chronologically by start date", () => {
+    const units: UnitPlan[] = [
+      {
+        id: "unit-b",
+        classId: "class-math",
+        title: "Unit B",
+        startDate: "2026-10-01",
+        endDate: "2026-10-31",
+        outcomeIds: [],
+        lessons: [lesson("lesson-b1")],
+        notes: "",
+      },
+      {
+        id: "unit-a",
+        classId: "class-math",
+        title: "Unit A",
+        startDate: "2026-09-01",
+        endDate: "2026-09-30",
+        outcomeIds: [],
+        lessons: [lesson("lesson-a1")],
+        notes: "",
+      },
+      {
+        id: "unit-other-class",
+        classId: "class-science",
+        title: "Other class's unit",
+        startDate: "2026-08-01",
+        endDate: "2026-08-31",
+        outcomeIds: [],
+        lessons: [],
+        notes: "",
+      },
+    ];
+
+    const outline = buildCourseOutline(units, "class-math");
+
+    expect(outline.map((entry) => entry.unit.id)).toEqual(["unit-a", "unit-b"]);
+    expect(outline[0].lessons.map((l) => l.id)).toEqual(["lesson-a1"]);
+  });
+
+  it("preserves each unit's existing lesson order rather than re-sorting", () => {
+    const units: UnitPlan[] = [
+      {
+        id: "unit-a",
+        classId: "class-math",
+        title: "Unit A",
+        startDate: "2026-09-01",
+        endDate: "2026-09-30",
+        outcomeIds: [],
+        lessons: [lesson("lesson-2"), lesson("lesson-1")],
+        notes: "",
+      },
+    ];
+
+    expect(buildCourseOutline(units, "class-math")[0].lessons.map((l) => l.id)).toEqual([
+      "lesson-2",
+      "lesson-1",
+    ]);
+  });
+
+  it("returns an empty outline for a class with no units", () => {
+    expect(buildCourseOutline([], "class-math")).toEqual([]);
   });
 });

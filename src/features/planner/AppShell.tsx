@@ -4,6 +4,7 @@ import {
   Bot,
   GanttChart,
   LayoutDashboard,
+  ListTree,
   Settings,
   Target,
   Users,
@@ -19,6 +20,7 @@ type AppShellProps = {
     | "lessons"
     | "outcomes"
     | "units"
+    | "outline"
     | "classes"
     | "students"
     | "assistant"
@@ -35,6 +37,7 @@ const navItems = [
   { href: "/lessons", icon: BookOpen, label: "Lessons", page: "lessons" },
   { href: "/outcomes", icon: Target, label: "Outcomes", page: "outcomes" },
   { href: "/units", icon: GanttChart, label: "Unit Timeline", page: "units" },
+  { href: "/outline", icon: ListTree, label: "Outline", page: "outline" },
   { href: "/students", icon: Users, label: "Students", page: "students" },
   { href: "/assistant", icon: Bot, label: "Assistant", page: "assistant" },
   { href: "/settings", icon: Settings, label: "Settings", page: "settings" },

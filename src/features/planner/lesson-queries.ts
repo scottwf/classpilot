@@ -263,6 +263,24 @@ export function resolvePlanBookDefaultDate(
   return day === 0 || day === 6 ? shiftToWeekday(candidate, 1) : candidate;
 }
 
+export type CourseOutlineUnit = {
+  unit: UnitPlan;
+  lessons: LessonPlan[];
+};
+
+/**
+ * One class's units, chronologically, each paired with its lessons in unit
+ * order -- the Course outline view's (#48) data shape. Doesn't invent
+ * dates for undated lessons; the outline UI shows their persisted
+ * `sequence` instead (issue #39's undated-lesson convention).
+ */
+export function buildCourseOutline(units: UnitPlan[], classId: string): CourseOutlineUnit[] {
+  return units
+    .filter((unit) => unit.classId === classId)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .map((unit) => ({ unit, lessons: unit.lessons }));
+}
+
 function enrichLesson(
   lesson: LessonPlan,
   unit: UnitPlan,

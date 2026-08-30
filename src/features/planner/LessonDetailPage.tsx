@@ -231,7 +231,7 @@ export function LessonDetailPage({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+export function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="text-xs font-semibold uppercase text-slate-500">
@@ -242,7 +242,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ResourceSection({ title, value }: { title: string; value: string }) {
+export function ResourceSection({ title, value }: { title: string; value: string }) {
   const resources = parseLessonResources(value);
 
   return (
