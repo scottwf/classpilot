@@ -355,52 +355,65 @@ function DayColumnView({
                 >
                   {lesson.title}
                 </Link>
-              ) : (
+              ) : null}
+
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 <Link
-                  className="mt-1 inline-flex items-center gap-1 underline hover:opacity-75"
+                  className="inline-flex items-center gap-1 rounded border border-current/25 px-1.5 py-0.5 text-xs font-medium opacity-80 hover:opacity-100"
                   href={`/lessons/new?date=${column.date}&classId=${classSection.id}${activeUnitId ? `&unitId=${activeUnitId}` : ""}`}
                 >
                   <Plus aria-hidden="true" className="size-3" />
                   Add lesson
                 </Link>
-              )}
 
-              {cancelClassMeetingAction ? (
-                <form
-                  action={cancelClassMeetingAction}
-                  className="mt-1 flex flex-wrap items-center gap-1"
-                >
-                  <input name="classId" type="hidden" value={classSection.id} />
-                  <input name="date" type="hidden" value={column.date} />
-                  <input name="view" type="hidden" value={view} />
-                  <CalendarX aria-hidden="true" className="size-3 shrink-0 opacity-70" />
-                  <select
-                    aria-label="Swap in another class instead"
-                    className="min-w-0 rounded border border-transparent bg-white/60 px-1 py-0.5 text-xs outline-none focus:border-current"
-                    defaultValue=""
-                    name="substituteClassId"
-                  >
-                    <option value="">No substitute</option>
-                    {classes
-                      .filter((otherClass) => otherClass.id !== classSection.id)
-                      .map((otherClass) => (
-                        <option key={otherClass.id} value={otherClass.id}>
-                          {otherClass.name}
-                        </option>
-                      ))}
-                  </select>
-                  <input
-                    aria-label="Custom label (optional)"
-                    className="min-w-0 flex-1 rounded border border-transparent bg-white/60 px-1 py-0.5 text-xs outline-none placeholder:opacity-60 focus:border-current"
-                    name="label"
-                    placeholder="Optional label"
-                    type="text"
-                  />
-                  <button className="shrink-0 underline hover:opacity-75" type="submit">
-                    Cancel
-                  </button>
-                </form>
-              ) : null}
+                {cancelClassMeetingAction ? (
+                  // Collapsed by default (<details>, no client JS needed) --
+                  // swapping/cancelling a class is rare, so it shouldn't
+                  // cost a permanently-visible row on every single slot.
+                  <details className="[&_summary::-webkit-details-marker]:hidden">
+                    <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded border border-current/25 px-1.5 py-0.5 text-xs font-medium opacity-80 hover:opacity-100">
+                      <CalendarX aria-hidden="true" className="size-3" />
+                      Swap / cancel
+                    </summary>
+                    <form
+                      action={cancelClassMeetingAction}
+                      className="mt-1.5 flex flex-wrap items-center gap-1"
+                    >
+                      <input name="classId" type="hidden" value={classSection.id} />
+                      <input name="date" type="hidden" value={column.date} />
+                      <input name="view" type="hidden" value={view} />
+                      <select
+                        aria-label="Swap in another class instead"
+                        className="min-w-0 rounded border border-transparent bg-white/60 px-1 py-0.5 text-xs outline-none focus:border-current"
+                        defaultValue=""
+                        name="substituteClassId"
+                      >
+                        <option value="">No substitute</option>
+                        {classes
+                          .filter((otherClass) => otherClass.id !== classSection.id)
+                          .map((otherClass) => (
+                            <option key={otherClass.id} value={otherClass.id}>
+                              {otherClass.name}
+                            </option>
+                          ))}
+                      </select>
+                      <input
+                        aria-label="Custom label (optional)"
+                        className="min-w-0 flex-1 rounded border border-transparent bg-white/60 px-1 py-0.5 text-xs outline-none placeholder:opacity-60 focus:border-current"
+                        name="label"
+                        placeholder="Optional label"
+                        type="text"
+                      />
+                      <button
+                        className="shrink-0 rounded border border-current/25 px-1.5 py-0.5 text-xs font-medium opacity-80 hover:opacity-100"
+                        type="submit"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  </details>
+                ) : null}
+              </div>
             </>
           )}
         </div>
