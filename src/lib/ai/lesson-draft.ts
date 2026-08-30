@@ -1,4 +1,5 @@
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { recordAiUsage } from "@/src/lib/db/ai-usage-repository";
 import { getAppSettings } from "@/src/lib/db/settings-repository";
 import type { LessonSections } from "@/src/features/planner/types";
 import { getAiConfig } from "./config";
@@ -17,7 +18,8 @@ export async function generateLessonSections(
   request: LessonDraftRequest,
   options: { signal?: AbortSignal } = {},
 ): Promise<LessonSections> {
-  const settings = getAppSettings(getClassPilotDatabase());
+  const db = getClassPilotDatabase();
+  const settings = getAppSettings(db);
   const config = getAiConfig({
     apiKey: settings.aiApiKey,
     baseUrl: settings.aiBaseUrl,
@@ -32,7 +34,9 @@ export async function generateLessonSections(
   }
 
   const messages = buildLessonDraftMessages(request);
-  const content = await requestChatCompletion(config, messages, options);
+  const { content, usage } = await requestChatCompletion(config, messages, options);
+
+  recordAiUsage(db, { model: config.model, provider: "hosted", purpose: "lesson_sections", usage });
 
   return parseLessonSectionsDraft(content);
 }

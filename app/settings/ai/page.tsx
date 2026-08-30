@@ -3,8 +3,9 @@ import { AiProviderSettingsPage } from "@/src/features/planner/AiProviderSetting
 import { isAiConfigured, isLocalAiConfigured } from "@/src/lib/ai/config";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotPlannerData } from "@/src/lib/db/classpilot-db";
+import { getAiUsageSummary, listRecentAiUsage } from "@/src/lib/db/ai-usage-repository";
 import { getAppSettings } from "@/src/lib/db/settings-repository";
-import { clearAiApiKeyAction, updateSettingsAction } from "../actions";
+import { clearAiApiKeyAction, clearAiUsageAction, updateSettingsAction } from "../actions";
 
 type AiSettingsRouteProps = {
   searchParams: Promise<{ saved?: string }>;
@@ -16,7 +17,8 @@ export default async function AiSettingsRoute({ searchParams }: AiSettingsRouteP
   const userId = await requireAuth();
 
   const plannerData = getClassPilotPlannerData(userId);
-  const settings = getAppSettings(getClassPilotDatabase());
+  const db = getClassPilotDatabase();
+  const settings = getAppSettings(db);
   const query = await searchParams;
 
   return (
@@ -37,8 +39,11 @@ export default async function AiSettingsRoute({ searchParams }: AiSettingsRouteP
         })}
         aiLocalModel={settings.aiLocalModel}
         clearApiKeyAction={clearAiApiKeyAction}
+        clearUsageAction={clearAiUsageAction}
+        recentUsage={listRecentAiUsage(db)}
         saved={query.saved}
         updateAction={updateSettingsAction}
+        usageSummary={getAiUsageSummary(db)}
       />
     </AppShell>
   );

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/src/lib/auth/server";
 import { getClassPilotDatabase, getClassPilotDatabasePath } from "@/src/lib/db/classpilot-db";
+import { clearAiUsageLog } from "@/src/lib/db/ai-usage-repository";
 import {
   deleteSchoolYear,
   resetPlannerData,
@@ -110,6 +111,21 @@ export async function clearAiApiKeyAction() {
   updateAppSettings(db, { ...current, aiApiKey: "" });
 
   redirect("/settings/ai?saved=1");
+}
+
+/**
+ * Resets the AI token-usage counters (issue #28). Deletes only the usage
+ * log -- token counts and timestamps, never prompt or completion text --
+ * so a teacher can zero the numbers at the start of a billing period
+ * without touching plan or student data. Confirmation is client-side, in
+ * ClearAiUsageButton.
+ */
+export async function clearAiUsageAction() {
+  await requireAuth();
+
+  clearAiUsageLog(getClassPilotDatabase());
+
+  redirect("/settings/ai?saved=usage-cleared");
 }
 
 export async function switchSchoolYearAction(formData: FormData) {

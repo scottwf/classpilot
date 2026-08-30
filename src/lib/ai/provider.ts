@@ -1,4 +1,5 @@
-import { AiError, type AiConfig, type ChatMessage } from "./types";
+import { AiError, type AiConfig, type AiUsage, type ChatMessage } from "./types";
+import { parseUsage } from "./usage";
 
 type ChatCompletionResponse = {
   choices?: Array<{
@@ -6,19 +7,33 @@ type ChatCompletionResponse = {
       content?: string | null;
     };
   }>;
+  usage?: unknown;
+};
+
+export type ChatCompletionResult = {
+  content: string;
+  /** Token counts for this call — zeroes when the provider omitted
+   * `usage`. Recorded by callers via recordAiUsage (issue #28); this
+   * module stays free of database access. */
+  usage: AiUsage;
 };
 
 /**
  * Calls an OpenAI-compatible `/chat/completions` endpoint and returns the
- * assistant text. Uses `fetch` only (no SDK dependency) so the same path works
- * against hosted providers and local model servers. This is the only
- * side-effecting function in the AI layer; everything else is pure and tested.
+ * assistant text plus the provider's reported token usage. Uses `fetch` only
+ * (no SDK dependency) so the same path works against hosted providers and
+ * local model servers. This is the only side-effecting function in the AI
+ * layer; everything else is pure and tested.
+ *
+ * Returning `usage` rather than logging it here keeps this module free of
+ * database access — callers pair the returned counts with a purpose and
+ * hand them to recordAiUsage (issue #28).
  */
 export async function requestChatCompletion(
   config: AiConfig,
   messages: ChatMessage[],
   options: { signal?: AbortSignal } = {},
-): Promise<string> {
+): Promise<ChatCompletionResult> {
   let response: Response;
 
   try {
@@ -65,7 +80,7 @@ export async function requestChatCompletion(
     throw new AiError("request_failed", "AI provider returned an empty response.");
   }
 
-  return content;
+  return { content, usage: parseUsage(payload.usage) };
 }
 
 async function safeReadText(response: Response): Promise<string> {

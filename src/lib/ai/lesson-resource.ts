@@ -1,4 +1,5 @@
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { recordAiUsage } from "@/src/lib/db/ai-usage-repository";
 import { getAppSettings } from "@/src/lib/db/settings-repository";
 import { getAiConfig } from "./config";
 import { buildLessonResourceMessages } from "./prompt";
@@ -18,7 +19,8 @@ export async function generateLessonResource(
   request: LessonResourceRequest,
   options: { signal?: AbortSignal } = {},
 ): Promise<string> {
-  const settings = getAppSettings(getClassPilotDatabase());
+  const db = getClassPilotDatabase();
+  const settings = getAppSettings(db);
   const config = getAiConfig({
     apiKey: settings.aiApiKey,
     baseUrl: settings.aiBaseUrl,
@@ -33,5 +35,9 @@ export async function generateLessonResource(
   }
 
   const messages = buildLessonResourceMessages(request);
-  return requestChatCompletion(config, messages, options);
+  const { content, usage } = await requestChatCompletion(config, messages, options);
+
+  recordAiUsage(db, { model: config.model, provider: "hosted", purpose: "lesson_resource", usage });
+
+  return content;
 }

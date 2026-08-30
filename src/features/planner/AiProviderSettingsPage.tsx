@@ -1,3 +1,5 @@
+import type { AiUsageEntry, AiUsageSummary } from "@/src/lib/db/ai-usage-repository";
+import { AiUsagePanel } from "./AiUsagePanel";
 import { HostedProviderFields } from "./HostedProviderFields";
 import { LocalProviderFields } from "./LocalProviderFields";
 import { SettingsTabs } from "./SettingsTabs";
@@ -13,8 +15,11 @@ type AiProviderSettingsPageProps = {
   aiLocalBaseUrl: string;
   aiLocalModel: string;
   clearApiKeyAction: ServerAction;
+  clearUsageAction: () => void | Promise<void>;
+  recentUsage: AiUsageEntry[];
   saved?: string;
   updateAction: ServerAction;
+  usageSummary: AiUsageSummary;
 };
 
 export function AiProviderSettingsPage({
@@ -26,8 +31,11 @@ export function AiProviderSettingsPage({
   aiLocalBaseUrl,
   aiLocalModel,
   clearApiKeyAction,
+  clearUsageAction,
+  recentUsage,
   saved,
   updateAction,
+  usageSummary,
 }: AiProviderSettingsPageProps) {
   return (
     <>
@@ -47,7 +55,7 @@ export function AiProviderSettingsPage({
 
       {saved !== undefined ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Settings saved.
+          {saved === "usage-cleared" ? "Usage history cleared." : "Settings saved."}
         </div>
       ) : null}
 
@@ -120,6 +128,12 @@ export function AiProviderSettingsPage({
           </form>
         ) : null}
       </section>
+
+      <AiUsagePanel
+        clearUsageAction={clearUsageAction}
+        recent={recentUsage}
+        summary={usageSummary}
+      />
     </>
   );
 }

@@ -336,6 +336,28 @@ export function migrate(db: ClassPilotDatabase) {
     CREATE INDEX IF NOT EXISTS idx_roster_field_values_student ON roster_field_values(student_id);
     CREATE INDEX IF NOT EXISTS idx_roster_views_year ON roster_views(school_year_id);
 
+    -- One row per AI provider call (issue #28), so the teacher can see how
+    -- much the assistant/drafting features are actually being used. Global,
+    -- not per-user, matching app_settings (AI provider config is global --
+    -- see issue #21's explicit decision). Token counts come from the
+    -- provider's usage object when it returns one; a server that omits it
+    -- still gets a row with zeroes, so call counts stay accurate even when
+    -- token counts aren't available. Never contains prompt or completion
+    -- text -- only counts -- so this log is safe regardless of whether the
+    -- call touched student data.
+    CREATE TABLE IF NOT EXISTS ai_usage_log (
+      id TEXT PRIMARY KEY,
+      occurred_at TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_occurred ON ai_usage_log(occurred_at);
+
     CREATE INDEX IF NOT EXISTS idx_students_year ON students(school_year_id, last_name);
     CREATE INDEX IF NOT EXISTS idx_contacts_student ON student_contacts(student_id);
     CREATE INDEX IF NOT EXISTS idx_comm_student ON communication_log(student_id, date);

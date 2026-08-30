@@ -4,6 +4,27 @@ export type AiConfig = {
   apiKey: string;
 };
 
+/**
+ * Token counts reported by an OpenAI-compatible provider's `usage` object
+ * (issue #28). Every field defaults to 0 when the provider omits `usage`
+ * entirely — some local model servers do — so a call still gets logged and
+ * counted even when its token counts aren't available.
+ */
+export type AiUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
+
+/** What an AI call was for, recorded alongside its token counts so the
+ * usage page can show which feature is spending the tokens. */
+export type AiUsagePurpose =
+  | "unit_outline"
+  | "lesson_sections"
+  | "lesson_resource"
+  | "dictation_draft"
+  | "assistant_chat";
+
 export type ChatRole = "system" | "user" | "assistant";
 
 export type ChatMessage = {

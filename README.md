@@ -25,6 +25,9 @@ This is not a public SaaS product. The first version is designed to run on a hom
 - Resource parsing for Markdown links, images, plain URLs, and local attachment notes
 - Saskatchewan Grade 6 curriculum outcome import
 - SQLite persistence through a small repository layer
+- AI token usage tracking: per-call token counts, rolling 7/30-day totals,
+  per-model and per-feature breakdowns, and estimated cost, on Settings →
+  AI Providers
 - Docker Compose deployment for homelab testing
 
 ## Tech Stack

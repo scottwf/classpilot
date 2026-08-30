@@ -1,4 +1,5 @@
 import { getClassPilotDatabase } from "@/src/lib/db/classpilot-db";
+import { recordAiUsage } from "@/src/lib/db/ai-usage-repository";
 import { getAppSettings } from "@/src/lib/db/settings-repository";
 import { getAiConfig } from "./config";
 import { parseUnitOutlineDraft } from "./parse";
@@ -15,7 +16,8 @@ export async function generateUnitOutline(
   request: UnitOutlineRequest,
   options: { signal?: AbortSignal } = {},
 ): Promise<UnitOutlineDraft> {
-  const settings = getAppSettings(getClassPilotDatabase());
+  const db = getClassPilotDatabase();
+  const settings = getAppSettings(db);
   const config = getAiConfig({
     apiKey: settings.aiApiKey,
     baseUrl: settings.aiBaseUrl,
@@ -30,7 +32,9 @@ export async function generateUnitOutline(
   }
 
   const messages = buildUnitOutlineMessages(request);
-  const content = await requestChatCompletion(config, messages, options);
+  const { content, usage } = await requestChatCompletion(config, messages, options);
+
+  recordAiUsage(db, { model: config.model, provider: "hosted", purpose: "unit_outline", usage });
 
   return parseUnitOutlineDraft(content);
 }

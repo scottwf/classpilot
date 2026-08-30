@@ -1,4 +1,6 @@
-import { AiError, type AiConfig } from "@/src/lib/ai/types";
+import { AiError, type AiConfig, type AiUsage } from "@/src/lib/ai/types";
+import { parseUsage } from "@/src/lib/ai/usage";
+import { recordAiUsage } from "@/src/lib/db/ai-usage-repository";
 import { getPlannerData } from "@/src/lib/db/planner-repository";
 import type { ClassPilotDatabase } from "@/src/lib/db/sqlite";
 import { assistantTools, findTool, type AssistantTool } from "./tools";
@@ -61,6 +63,7 @@ type ChatCompletionResponse = {
       tool_calls?: WireToolCall[];
     };
   }>;
+  usage?: unknown;
 };
 
 function toWireMessage(message: OrchestratorMessage): WireMessage {
@@ -99,7 +102,7 @@ async function requestAssistantMessage(
   messages: OrchestratorMessage[],
   tools: AssistantTool[],
   options: { signal?: AbortSignal } = {},
-): Promise<{ content: string | null; toolCalls: ChatToolCall[] }> {
+): Promise<{ content: string | null; toolCalls: ChatToolCall[]; usage: AiUsage }> {
   let response: Response;
 
   try {
@@ -149,6 +152,7 @@ async function requestAssistantMessage(
       id: call.id,
       name: call.function.name,
     })),
+    usage: parseUsage(payload.usage),
   };
 }
 
@@ -269,6 +273,17 @@ export async function runAssistantChat(input: RunAssistantChatInput): Promise<As
       conversation,
       availableTools,
     );
+
+    // One row per provider round-trip, not per chat turn: a tool-calling
+    // turn hits the model several times, and recording as we go means the
+    // tokens a turn already spent are still counted if a later round
+    // throws (issue #28).
+    recordAiUsage(input.db, {
+      model: input.driverConfig.model,
+      provider: input.driver,
+      purpose: "assistant_chat",
+      usage: assistantMessage.usage,
+    });
 
     if (assistantMessage.toolCalls.length === 0) {
       const reply = assistantMessage.content?.trim() || "(no response)";
