@@ -45,9 +45,21 @@ openssl rand -base64 32
 ## Encrypted backup procedure (implemented, running)
 
 Automated as of 2026-08-21. Script: `/home/docker/appdata/classpilot-backups/backup.sh`
-on echo, run nightly at 03:00 via `scott`'s crontab
-(`crontab -l` shows the entry; output logs to
-`/home/docker/appdata/classpilot-backups/backup.log`).
+on echo, run nightly at 03:00 via **root's** crontab (`sudo crontab -l` shows
+the entry; output logs to `/home/docker/appdata/classpilot-backups/backup.log`).
+
+**2026-08-30 fix:** originally ran under `scott`'s crontab, which caused
+intermittent `attempt to write a readonly database` failures (~30% of nights).
+Cause: `data/classpilot.sqlite{,-wal,-shm}` are owned by the container's UID
+1001, mode 644; opening a WAL-mode database at all -- even for a read-only
+`.backup` -- requires write access to the `-shm` file to record the
+connection's lock state, which `scott` (UID 1000) doesn't have. It only
+failed on nights the WAL was actively in use at 03:00 (unwritten/checkpointed
+WAL doesn't need that write), which is exactly the intermittent pattern seen
+in the log. Moved the cron job to root, which bypasses the ownership
+mismatch entirely -- no changes to the script or to the data directory's
+permissions were needed. Verified by forcing WAL activity immediately before
+a manual run; it now succeeds under that exact condition.
 
 What it does:
 
