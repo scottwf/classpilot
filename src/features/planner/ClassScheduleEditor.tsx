@@ -3,6 +3,7 @@
 import { Copy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getDayLabel } from "./cycle";
+import { getClassDotColorClass } from "./class-color";
 import type { ClassColor, DayLabelScheme, ScheduleSlot } from "./types";
 
 type DayTime = { startTime: string; endTime: string };
@@ -21,17 +22,6 @@ type ClassScheduleEditorProps = {
 
 const inputClass =
   "rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
-
-const classDotColorClass: Record<ClassColor, string> = {
-  amber: "bg-amber-500",
-  blue: "bg-blue-500",
-  emerald: "bg-emerald-500",
-  orange: "bg-orange-500",
-  rose: "bg-rose-500",
-  sky: "bg-sky-500",
-  teal: "bg-teal-500",
-  violet: "bg-violet-500",
-};
 
 /**
  * "Click a class, check off which days it meets and set a start/end time
@@ -109,7 +99,7 @@ export function ClassScheduleEditor({
       <div className="flex items-center gap-2">
         <span
           aria-hidden="true"
-          className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[color]}`}
+          className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(color)}`}
         />
         <h3 className="text-sm font-semibold text-slate-950">{className}</h3>
       </div>

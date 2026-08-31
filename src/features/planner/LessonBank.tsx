@@ -1,26 +1,14 @@
 import Link from "next/link";
+import { ArrowDownUp, CalendarDays, Filter, Layers } from "lucide-react";
+import { InfoTip } from "./InfoTip";
+import { getUnitColorClasses } from "./unit-color";
+import { getClassDotColorClass } from "./class-color";
 import type {
   EnrichedLesson,
   LessonBankFilterOptions,
   LessonBankFilters,
   LessonBankSort,
 } from "./lesson-queries";
-import type { ClassColor } from "./types";
-
-// Same 8-hue set as every other class-identity dot in the app (Schedule,
-// Outcomes, Curriculum Library) -- see issue #27: class color should be
-// visible everywhere a class's lessons show up, including here, which
-// previously had no color at all.
-const classDotColorClass: Record<ClassColor, string> = {
-  amber: "bg-amber-500",
-  blue: "bg-blue-500",
-  emerald: "bg-emerald-500",
-  orange: "bg-orange-500",
-  rose: "bg-rose-500",
-  sky: "bg-sky-500",
-  teal: "bg-teal-500",
-  violet: "bg-violet-500",
-};
 
 type LessonBankProps = {
   filterOptions: LessonBankFilterOptions;
@@ -60,11 +48,17 @@ export function LessonBank({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium text-blue-700">Lesson bank</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-950">
+          <h2 className="mt-1 flex items-center gap-1.5 text-lg font-semibold text-slate-950">
             All class lessons
+            <InfoTip label="the lesson bank">
+              The coloured dots are class colours; each unit is a shade of
+              its class&apos;s colour. Sort by Unit to see a course in
+              teaching order, or filter to narrow the list.
+            </InfoTip>
           </h2>
         </div>
-        <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
+        <div className="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1">
+          <ArrowDownUp aria-hidden="true" className="ml-1 size-3.5 text-slate-500" />
           {sortOptions.map((option) => (
             <button
               className={[
@@ -84,6 +78,7 @@ export function LessonBank({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Filter aria-hidden="true" className="size-3.5 text-slate-500" />
         <select
           className={selectClass}
           onChange={(event) =>
@@ -180,18 +175,26 @@ export function LessonBank({
               >
                 {lesson.title}
               </Link>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                <CalendarDays aria-hidden="true" className="size-3 shrink-0" />
                 {lesson.date ?? "Unscheduled"}
               </div>
             </div>
             <div className="flex items-center gap-2 text-slate-700">
               <span
                 aria-hidden="true"
-                className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[lesson.classColor]}`}
+                className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(lesson.classColor)}`}
               />
               {lesson.subject}
             </div>
-            <div className="text-slate-700">{lesson.unitTitle}</div>
+            <div className="text-slate-700">
+              <span
+                className={`inline-flex max-w-full items-center gap-1 rounded border border-current/20 px-1.5 py-0.5 text-xs font-medium ${getUnitColorClasses(lesson.classColor, lesson.unitShadeIndex).block}`}
+              >
+                <Layers aria-hidden="true" className="size-3 shrink-0" />
+                <span className="truncate">{lesson.unitTitle}</span>
+              </span>
+            </div>
             <div className="text-slate-700">{lesson.outcomeCodes.join(", ")}</div>
           </div>
         ))}

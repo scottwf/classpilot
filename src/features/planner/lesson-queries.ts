@@ -6,6 +6,7 @@ import type {
   PlannerData,
   UnitPlan,
 } from "./types";
+import { getUnitShadeIndex } from "./unit-color";
 
 export type LessonBankSort = "date" | "subject" | "unit" | "outcome";
 
@@ -19,6 +20,10 @@ export type EnrichedLesson = LessonPlan & {
   classColor: ClassColor;
   unitId: string;
   unitTitle: string;
+  /** Which shade tier of the class's hue this lesson's unit gets -- issue
+   * #27, so a lesson row can show its unit in the same derived shade the
+   * unit timeline uses. See unit-color.ts. */
+  unitShadeIndex: number;
   outcomeCodes: string[];
 };
 
@@ -51,9 +56,11 @@ export function getAllLessons(data: PlannerData): EnrichedLesson[] {
 
   return data.units.flatMap((unit) => {
     const classSection = classesById.get(unit.classId);
+    const siblingUnits = data.units.filter((candidate) => candidate.classId === unit.classId);
+    const shadeIndex = getUnitShadeIndex(unit.id, siblingUnits);
 
     return unit.lessons.map((lesson) =>
-      enrichLesson(lesson, unit, classSection, outcomesById),
+      enrichLesson(lesson, unit, classSection, outcomesById, shadeIndex),
     );
   });
 }
@@ -286,6 +293,7 @@ function enrichLesson(
   unit: UnitPlan,
   classSection: ClassSection | undefined,
   outcomesById: Map<string, CurriculumOutcome>,
+  unitShadeIndex: number,
 ): EnrichedLesson {
   return {
     ...lesson,
@@ -296,6 +304,7 @@ function enrichLesson(
     classColor: classSection?.color ?? "blue",
     unitId: unit.id,
     unitTitle: unit.title,
+    unitShadeIndex,
     outcomeCodes: lesson.outcomeIds.map(
       (outcomeId) => outcomesById.get(outcomeId)?.code ?? outcomeId,
     ),

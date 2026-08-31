@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { AlertTriangle, CalendarDays, Clock3, Pencil, Upload } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock3, Layers, Pencil, Plus, Upload } from "lucide-react";
 import { AttachmentList } from "./AttachmentList";
+import { getClassDotColorClass } from "./class-color";
+import { InfoTip } from "./InfoTip";
+import { getUnitColorClasses, getUnitShadeIndex } from "./unit-color";
 import { DeleteUnitButton } from "./DeleteUnitButton";
 import { computeUnitPacing, findOverlappingUnitIds } from "./unit-pacing";
 import type { Attachment, CurriculumOutcome, PlannerData, UnitPlan } from "./types";
@@ -60,14 +63,43 @@ export function UnitDetailPage({
     ? computeUnitPacing(unit, classSection, data.schoolYear)
     : undefined;
   const isOverlapping = findOverlappingUnitIds(data.units).has(unit.id);
+  // Issue #27: this unit's shade of its class's colour, the same one the
+  // unit timeline and the lesson bank show it in.
+  const unitColors = getUnitColorClasses(
+    classSection?.color ?? "blue",
+    getUnitShadeIndex(
+      unit.id,
+      data.units.filter((candidate) => candidate.classId === unit.classId),
+    ),
+  );
   const undatedLessonCount = unit.lessons.filter((lesson) => lesson.date === null).length;
 
   return (
     <>
       <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-blue-700">Unit planner</p>
-          <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-blue-700">
+            {classSection ? (
+              <span
+                aria-hidden="true"
+                className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(classSection.color)}`}
+              />
+            ) : null}
+            Unit planner
+            <InfoTip label="unit colours">
+              This unit&apos;s colour is a shade of{" "}
+              {classSection?.name ?? "its class"}&apos;s colour — you never
+              pick it, so a class and its units always match across the
+              timeline, plan book, and lesson bank.
+            </InfoTip>
+          </p>
+          <h2 className="mt-1 flex flex-wrap items-center gap-2 text-2xl font-semibold text-slate-950">
+            <span
+              aria-hidden="true"
+              className={`inline-flex size-7 items-center justify-center rounded-md border border-current/20 ${unitColors.block}`}
+            >
+              <Layers className="size-4" />
+            </span>
             {unit.title}
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -92,9 +124,10 @@ export function UnitDetailPage({
             Import Markdown lesson
           </Link>
           <Link
-            className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
             href={`/lessons/new?unitId=${unit.id}`}
           >
+            <Plus aria-hidden="true" className="size-4" />
             Add lesson to unit
           </Link>
           <DeleteUnitButton

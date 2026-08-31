@@ -1,25 +1,17 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, ExternalLink } from "lucide-react";
+import { ArrowLeft, CalendarDays, ExternalLink, Layers, Target } from "lucide-react";
 import { buildCourseOutline } from "./lesson-queries";
 import { Metric, ResourceSection } from "./LessonDetailPage";
 import { lessonSectionFields } from "@/src/lib/lessons/lesson-sections";
-import type { ClassColor, CurriculumOutcome, LessonPlan, PlannerData, UnitPlan } from "./types";
+import { getClassDotColorClass } from "./class-color";
+import { InfoTip } from "./InfoTip";
+import { getUnitColorClasses, getUnitShadeIndex } from "./unit-color";
+import type { CurriculumOutcome, LessonPlan, PlannerData, UnitPlan } from "./types";
 
 type OutlinePageProps = {
   data: PlannerData;
   selectedClassId?: string;
   selectedLessonId?: string;
-};
-
-const classDotColorClass: Record<ClassColor, string> = {
-  amber: "bg-amber-500",
-  blue: "bg-blue-500",
-  emerald: "bg-emerald-500",
-  orange: "bg-orange-500",
-  rose: "bg-rose-500",
-  sky: "bg-sky-500",
-  teal: "bg-teal-500",
-  violet: "bg-violet-500",
 };
 
 export function OutlinePage({ data, selectedClassId, selectedLessonId }: OutlinePageProps) {
@@ -33,8 +25,13 @@ export function OutlinePage({ data, selectedClassId, selectedLessonId }: Outline
     <>
       <section>
         <p className="text-sm font-medium text-blue-700">Course outline</p>
-        <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+        <h2 className="mt-1 flex items-center gap-1.5 text-2xl font-semibold text-slate-950">
           Scan a course&apos;s units and lessons at a glance.
+          <InfoTip label="course outline colours">
+            Each class has its own colour, and every unit inside it takes a
+            shade of that colour — so the same unit is recognisable here,
+            on the unit timeline, and in the plan book.
+          </InfoTip>
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
           Pick a class, then a lesson, to see its full content without
@@ -56,7 +53,7 @@ export function OutlinePage({ data, selectedClassId, selectedLessonId }: Outline
           >
             <span
               aria-hidden="true"
-              className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[classSection.color]}`}
+              className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(classSection.color)}`}
             />
             {classSection.name}
           </Link>
@@ -77,7 +74,19 @@ export function OutlinePage({ data, selectedClassId, selectedLessonId }: Outline
             <div className="space-y-4">
               {outline.map(({ unit, lessons }) => (
                 <div key={unit.id}>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {/* Issue #27: the unit heading carries the unit's own
+                      shade of the class colour, so scrolling the outline
+                      makes the unit boundaries obvious without reading
+                      every title. */}
+                  <h3
+                    className={`inline-flex items-center gap-1.5 rounded-md border border-current/20 px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
+                      getUnitColorClasses(
+                        selectedClass?.color ?? "blue",
+                        getUnitShadeIndex(unit.id, outline.map((entry) => entry.unit)),
+                      ).block
+                    }`}
+                  >
+                    <Layers aria-hidden="true" className="size-3 shrink-0" />
                     {unit.title}
                   </h3>
                   <div className="mt-2 space-y-1.5">
@@ -100,9 +109,12 @@ export function OutlinePage({ data, selectedClassId, selectedLessonId }: Outline
                           <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
                             <CalendarDays aria-hidden="true" className="size-3 shrink-0" />
                             {lesson.date ?? `Lesson ${lesson.sequence} of ${lessons.length}`}
-                            {lesson.outcomeIds.length > 0
-                              ? ` · ${lesson.outcomeIds.length} outcome${lesson.outcomeIds.length === 1 ? "" : "s"}`
-                              : ""}
+                            {lesson.outcomeIds.length > 0 ? (
+                              <>
+                                <Target aria-hidden="true" className="ml-1 size-3 shrink-0" />
+                                {`${lesson.outcomeIds.length} outcome${lesson.outcomeIds.length === 1 ? "" : "s"}`}
+                              </>
+                            ) : null}
                           </p>
                         </Link>
                       ))
@@ -159,7 +171,22 @@ function OutlineLessonDetail({
 
       <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-blue-700">{unit.title}</p>
+          <p>
+            <span
+              className={`inline-flex items-center gap-1 rounded border border-current/20 px-1.5 py-0.5 text-xs font-medium ${
+                getUnitColorClasses(
+                  classSection?.color ?? "blue",
+                  getUnitShadeIndex(
+                    unit.id,
+                    data.units.filter((candidate) => candidate.classId === unit.classId),
+                  ),
+                ).block
+              }`}
+            >
+              <Layers aria-hidden="true" className="size-3 shrink-0" />
+              {unit.title}
+            </span>
+          </p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">{lesson.title}</h2>
           <p className="mt-1 text-sm text-slate-600">{classSection?.name ?? "Unknown class"}</p>
         </div>

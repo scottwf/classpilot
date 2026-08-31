@@ -1,19 +1,8 @@
+import { getClassDotColorClass } from "./class-color";
 import type { SubjectOutcomeCoverage } from "./lesson-queries";
-import type { ClassColor } from "./types";
 
 type OutcomeMapProps = {
   coverage: SubjectOutcomeCoverage[];
-};
-
-const classDotColorClass: Record<ClassColor, string> = {
-  amber: "bg-amber-500",
-  blue: "bg-blue-500",
-  emerald: "bg-emerald-500",
-  orange: "bg-orange-500",
-  rose: "bg-rose-500",
-  sky: "bg-sky-500",
-  teal: "bg-teal-500",
-  violet: "bg-violet-500",
 };
 
 export function OutcomeMap({ coverage }: OutcomeMapProps) {
@@ -36,7 +25,7 @@ export function OutcomeMap({ coverage }: OutcomeMapProps) {
               <h3 className="flex items-center gap-2 font-semibold text-slate-950">
                 <span
                   aria-hidden="true"
-                  className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[subject.color]}`}
+                  className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(subject.color)}`}
                 />
                 {subject.subject}
               </h3>

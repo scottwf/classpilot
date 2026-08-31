@@ -35,6 +35,26 @@ describe("lesson queries", () => {
     ]);
   });
 
+  it("tags every lesson with its unit's shade tier within the parent class", () => {
+    const lessons = getAllLessons(plannerData);
+    const byUnit = new Map(lessons.map((lesson) => [lesson.unitId, lesson]));
+
+    // Every lesson of a unit reports the same shade, and units of the same
+    // class get different shades -- that's what makes a lesson row look
+    // like the unit it belongs to (issue #27).
+    for (const lesson of lessons) {
+      expect(lesson.unitShadeIndex).toBe(byUnit.get(lesson.unitId)?.unitShadeIndex);
+      expect(lesson.unitShadeIndex).toBeGreaterThanOrEqual(0);
+    }
+
+    const mathUnits = lessons.filter((lesson) => lesson.subject === "Mathematics");
+    const distinctUnits = new Set(mathUnits.map((lesson) => lesson.unitId));
+
+    if (distinctUnits.size > 1) {
+      expect(new Set(mathUnits.map((lesson) => lesson.unitShadeIndex)).size).toBeGreaterThan(1);
+    }
+  });
+
   it("sorts the lesson bank by date, subject, unit, or outcome", () => {
     expect(sortLessonBank(plannerData, "date")[0]?.title).toBe(
       "How Scientists Classify",

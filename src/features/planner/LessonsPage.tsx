@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { FileUp, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { LessonBank } from "./LessonBank";
-import type { LessonBankFilters, LessonBankSort } from "./lesson-queries";
 import { buildLessonBankFilterOptions, filterLessonBank, sortLessonBank } from "./lesson-queries";
+import type { LessonBankFilters, LessonBankSort } from "./lesson-queries";
 import type { PlannerData } from "./types";
 
 type LessonsPageProps = {
@@ -36,15 +37,17 @@ export function LessonsPage({ data }: LessonsPageProps) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              className="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
               href="/lessons/import"
             >
+              <FileUp aria-hidden="true" className="size-4" />
               Import Markdown
             </Link>
             <Link
-              className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm"
               href="/lessons/new"
             >
+              <Plus aria-hidden="true" className="size-4" />
               Add lesson
             </Link>
           </div>
