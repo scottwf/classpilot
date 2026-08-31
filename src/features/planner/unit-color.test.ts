@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { classColorPalette } from "./class-color";
 import { getUnitColorClasses, getUnitShadeIndex } from "./unit-color";
 
 describe("getUnitShadeIndex", () => {
@@ -59,5 +60,32 @@ describe("getUnitColorClasses", () => {
   it("wraps shade indexes outside 0..2 back into range instead of throwing", () => {
     expect(getUnitColorClasses("rose", 3)).toEqual(getUnitColorClasses("rose", 0));
     expect(getUnitColorClasses("rose", -1)).toEqual(getUnitColorClasses("rose", 2));
+  });
+});
+
+describe("unit shades stay inside the parent class's hue", () => {
+  it("never borrows a hue from another class colour", () => {
+    for (const color of classColorPalette) {
+      for (let shadeIndex = 0; shadeIndex < 3; shadeIndex += 1) {
+        const { block, dot } = getUnitColorClasses(color, shadeIndex);
+        const otherHues = classColorPalette.filter((candidate) => candidate !== color);
+
+        expect(block).toContain(color);
+        expect(dot).toContain(color);
+        expect(otherHues.some((hue) => block.includes(`-${hue}-`))).toBe(false);
+      }
+    }
+  });
+
+  it("keeps text on every shade at the darkest tone of the hue, for contrast", () => {
+    for (const color of classColorPalette) {
+      for (let shadeIndex = 0; shadeIndex < 3; shadeIndex += 1) {
+        // Unit blocks carry their own label, so every tier has to stay
+        // readable -- the -950 text tone clears WCAG AA on the 200/300/400
+        // backgrounds we use. Asserted so a palette tweak can't silently
+        // land on an unreadable pairing.
+        expect(getUnitColorClasses(color, shadeIndex).block).toContain(`text-${color}-950`);
+      }
+    }
   });
 });

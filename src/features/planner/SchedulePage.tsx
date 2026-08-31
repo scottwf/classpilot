@@ -5,7 +5,8 @@ import { useState } from "react";
 import { ClassScheduleEditor } from "./ClassScheduleEditor";
 import { getDayLabel } from "./cycle";
 import { formatMinutes, type ClassInstructionalTime } from "./instructional-time";
-import type { ClassColor, ClassSection, DayLabelScheme, ScheduleSlot } from "./types";
+import { getClassBlockColorClass, getClassDotColorClass } from "./class-color";
+import type { ClassSection, DayLabelScheme, ScheduleSlot } from "./types";
 
 type ServerAction = (formData: FormData) => void | Promise<void>;
 
@@ -28,28 +29,6 @@ type SchedulePageProps = {
   /** True when arriving from the school-year onboarding wizard — shows a
    * banner and a "Continue to review" link. See app/onboarding/. */
   wizardMode?: boolean;
-};
-
-const classBlockColorClass: Record<ClassColor, string> = {
-  amber: "bg-amber-100 text-amber-950",
-  blue: "bg-blue-100 text-blue-950",
-  emerald: "bg-emerald-100 text-emerald-950",
-  orange: "bg-orange-100 text-orange-950",
-  rose: "bg-rose-100 text-rose-950",
-  sky: "bg-sky-100 text-sky-950",
-  teal: "bg-teal-100 text-teal-950",
-  violet: "bg-violet-100 text-violet-950",
-};
-
-const classDotColorClass: Record<ClassColor, string> = {
-  amber: "bg-amber-500",
-  blue: "bg-blue-500",
-  emerald: "bg-emerald-500",
-  orange: "bg-orange-500",
-  rose: "bg-rose-500",
-  sky: "bg-sky-500",
-  teal: "bg-teal-500",
-  violet: "bg-violet-500",
 };
 
 export function SchedulePage({
@@ -177,7 +156,7 @@ export function SchedulePage({
 
                         return (
                           <button
-                            className={`block w-full rounded-md px-2 py-1.5 text-left text-xs ${classBlockColorClass[classSection.color]}`}
+                            className={`block w-full rounded-md px-2 py-1.5 text-left text-xs ${getClassBlockColorClass(classSection.color)}`}
                             key={slot.id}
                             onClick={() => setSelectedClassId(classSection.id)}
                             type="button"
@@ -232,7 +211,7 @@ export function SchedulePage({
                       <span className="flex items-center gap-2">
                         <span
                           aria-hidden="true"
-                          className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[classSection.color]}`}
+                          className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(classSection.color)}`}
                         />
                         {classSection.name}
                       </span>
@@ -331,7 +310,7 @@ export function SchedulePage({
                     {classSection ? (
                       <span
                         aria-hidden="true"
-                        className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[classSection.color]}`}
+                        className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(classSection.color)}`}
                       />
                     ) : null}
                     <span className="font-medium text-slate-950">

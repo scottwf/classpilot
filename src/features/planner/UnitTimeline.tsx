@@ -5,9 +5,10 @@ import { AlertTriangle, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import { createLessonAction } from "@/app/lessons/new/actions";
 import { moveUnitAction } from "@/app/units/actions";
+import { getClassDotColorClass } from "./class-color";
 import { getUnitTimelinePosition } from "./timeline";
-import type { ClassSection, InstructionalDay, UnitPlan } from "./types";
 import { getUnitColorClasses, getUnitShadeIndex } from "./unit-color";
+import type { ClassSection, InstructionalDay, UnitPlan } from "./types";
 
 type UnitTimelineProps = {
   classes: ClassSection[];
@@ -257,7 +258,11 @@ export function UnitTimeline({
                 }}
               >
                 <div className="sticky left-0 z-10 border-r border-slate-200 bg-white p-3">
-                  <h3 className="font-semibold text-slate-950">
+                  <h3 className="flex items-center gap-2 font-semibold text-slate-950">
+                    <span
+                      aria-hidden="true"
+                      className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(classSection.color)}`}
+                    />
                     {classSection.name}
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-slate-500">

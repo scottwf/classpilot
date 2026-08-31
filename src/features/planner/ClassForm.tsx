@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { classColorPalette, pickUnusedClassColor } from "./class-color";
+import { classColorPalette, getClassDotColorClass, pickUnusedClassColor } from "./class-color";
+import { InfoTip } from "./InfoTip";
 import type { GradeSubjects } from "./curriculum-subjects";
-import type { ClassColor, ClassSection } from "./types";
+import type { ClassSection } from "./types";
 
 type ClassFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -20,17 +21,6 @@ type ClassFormProps = {
 };
 
 const classColors = classColorPalette;
-
-const classColorSwatchClass: Record<ClassColor, string> = {
-  amber: "bg-amber-500",
-  blue: "bg-blue-500",
-  emerald: "bg-emerald-500",
-  orange: "bg-orange-500",
-  rose: "bg-rose-500",
-  sky: "bg-sky-500",
-  teal: "bg-teal-500",
-  violet: "bg-violet-500",
-};
 
 export function ClassForm({
   action,
@@ -198,7 +188,15 @@ export function ClassForm({
         </p>
 
         <div>
-          <span className="text-sm font-medium text-slate-700">Color</span>
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700">
+            Color
+            <InfoTip label="class colours">
+              This class&apos;s colour identifies it across the plan book,
+              schedule, and outcome map. Every unit you add to it is
+              automatically shaded from this colour, so you never pick a
+              unit colour yourself.
+            </InfoTip>
+          </span>
           <div className="mt-2 flex flex-wrap gap-2">
             {classColors.map((color) => (
               <label
@@ -207,6 +205,7 @@ export function ClassForm({
                 title={color}
               >
                 <input
+                  aria-label={color}
                   className="peer sr-only"
                   defaultChecked={color === selectedColor}
                   name="color"
@@ -214,7 +213,7 @@ export function ClassForm({
                   value={color}
                 />
                 <span
-                  className={`size-7 cursor-pointer rounded-full ring-offset-2 peer-checked:ring-2 peer-checked:ring-blue-600 ${classColorSwatchClass[color]}`}
+                  className={`size-7 cursor-pointer rounded-full ring-offset-2 peer-checked:ring-2 peer-checked:ring-blue-600 ${getClassDotColorClass(color)}`}
                 />
               </label>
             ))}

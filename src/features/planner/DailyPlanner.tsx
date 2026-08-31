@@ -1,9 +1,12 @@
 import Link from "next/link";
-import { CalendarDays, CalendarX, Clock3, NotebookPen, Plus, Undo2 } from "lucide-react";
+import { CalendarDays, CalendarX, Clock3, Layers, NotebookPen, Plus, Undo2 } from "lucide-react";
+import { getClassBlockColorClass } from "./class-color";
+import { InfoTip } from "./InfoTip";
+import { getUnitColorClasses } from "./unit-color";
 import type { DayInfo } from "./cycle";
 import type { AgendaEntry } from "./day-agenda";
 import type { EnrichedLesson } from "./lesson-queries";
-import type { ClassColor, ClassSection } from "./types";
+import type { ClassSection } from "./types";
 
 type DayColumn = {
   date: string;
@@ -47,17 +50,6 @@ function DayInfoBadge({ info }: { info: DayInfo | undefined }) {
   );
 }
 
-const classBlockColorClass: Record<ClassColor, string> = {
-  amber: "bg-amber-100 text-amber-950",
-  blue: "bg-blue-100 text-blue-950",
-  emerald: "bg-emerald-100 text-emerald-950",
-  orange: "bg-orange-100 text-orange-950",
-  rose: "bg-rose-100 text-rose-950",
-  sky: "bg-sky-100 text-sky-950",
-  teal: "bg-teal-100 text-teal-950",
-  violet: "bg-violet-100 text-violet-950",
-};
-
 export function DailyPlanner({
   cancelClassMeetingAction,
   classes = [],
@@ -75,8 +67,13 @@ export function DailyPlanner({
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-blue-700">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-blue-700">
             {view === "day" ? "Today's schedule" : "This week's schedule"}
+            <InfoTip label="the plan book">
+              Each slot is tinted with its class&apos;s colour and tagged
+              with the unit it belongs to. Use Swap / cancel on a slot when
+              an assembly or a fire drill takes the period.
+            </InfoTip>
           </p>
           <h2 className="mt-1 flex items-center gap-2 text-2xl font-semibold text-slate-950">
             {view === "day" ? formatDate(date) : `Week of ${formatWeekOf(days[0]?.date ?? date)}`}
@@ -189,7 +186,7 @@ export function DailyPlanner({
                     <Clock3 aria-hidden="true" className="size-3.5" />
                     {lesson.durationMinutes} min
                   </span>
-                  <span>{lesson.unitTitle}</span>
+                  <UnitChip lesson={lesson} />
                   <span>{lesson.outcomeCodes.join(", ")}</span>
                 </div>
               </article>
@@ -291,7 +288,7 @@ function DayColumnView({
 
         return (
         <div
-          className={`rounded-md ${classBlockColorClass[displayedClass.color]} ${compact ? "p-2 text-xs" : "p-3 text-sm"}`}
+          className={`rounded-md ${getClassBlockColorClass(displayedClass.color)} ${compact ? "p-2 text-xs" : "p-3 text-sm"}`}
           key={slot.id}
         >
           <div className="flex items-center justify-between gap-2">
@@ -355,6 +352,12 @@ function DayColumnView({
                 >
                   {lesson.title}
                 </Link>
+              ) : null}
+
+              {lesson && !compact ? (
+                <div className="mt-1">
+                  <UnitChip lesson={lesson} />
+                </div>
               ) : null}
 
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -447,4 +450,21 @@ function formatShortDate(dateKey: string) {
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${dateKey}T00:00:00.000Z`));
+}
+
+/**
+ * The lesson's unit, shaded from its class's colour (issue #27) so a slot
+ * in the Plan Book reads as "this class, this unit" at a glance. The unit
+ * title is always spelled out next to the icon -- the shade is a second
+ * signal, never the only one.
+ */
+function UnitChip({ lesson }: { lesson: EnrichedLesson }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded border border-current/20 px-1.5 py-0.5 text-xs font-medium ${getUnitColorClasses(lesson.classColor, lesson.unitShadeIndex).block}`}
+    >
+      <Layers aria-hidden="true" className="size-3" />
+      {lesson.unitTitle}
+    </span>
+  );
 }

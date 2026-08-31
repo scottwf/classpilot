@@ -24,6 +24,7 @@ function lesson(overrides: Partial<EnrichedLesson> = {}): EnrichedLesson {
     classColor: "blue",
     unitId: "unit-ratios",
     unitTitle: "Ratios, Rates, and Percent",
+    unitShadeIndex: 0,
     outcomeCodes: [],
     ...overrides,
   };

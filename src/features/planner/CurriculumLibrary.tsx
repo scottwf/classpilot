@@ -1,23 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { InfoTip } from "./InfoTip";
 import { OutcomePicker } from "./OutcomePicker";
-import type { ClassColor, ClassSection, CurriculumOutcome } from "./types";
+import { getClassDotColorClass } from "./class-color";
+import type { ClassSection, CurriculumOutcome } from "./types";
 
 type CurriculumLibraryProps = {
   outcomes: CurriculumOutcome[];
   classes: ClassSection[];
-};
-
-const classDotColorClass: Record<ClassColor, string> = {
-  amber: "bg-amber-500",
-  blue: "bg-blue-500",
-  emerald: "bg-emerald-500",
-  orange: "bg-orange-500",
-  rose: "bg-rose-500",
-  sky: "bg-sky-500",
-  teal: "bg-teal-500",
-  violet: "bg-violet-500",
 };
 
 export function CurriculumLibrary({ outcomes, classes }: CurriculumLibraryProps) {
@@ -39,8 +30,13 @@ export function CurriculumLibrary({ outcomes, classes }: CurriculumLibraryProps)
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium text-blue-700">Curriculum library</p>
-          <h2 className="mt-1 text-lg font-semibold text-slate-950">
+          <h2 className="mt-1 flex items-center gap-1.5 text-lg font-semibold text-slate-950">
             Saskatchewan Grade 6 Outcomes
+            <InfoTip label="the subject dots">
+              A coloured dot means one of your classes teaches that subject,
+              in that class&apos;s colour. Subjects with no dot aren&apos;t
+              on your timetable yet.
+            </InfoTip>
           </h2>
         </div>
         <span className="rounded-md bg-slate-100 px-2.5 py-1 text-sm font-medium text-slate-700">
@@ -73,7 +69,7 @@ export function CurriculumLibrary({ outcomes, classes }: CurriculumLibraryProps)
                 {matchingClass ? (
                   <span
                     aria-hidden="true"
-                    className={`size-2.5 shrink-0 rounded-full ${classDotColorClass[matchingClass.color]}`}
+                    className={`size-2.5 shrink-0 rounded-full ${getClassDotColorClass(matchingClass.color)}`}
                   />
                 ) : null}
                 {subject.name}
